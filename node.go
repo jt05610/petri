@@ -9,4 +9,5 @@ const (
 
 type Node interface {
 	Kind() NodeKind
+	String() string
 }

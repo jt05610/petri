@@ -17,12 +17,16 @@ type Transition struct {
 
 func (t *Transition) Kind() NodeKind { return TransitionNode }
 
+func (t *Transition) String() string { return t.Name }
+
 // Place represents a place
 type Place struct {
 	Name string
 }
 
 func (p *Place) Kind() NodeKind { return PlaceNode }
+
+func (p *Place) String() string { return p.Name }
 
 type Marking []int
 
@@ -31,21 +35,21 @@ type Net struct {
 	Places      []*Place
 	Transitions []*Transition
 	Arcs        []*Arc
-	ArcIndexes  map[Node]map[Node]*Arc
+	ArcIndexes  map[string]map[string]*Arc
 }
 
 func (p *Net) Arc(head, tail Node) *Arc {
-	if _, ok := p.ArcIndexes[head]; !ok {
+	if _, ok := p.ArcIndexes[head.String()]; !ok {
 		return nil
 	}
-	return p.ArcIndexes[head][tail]
+	return p.ArcIndexes[head.String()][tail.String()]
 }
 
 func (p *Net) Inputs(n Node) []*Arc {
 	var inputs []*Arc
-	for _, arc := range p.Arcs {
-		if arc.Tail == n {
-			inputs = append(inputs, arc)
+	for _, o := range p.Arcs {
+		if o.Tail.String() == n.String() {
+			inputs = append(inputs, o)
 		}
 	}
 	return inputs
@@ -53,10 +57,8 @@ func (p *Net) Inputs(n Node) []*Arc {
 
 func (p *Net) Outputs(n Node) []*Arc {
 	var outputs []*Arc
-	for _, arc := range p.Arcs {
-		if arc.Head == n {
-			outputs = append(outputs, arc)
-		}
+	for _, o := range p.ArcIndexes[n.String()] {
+		outputs = append(outputs, o)
 	}
 	return outputs
 }
@@ -73,10 +75,10 @@ func (p *Net) AddArc(from, to Node) (*Arc, error) {
 		Tail: to,
 	}
 	p.Arcs = append(p.Arcs, a)
-	if _, ok := p.ArcIndexes[from]; !ok {
-		p.ArcIndexes[from] = make(map[Node]*Arc)
+	if _, ok := p.ArcIndexes[from.String()]; !ok {
+		p.ArcIndexes[from.String()] = make(map[string]*Arc)
 	}
-	p.ArcIndexes[from][to] = a
+	p.ArcIndexes[from.String()][to.String()] = a
 	return a, nil
 }
 
@@ -84,13 +86,14 @@ func New(places []*Place, transitions []*Transition, arcs []*Arc) *Net {
 	net := &Net{
 		Places:      places,
 		Transitions: transitions,
-		ArcIndexes:  make(map[Node]map[Node]*Arc),
+		Arcs:        arcs,
+		ArcIndexes:  make(map[string]map[string]*Arc),
 	}
 	for _, arc := range arcs {
-		if _, ok := net.ArcIndexes[arc.Head]; !ok {
-			net.ArcIndexes[arc.Head] = make(map[Node]*Arc)
+		if _, ok := net.ArcIndexes[arc.Head.String()]; !ok {
+			net.ArcIndexes[arc.Head.String()] = make(map[string]*Arc)
 		}
-		net.ArcIndexes[arc.Head][arc.Tail] = arc
+		net.ArcIndexes[arc.Head.String()][arc.Tail.String()] = arc
 	}
 	return net
 }

@@ -3,6 +3,7 @@ package analysis
 import (
 	"github.com/jt05610/petri"
 	"gonum.org/v1/gonum/mat"
+	"strconv"
 )
 
 type Net struct {
@@ -10,14 +11,6 @@ type Net struct {
 }
 
 type State []float64
-
-func (s *State) Clone() *State {
-	clone := make(State, len(*s))
-	for place, tokens := range *s {
-		clone[place] = tokens
-	}
-	return &clone
-}
 
 func (net *Net) FiringVector(t int) *mat.Dense {
 	v := make([]float64, len(net.Transitions))
@@ -51,9 +44,10 @@ func (net *Net) Incidence() *mat.Dense {
 	return mat.NewDense(n, m, d)
 }
 
-func (net *Net) NextState(state *State, t *petri.Transition) (*State, bool) {
-	for i := range net.Inputs(t) {
-		if (*state)[i] == 0 {
+func (net *Net) NextState(cur map[string]bool, state *State, t *petri.Transition) (*State, bool) {
+	for _, arc := range net.Inputs(t) {
+		pl := arc.Head.(*petri.Place)
+		if !cur[pl.Name] {
 			return nil, false
 		}
 	}
@@ -82,34 +76,12 @@ func (net *Net) NextState(state *State, t *petri.Transition) (*State, bool) {
 }
 
 func (net *Net) Reachable(initial *State, target *State) bool {
-	in := mat.NewDense(1, len(*initial), *initial)
-	res := mat.NewDense(1, len(*target), *target)
-	res.Sub(res, in)
-	inc := net.Incidence()
-	var sol mat.Dense
-	err := sol.Solve(res.T(), inc.T())
-	if err != nil {
-		return false
-	}
-	for i, _ := range net.Transitions {
-		if sol.At(0, i) < 0 {
-			return false
-		}
-	}
-	return true
+	t := net.CTree(initial)
+	return t.Reachable(target)
 }
-
-type TreeNodeMark int
-
-const (
-	Unmarked TreeNodeMark = iota
-	Terminal
-	Duplicate
-)
 
 type TreeNode struct {
 	State    *State
-	mark     TreeNodeMark
 	Parent   *TreeNode
 	Children []*TreeNode
 }
@@ -147,48 +119,83 @@ type Tree struct {
 	Root *TreeNode
 }
 
-func (net *Net) buildTree(node *TreeNode) {
-	found := false
+func serializeState(s *State) string {
+	var ret string
+	for _, i := range *s {
+		v := int(i)
+		var str string
+		if v >= 1e6 {
+			str = "ω"
+		}
+		str = strconv.Itoa(v)
+		ret += str
+	}
+	return ret
+}
+
+func (net *Net) buildTree(seen map[string]bool, node *TreeNode) {
+	id := serializeState(node.State)
+	if _, found := seen[id]; found {
+		return
+	}
+	seen[id] = true
+	curMark := net.MappedState(node.State)
 	for _, t := range net.Transitions {
-		for i := range net.Inputs(t) {
-			if (*node.State)[i] > 0 {
-				found = true
-				next, ok := net.NextState(node.State, t)
-				if !ok {
-					continue
-				}
-				same := true
-				for i := range *node.State {
-					if (*node.State)[i] == (*next)[i] {
-						continue
-					}
-					if (*node.State)[i] > 1e6 {
-						(*next)[i] = 1e6
-					}
-				}
-				if same {
-					node.mark = Duplicate
-					return
-				}
-				if node.DominatedBy(next) != nil {
-					for _, i := range node.DominatedBy(next) {
-						(*next)[i] = 1e6
-					}
-					child := &TreeNode{State: next}
-					node.Children = append(node.Children, child)
-					net.buildTree(child)
-				}
+		for _, pl := range net.Inputs(t) {
+			if !curMark[pl.Head.String()] {
+				continue
 			}
 		}
-		if !found {
-			node.mark = Terminal
+		next, ok := net.NextState(curMark, node.State, t)
+		if !ok {
+			continue
 		}
+		child := &TreeNode{State: next, Parent: node}
+		par := child.Parent
+		for par != nil {
+			if (*child.State).Dominates(par.State) {
+				pp := par.DominatedBy(child.State)
+				for _, i := range pp {
+					(*child.State)[i] = 1e6
+				}
+			}
+			par = par.Parent
+		}
+		node.Children = append(node.Children, child)
+	}
+
+	for _, child := range node.Children {
+		for i := range *child.State {
+			if (*node.State)[i] >= 1e6 {
+				(*child.State)[i] = 1e6
+			}
+		}
+		net.buildTree(seen, child)
 	}
 }
 
+func (net *Net) MappedState(s *State) map[string]bool {
+	ret := make(map[string]bool)
+	for i, t := range net.Places {
+		ret[t.String()] = (*s)[i] > 0
+	}
+	return ret
+}
+
 func (net *Net) CTree(initial *State) *Tree {
+	seen := make(map[string]bool)
 	root := &TreeNode{State: initial}
 	tree := &Tree{Root: root}
-	net.buildTree(tree.Root)
+	net.buildTree(seen, tree.Root)
 	return tree
+}
+
+func (t *Tree) Reachable(s *State) bool {
+	ser := serializeState(s)
+	for _, node := range t.Root.Children {
+		if serializeState(node.State) == ser {
+			return true
+		}
+	}
+	return false
 }

@@ -5,6 +5,7 @@ import (
 	"github.com/jt05610/petri"
 	"github.com/jt05610/petri/analysis"
 	"strings"
+	"testing"
 )
 
 func net() *analysis.Net {
@@ -52,4 +53,78 @@ func ExampleNet_Incidence() {
 	// │ 0 -1  1  1│
 	// │ 1  0  0 -1│
 	// └           ┘
+}
+
+func TestNet_Reachable(t *testing.T) {
+	n := net()
+	for _, tc := range []struct {
+		name string
+		from *analysis.State
+		to   *analysis.State
+		want bool
+	}{
+		{
+			name: "Negative solution value",
+			from: &analysis.State{1, 0, 0, 0},
+			to:   &analysis.State{0, 0, 0, 1},
+			want: false,
+		},
+		{
+			name: "No solution",
+			from: &analysis.State{1, 0, 0, 0},
+			to:   &analysis.State{0, 1, 0, 0},
+			want: false,
+		},
+		{
+			name: "Happy",
+			from: &analysis.State{1, 0, 1, 0},
+			to:   &analysis.State{0, 1, 0, 0},
+			want: true,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got := n.Reachable(tc.from, tc.to)
+			if got != tc.want {
+				t.Errorf("got %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestNet_CTree(t *testing.T) {
+	nPlaces := 4
+	nTransitions := 3
+	pp := make([]*petri.Place, nPlaces)
+	for i := 0; i < nPlaces; i++ {
+		pp[i] = &petri.Place{Name: fmt.Sprintf("p%d", i+1)}
+	}
+	tt := make([]*petri.Transition, nTransitions)
+	for i := 0; i < nTransitions; i++ {
+		tt[i] = &petri.Transition{
+			Name: fmt.Sprintf("t%d", i+1)}
+	}
+	aa := []*petri.Arc{
+		{Head: pp[0], Tail: tt[0]},
+		{Head: tt[0], Tail: pp[1]},
+		{Head: pp[1], Tail: tt[1]},
+		{Head: tt[1], Tail: pp[0]},
+		{Head: pp[1], Tail: tt[2]},
+		{Head: tt[2], Tail: pp[2]},
+		{Head: pp[2], Tail: tt[2]},
+		{Head: tt[0], Tail: pp[2]},
+		{Head: tt[2], Tail: pp[3]},
+	}
+	initial := &analysis.State{1, 0, 0, 0}
+	n := petri.New(pp, tt, aa)
+	aNet := &analysis.Net{Net: n}
+	ct := aNet.CTree(initial)
+	if ct == nil {
+		t.Errorf("ctree is nil")
+	}
+	if ct.Root == nil {
+		t.Errorf("ctree root is nil")
+	}
+	if ct.Root.State != initial {
+		t.Errorf("ctree root state is not initial state")
+	}
 }

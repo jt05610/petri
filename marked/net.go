@@ -8,10 +8,6 @@ import (
 
 type Marking []bool
 
-var (
-	ErrPlaceMarked = errors.New("place already marked")
-)
-
 type Net struct {
 	*petri.Net
 	marking Marking
@@ -25,32 +21,47 @@ func (net *Net) Marking() Marking {
 // Enabled returns true if the transition is enabled
 func (net *Net) Enabled(t *petri.Transition) bool {
 	for _, arc := range net.Inputs(t) {
-		if !net.marking[net.index[arc.Head.(*petri.Place).Name]] {
+		if pt, ok := arc.Head.(*petri.Place); ok {
+			if !net.marking[net.index[pt.Name]] {
+				return false
+			}
+		} else {
 			return false
 		}
 	}
 	return true
 }
 
-func (net *Net) Mark(p *petri.Place) error {
-	if net.marking[net.index[p.Name]] {
-		return ErrPlaceMarked
-	}
-	net.marking[net.index[p.Name]] = true
-	return nil
+func (net *Net) Mark(p *petri.Place) bool {
+	return net.marking[net.index[p.Name]]
 }
+
+var (
+	TwoTransitionArc = func(s, p string) error {
+		return errors.New(fmt.Sprintf("arc from %s to %s is made of two transitions", s, p))
+	}
+)
 
 func (net *Net) Fire(t *petri.Transition) error {
 	for _, arc := range net.Inputs(t) {
 		if pt, ok := arc.Head.(*petri.Place); ok {
 			net.marking[net.index[pt.Name]] = false
 		} else {
-			return errors.New(fmt.Sprintf("%v is a transition, however only places can be inputs to transitions", arc.Head.(*petri.Transition).Name))
+			head := arc.Head.(*petri.Transition)
+			return TwoTransitionArc(head.Name, t.Name)
 		}
 	}
 	for _, arc := range net.Outputs(t) {
 		if pt, ok := arc.Tail.(*petri.Place); ok {
 			net.marking[net.index[pt.Name]] = true
+		} else {
+			for _, arc := range net.Inputs(t) {
+				if pt, ok := arc.Head.(*petri.Place); ok {
+					net.marking[net.index[pt.Name]] = true
+				}
+			}
+			tail := arc.Tail.(*petri.Transition)
+			return TwoTransitionArc(t.Name, tail.Name)
 		}
 	}
 	return nil

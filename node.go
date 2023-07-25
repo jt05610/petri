@@ -1,10 +1,12 @@
 package petri
 
-import "context"
+type NodeKind int
+
+const (
+	PlaceNode NodeKind = iota
+	TransitionNode
+)
 
 type Node interface {
-	ID() string
-	Name() string
-	Inputs(ctx context.Context) []Node
-	Outputs(ctx context.Context) []Node
+	Kind() NodeKind
 }

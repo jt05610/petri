@@ -116,7 +116,8 @@ func (t *TreeNode) DominatedBy(s *State) []int {
 }
 
 type Tree struct {
-	Root *TreeNode
+	Root   *TreeNode
+	Marked []*State
 }
 
 func serializeState(s *State) string {
@@ -198,4 +199,21 @@ func (t *Tree) Reachable(s *State) bool {
 		}
 	}
 	return false
+}
+
+func (t *Tree) MarkedStates() []*State {
+	var ret []*State
+	for _, s := range t.Marked {
+		ret = append(ret, s)
+	}
+	return ret
+}
+
+func (net *Net) MarkedStates(initial *State) []*State {
+	tree := net.CTree(initial)
+	var ret []*State
+	for _, s := range tree.MarkedStates() {
+		ret = append(ret, s)
+	}
+	return ret
 }

@@ -6,7 +6,7 @@ import (
 	"github.com/jt05610/petri"
 )
 
-type Marking []bool
+type Marking []int
 
 type Net struct {
 	*petri.Net
@@ -22,7 +22,7 @@ func (net *Net) Marking() Marking {
 func (net *Net) Enabled(t *petri.Transition) bool {
 	for _, arc := range net.Inputs(t) {
 		if pt, ok := arc.Head.(*petri.Place); ok {
-			if !net.marking[net.index[pt.Name]] {
+			if net.marking[net.index[pt.Name]] == 0 {
 				return false
 			}
 		} else {
@@ -32,7 +32,7 @@ func (net *Net) Enabled(t *petri.Transition) bool {
 	return true
 }
 
-func (net *Net) Mark(p *petri.Place) bool {
+func (net *Net) Mark(p *petri.Place) int {
 	return net.marking[net.index[p.Name]]
 }
 
@@ -45,7 +45,7 @@ var (
 func (net *Net) Fire(t *petri.Transition) error {
 	for _, arc := range net.Inputs(t) {
 		if pt, ok := arc.Head.(*petri.Place); ok {
-			net.marking[net.index[pt.Name]] = false
+			net.marking[net.index[pt.Name]]--
 		} else {
 			head := arc.Head.(*petri.Transition)
 			return TwoTransitionArc(head.Name, t.Name)
@@ -53,11 +53,15 @@ func (net *Net) Fire(t *petri.Transition) error {
 	}
 	for _, arc := range net.Outputs(t) {
 		if pt, ok := arc.Tail.(*petri.Place); ok {
-			net.marking[net.index[pt.Name]] = true
+			mark := net.marking[net.index[pt.Name]]
+			if mark >= pt.Bound {
+				return errors.New(fmt.Sprintf("place %s is full", pt.Name))
+			}
+			net.marking[net.index[pt.Name]]++
 		} else {
 			for _, arc := range net.Inputs(t) {
 				if pt, ok := arc.Head.(*petri.Place); ok {
-					net.marking[net.index[pt.Name]] = true
+					net.marking[net.index[pt.Name]]++
 				}
 			}
 			tail := arc.Tail.(*petri.Transition)

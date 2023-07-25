@@ -1,0 +1,79 @@
+syntax = "proto3";
+
+package petri;
+
+import "google/protobuf/any.proto";
+import "google/protobuf/empty.proto";
+
+option go_package = "github.com/jt05610/petri/proto/v1/petri";
+
+message Label {
+  Event event = 1;
+  Transition transition = 2;
+}
+
+message State {
+  string name = 1;
+  Marking marking = 2;
+}
+
+message Net {
+  repeated Place places = 1;
+  repeated Transition transitions = 2;
+  repeated Arc arcs = 3;
+  repeated Event events = 4;
+  repeated Label labels = 5;
+  repeated State states = 6;
+  Marking marking = 7;
+  Marking initial = 8;
+}
+
+message Mark {
+  string place = 1;
+  int32 tokens = 2;
+}
+
+message Marking {
+  repeated Mark marks = 1;
+}
+
+message Place {
+  string id = 1;
+  int32 tokens = 2;
+}
+
+message Transition {
+  string id = 1;
+}
+
+message Dest {
+  oneof dest {
+    string place = 1;
+    string transition = 2;
+  }
+}
+
+message Arc {
+  string id = 1;
+  Dest head = 2;
+  Dest tail = 3;
+}
+
+message Event {
+  string id = 1;
+  google.protobuf.Any payload = 3;
+}
+
+message CanHandleRequest {
+  Event event = 1;
+}
+
+message CanHandleResponse {
+  bool canHandle = 1;
+}
+
+service Controller {
+  rpc PetriNet (google.protobuf.Empty) returns (Net) {}
+  rpc CanHandle (CanHandleRequest) returns (CanHandleResponse) {}
+  rpc Fire (Event) returns (Net) {}
+}

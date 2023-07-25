@@ -54,23 +54,23 @@ func TestNet_Fire(t *testing.T) {
 		{
 			name:    "good",
 			net:     goodNet(),
-			marking: []bool{true, false},
+			marking: []int{1, 0},
 			seq: []*petri.Transition{
 				goodNet().Transitions[0],
 				goodNet().Transitions[1],
 			},
-			want: []bool{true, false},
+			want: []int{1, 0},
 			err:  nil,
 		},
 		{
 			name:    "bad",
 			net:     badNet(),
-			marking: []bool{true, false},
+			marking: []int{1, 0},
 			seq: []*petri.Transition{
 				badNet().Transitions[0],
 				badNet().Transitions[1],
 			},
-			want: []bool{true, false},
+			want: []int{1, 0},
 			err:  marked.TwoTransitionArc("open", "close"),
 		},
 	}
@@ -122,7 +122,7 @@ func ExampleNet() {
 	}
 	n := petri.New(pp, pt, aa)
 
-	mn := marked.New(n, []bool{true, false})
+	mn := marked.New(n, marked.Marking{1, 0})
 	seq := []*petri.Transition{
 		pt[0],
 		pt[1],
@@ -135,7 +135,7 @@ func ExampleNet() {
 		}
 		fmt.Print("\n  before:")
 		for _, p := range mn.Places {
-			if !mn.Mark(p) {
+			if mn.Mark(p) == 0 {
 				continue
 			}
 			fmt.Printf(" %s", p.Name)
@@ -148,7 +148,7 @@ func ExampleNet() {
 		}
 		fmt.Print("  after:")
 		for _, p := range mn.Places {
-			if !mn.Mark(p) {
+			if mn.Mark(p) == 0 {
 				continue
 			}
 			fmt.Printf(" %s", p.Name)

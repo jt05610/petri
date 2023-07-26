@@ -21,7 +21,7 @@ func (net *Net) Marking() Marking {
 // Enabled returns true if the transition is enabled
 func (net *Net) Enabled(t *petri.Transition) bool {
 	for _, arc := range net.Inputs(t) {
-		if pt, ok := arc.Head.(*petri.Place); ok {
+		if pt, ok := arc.Src.(*petri.Place); ok {
 			if net.marking[net.index[pt.Name]] == 0 {
 				return false
 			}
@@ -44,15 +44,15 @@ var (
 
 func (net *Net) Fire(t *petri.Transition) error {
 	for _, arc := range net.Inputs(t) {
-		if pt, ok := arc.Head.(*petri.Place); ok {
+		if pt, ok := arc.Src.(*petri.Place); ok {
 			net.marking[net.index[pt.Name]]--
 		} else {
-			head := arc.Head.(*petri.Transition)
+			head := arc.Src.(*petri.Transition)
 			return TwoTransitionArc(head.Name, t.Name)
 		}
 	}
 	for _, arc := range net.Outputs(t) {
-		if pt, ok := arc.Tail.(*petri.Place); ok {
+		if pt, ok := arc.Dest.(*petri.Place); ok {
 			mark := net.marking[net.index[pt.Name]]
 			if mark >= pt.Bound {
 				return errors.New(fmt.Sprintf("place %s is full", pt.Name))
@@ -60,11 +60,11 @@ func (net *Net) Fire(t *petri.Transition) error {
 			net.marking[net.index[pt.Name]]++
 		} else {
 			for _, arc := range net.Inputs(t) {
-				if pt, ok := arc.Head.(*petri.Place); ok {
+				if pt, ok := arc.Src.(*petri.Place); ok {
 					net.marking[net.index[pt.Name]]++
 				}
 			}
-			tail := arc.Tail.(*petri.Transition)
+			tail := arc.Dest.(*petri.Transition)
 			return TwoTransitionArc(t.Name, tail.Name)
 		}
 	}

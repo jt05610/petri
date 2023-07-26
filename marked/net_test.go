@@ -18,10 +18,10 @@ func TestNet_Fire(t *testing.T) {
 			{Name: "close"},
 		}
 		aa := []*petri.Arc{
-			{Head: pp[0], Tail: pt[0]},
-			{Head: pt[0], Tail: pp[1]},
-			{Head: pp[1], Tail: pt[1]},
-			{Head: pt[1], Tail: pp[0]},
+			{Src: pp[0], Dest: pt[0]},
+			{Src: pt[0], Dest: pp[1]},
+			{Src: pp[1], Dest: pt[1]},
+			{Src: pt[1], Dest: pp[0]},
 		}
 		return petri.New(pp, pt, aa)
 	}
@@ -37,9 +37,9 @@ func TestNet_Fire(t *testing.T) {
 		}
 		aa := []*petri.Arc{
 			// Shouldn't connect two transitions
-			{Head: pt[0], Tail: pt[1]},
-			{Head: pt[1], Tail: pt[0]},
-			{Head: pp[0], Tail: pt[0]},
+			{Src: pt[0], Dest: pt[1]},
+			{Src: pt[1], Dest: pt[0]},
+			{Src: pp[0], Dest: pt[0]},
 		}
 		return petri.New(pp, pt, aa)
 	}
@@ -115,10 +115,10 @@ func ExampleNet() {
 		{Name: "close"},
 	}
 	aa := []*petri.Arc{
-		{Head: pp[0], Tail: pt[0]},
-		{Head: pt[0], Tail: pp[1]},
-		{Head: pp[1], Tail: pt[1]},
-		{Head: pt[1], Tail: pp[0]},
+		{Src: pp[0], Dest: pt[0]},
+		{Src: pt[0], Dest: pp[1]},
+		{Src: pp[1], Dest: pt[1]},
+		{Src: pt[1], Dest: pp[0]},
 	}
 	n := petri.New(pp, pt, aa)
 

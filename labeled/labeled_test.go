@@ -45,12 +45,12 @@ func queue() *printer {
 		{Name: "finish"},
 	}
 	pNet := petri.New(pp, tt, []*petri.Arc{
-		{Head: tt[0], Tail: pp[0]},
-		{Head: pp[0], Tail: tt[1]},
-		{Head: pp[1], Tail: tt[1]},
-		{Head: tt[1], Tail: pp[2]},
-		{Head: pp[2], Tail: tt[2]},
-		{Head: tt[2], Tail: pp[1]},
+		{Src: tt[0], Dest: pp[0]},
+		{Src: pp[0], Dest: tt[1]},
+		{Src: pp[1], Dest: tt[1]},
+		{Src: tt[1], Dest: pp[2]},
+		{Src: pp[2], Dest: tt[2]},
+		{Src: tt[2], Dest: pp[1]},
 	})
 
 	markedNet := marked.New(pNet, marked.Marking{0, 1, 0})

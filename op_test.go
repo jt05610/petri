@@ -15,8 +15,8 @@ func ExampleAdd() {
 			{Name: "b"},
 		},
 		Arcs: []*petri.Arc{
-			{Head: &petri.Place{Name: "a"}, Tail: &petri.Transition{Name: "b"}},
-			{Head: &petri.Transition{Name: "b"}, Tail: &petri.Place{Name: "c"}},
+			{Src: &petri.Place{Name: "a"}, Dest: &petri.Transition{Name: "b"}},
+			{Src: &petri.Transition{Name: "b"}, Dest: &petri.Place{Name: "c"}},
 		},
 	}
 	n2 := &petri.Net{
@@ -28,8 +28,8 @@ func ExampleAdd() {
 			{Name: "b"},
 		},
 		Arcs: []*petri.Arc{
-			{Head: &petri.Place{Name: "d"}, Tail: &petri.Transition{Name: "b"}},
-			{Head: &petri.Transition{Name: "b"}, Tail: &petri.Place{Name: "c"}},
+			{Src: &petri.Place{Name: "d"}, Dest: &petri.Transition{Name: "b"}},
+			{Src: &petri.Transition{Name: "b"}, Dest: &petri.Place{Name: "c"}},
 		},
 	}
 	combined := petri.Add(n1, n2)

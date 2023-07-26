@@ -46,7 +46,7 @@ func (net *Net) Incidence() *mat.Dense {
 
 func (net *Net) NextState(cur map[string]bool, state *State, t *petri.Transition) (*State, bool) {
 	for _, arc := range net.Inputs(t) {
-		pl := arc.Head.(*petri.Place)
+		pl := arc.Src.(*petri.Place)
 		if !cur[pl.Name] {
 			return nil, false
 		}
@@ -143,7 +143,7 @@ func (net *Net) buildTree(seen map[string]bool, node *TreeNode) {
 	curMark := net.MappedState(node.State)
 	for _, t := range net.Transitions {
 		for _, pl := range net.Inputs(t) {
-			if !curMark[pl.Head.String()] {
+			if !curMark[pl.Src.String()] {
 				continue
 			}
 		}

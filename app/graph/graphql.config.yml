@@ -1,0 +1,6 @@
+schema: schema.graphqls
+documents: '**/*.graphql'
+extensions:
+  endpoints:
+    default: http://localhost:8080/query
+

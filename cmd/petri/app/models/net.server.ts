@@ -2,17 +2,25 @@ import type { User, Net, Place, Transition, Arc } from "@prisma/client";
 import { prisma } from "~/db.server";
 
 export function getNet({
-                          id,
-                          authorID,
-                        }: Pick<Net, "id"> & {
+                         id,
+                         authorID
+                       }: Pick<Net, "id"> & {
   authorID: User["id"];
 }) {
   return prisma.net.findFirst({
     select: {
       id: true,
       authorID: true,
-      places: true,
-      transitions: true,
+      places: {
+        select: {
+          place: true
+        }
+      },
+      transitions: {
+        select: {
+          transition: true
+        }
+      },
       arcs: true,
       name: true,
       createdAt: true,
@@ -20,6 +28,15 @@ export function getNet({
       description: true
     },
     where: { id, authorID }
+  }).then((net) => {
+    if (!net) {
+      throw new Error("net not found");
+    }
+    return {
+      ...net,
+      places: net.places.map((place) => place.place),
+      transitions: net.transitions.map((transition) => transition.transition)
+    };
   });
 }
 
@@ -60,9 +77,9 @@ export function addPlace({
     data: {
       name: name,
       bound: bound,
-      net: {
-        connect: {
-          id: netID
+      nets: {
+        create: {
+          netID: netID
         }
       }
     }
@@ -79,9 +96,9 @@ export function addTransition(
   return prisma.transition.create({
     data: {
       name: name,
-      net: {
-        connect: {
-          id: netID
+      nets: {
+        create: {
+          netID: netID
         }
       }
     }
@@ -119,21 +136,15 @@ export function addArc({
 }
 
 
-export function deletePlace({
-                              id,
-                              netID
-                            }: Pick<Place, "id"> & { netID: Net["id"] }) {
+export function deletePlace({ id }: Pick<Place, "id">) {
   return prisma.place.deleteMany({
-    where: { id, netID }
+    where: { id }
   });
 }
 
-export function deleteTransition({
-                                   id,
-                                   netID
-                                 }: Pick<Transition, "id"> & { netID: Net["id"] }) {
+export function deleteTransition({ id }: Pick<Transition, "id">) {
   return prisma.transition.deleteMany({
-    where: { id, netID }
+    where: { id }
   });
 }
 
@@ -157,33 +168,21 @@ export function updateNet({
   });
 }
 
-export function updatePlace({
-                              id,
-                              name,
-                              bound,
-                              netID
-                            }: Place & { netID: User["id"]; }) {
+export function updatePlace({ id, name, bound }: Place) {
   return prisma.place.updateMany({
-    where: { id, netID },
+    where: { id },
     data: { name, bound }
   });
 }
 
-export function updateTransition({
-                                   id,
-                                   name,
-                                   netID
-                                 }: Transition & { netID: User["id"]; }) {
+export function updateTransition({ id, name }: Transition) {
   return prisma.transition.updateMany({
-    where: { id, netID },
+    where: { id },
     data: { name }
   });
 }
 
-export function deleteNet({
-                            id,
-                            authorID
-                          }: Pick<Net, "id"> & { authorID: User["id"] }) {
+export function deleteNet({ id, authorID }: Pick<Net, "id"> & { authorID: User["id"] }) {
   return prisma.net.deleteMany({
     where: { id, authorID }
   });

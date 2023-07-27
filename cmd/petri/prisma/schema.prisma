@@ -1,5 +1,5 @@
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -25,34 +25,70 @@ model Password {
   userId String @unique
 }
 
+enum NetType {
+  SYSTEM
+  ACTION
+  SEQUENTIAL_RUN
+  DISTRIBUTED_RUN
+}
+
 model Net {
-  id          String       @id @default(uuid())
+  id          String          @id @default(uuid())
+  type        NetType         @default(SYSTEM)
   name        String
   description String
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  author      User         @relation(fields: [authorID], references: [id])
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  author      User            @relation(fields: [authorID], references: [id])
   authorID    String
-  places      Place[]
-  transitions Transition[]
   arcs        Arc[]
+  places      NetPlace[]
+  transitions NetTransition[]
+  parent      Net?            @relation("NetChildren", fields: [parentID], references: [id])
+  parentID    String?
+  children    Net[]           @relation("NetChildren")
 }
 
 model Place {
-  id    String @id @default(uuid())
-  net   Net    @relation(fields: [netID], references: [id])
-  netID String
-  name  String
-  arcs  Arc[]
-  bound Int
+  id          String     @id @default(uuid())
+  name        String
+  description String?
+  condition   String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  arcs        Arc[]
+  bound       Int
+  nets        NetPlace[]
+}
+
+model NetPlace {
+  net     Net    @relation(fields: [netID], references: [id])
+  netID   String
+  place   Place  @relation(fields: [placeID], references: [id])
+  placeID String
+
+  @@id([netID, placeID])
 }
 
 model Transition {
-  id    String @id @default(uuid())
-  net   Net    @relation(fields: [netID], references: [id])
-  netID String
-  name  String
-  arcs  Arc[]
+  id                String              @id @default(uuid())
+  description       String?
+  name              String
+  arcs              Arc[]
+  events            Event[]
+  labeledTransition LabeledTransition[]
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  nets              NetTransition[]
+}
+
+model NetTransition {
+  net          Net        @relation(fields: [netID], references: [id])
+  netID        String
+  transition   Transition @relation(fields: [transitionID], references: [id])
+  transitionID String
+
+  @@id([netID, transitionID])
 }
 
 model Arc {
@@ -64,4 +100,36 @@ model Arc {
   placeID      String
   transition   Transition @relation(fields: [transitionID], references: [id])
   transitionID String
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+}
+
+model Field {
+  id        String   @id @default(uuid())
+  name      String
+  type      String
+  condition String?
+  event     Event    @relation(fields: [eventID], references: [id])
+  eventID   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Event {
+  id                String              @id @default(uuid())
+  transitions       Transition[]
+  LabeledTransition LabeledTransition[]
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  Field             Field[]
+}
+
+model LabeledTransition {
+  label        String
+  transition   Transition @relation(fields: [transitionID], references: [id])
+  transitionID String
+  event        Event      @relation(fields: [eventID], references: [id])
+  eventID      String
+
+  @@id([transitionID, eventID])
 }

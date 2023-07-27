@@ -14,7 +14,7 @@ import { MermaidDiagram } from "~/lib/components/mermaid";
 
 export const loader = async ({ params, request }: LoaderArgs) => {
   const authorID = await requireUserId(request);
-  invariant(params.netID, "noteId not found");
+  invariant(params.netID, "netID not found");
 
   const net = await getNet({ id: params.netID, authorID: authorID });
   if (!net) {
@@ -25,7 +25,7 @@ export const loader = async ({ params, request }: LoaderArgs) => {
 
 export const action = async ({ params, request }: ActionArgs) => {
   const userId = await requireUserId(request);
-  invariant(params.netID, "noteId not found");
+  invariant(params.netID, "netID not found");
 
   await deleteNet({ id: params.netID, authorID: userId });
 

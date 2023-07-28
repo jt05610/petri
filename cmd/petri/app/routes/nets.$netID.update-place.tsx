@@ -1,8 +1,8 @@
 import type { ActionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import {updatePlace } from "~/models/net.server";
+import { updatePlace } from "~/models/net.server";
 
-export const action = async ({  request }: ActionArgs) => {
+export const action = async ({ request }: ActionArgs) => {
   const formData = await request.formData();
   const id = formData.get("id");
   const name = formData.get("name");

@@ -2,7 +2,7 @@ import type { ActionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { updateTransition } from "~/models/net.server";
 
-export const action = async ({ params, request }: ActionArgs) => {
+export const action = async ({ request }: ActionArgs) => {
   const formData = await request.formData();
   const name = formData.get("name");
   const description = formData.get("description");

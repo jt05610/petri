@@ -66,17 +66,20 @@ export function createNet({ name, description, authorID }: CreateNetInput): Prom
   });
 }
 
+export type PlaceInput = Pick<Place, "name" | "bound" | "description">
+
+
 export function addPlace({
                            name,
                            bound,
+                           description,
                            netID
-                         }: Pick<Place, "name" | "bound"> & {
-  netID: Net["id"];
-}) {
+                         }: PlaceInput & { netID: Net["id"] }) {
   return prisma.place.create({
     data: {
       name: name,
       bound: bound,
+      description: description,
       nets: {
         create: {
           netID: netID
@@ -86,16 +89,14 @@ export function addPlace({
   });
 }
 
-export function addTransition(
-  {
-    name,
-    netID
-  }: Transition & {
-    netID: Net["id"];
-  }) {
+export type TransitionInput = Pick<Transition, "name" | "description" | "condition">
+
+export function addTransition({ name, description, condition, netID }: TransitionInput & { netID: Net["id"] }) {
   return prisma.transition.create({
     data: {
       name: name,
+      description: description,
+      condition: condition,
       nets: {
         create: {
           netID: netID
@@ -105,14 +106,9 @@ export function addTransition(
   });
 }
 
-export function addArc({
-                         placeID,
-                         transitionID,
-                         netID,
-                         fromPlace
-                       }: Arc & {
-  netID: Net["id"];
-}) {
+export type ArcInput = Pick<Arc, "placeID" | "transitionID" | "fromPlace">
+
+export function addArc({ placeID, transitionID, netID, fromPlace }: ArcInput & { netID: Net["id"] }) {
   return prisma.arc.create({
     data: {
       place: {

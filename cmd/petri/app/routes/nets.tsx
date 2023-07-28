@@ -1,11 +1,8 @@
 import type { LoaderArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { Form, Link, NavLink, Outlet, useLoaderData } from "@remix-run/react";
-
 import { getNetListItems } from "~/models/net.server";
 import { requireUserId } from "~/session.server";
-import { useUser } from "~/utils";
-
 export const loader = async ({ request }: LoaderArgs) => {
   const authorID = await requireUserId(request);
   const noteListItems = await getNetListItems({ authorID });
@@ -14,7 +11,7 @@ export const loader = async ({ request }: LoaderArgs) => {
 
 export default function NetsPage() {
   const data = useLoaderData<typeof loader>();
-  const user = useUser();
+
 
   return (
     <div className="flex h-full min-h-screen flex-col">
@@ -22,7 +19,7 @@ export default function NetsPage() {
         <h1 className="text-3xl font-bold">
           <Link to=".">Nets</Link>
         </h1>
-        <p>{user.email}</p>
+
         <Form action="/logout" method="post">
           <button
             type="submit"
@@ -31,12 +28,13 @@ export default function NetsPage() {
             Logout
           </button>
         </Form>
+
       </header>
 
       <main className="flex h-full bg-white">
         <div className="h-full w-80 border-r bg-gray-50">
           <Link to="new" className="block p-4 text-xl text-blue-500">
-            + New Note
+            + New System
           </Link>
 
           <hr />

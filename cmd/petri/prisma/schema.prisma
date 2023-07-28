@@ -71,15 +71,15 @@ model NetPlace {
 }
 
 model Transition {
-  id                String              @id @default(uuid())
-  description       String?
-  name              String
-  arcs              Arc[]
-  events            Event[]
-  labeledTransition LabeledTransition[]
-  createdAt         DateTime            @default(now())
-  updatedAt         DateTime            @updatedAt
-  nets              NetTransition[]
+  id          String              @id @default(uuid())
+  condition   String?
+  description String?
+  name        String
+  arcs        Arc[]
+  events      LabeledTransition[]
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  nets        NetTransition[]
 }
 
 model NetTransition {
@@ -116,12 +116,11 @@ model Field {
 }
 
 model Event {
-  id                String              @id @default(uuid())
-  transitions       Transition[]
-  LabeledTransition LabeledTransition[]
-  createdAt         DateTime            @default(now())
-  updatedAt         DateTime            @updatedAt
-  Field             Field[]
+  id          String              @id @default(uuid())
+  transitions LabeledTransition[]
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  Field       Field[]
 }
 
 model LabeledTransition {

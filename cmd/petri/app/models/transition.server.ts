@@ -1,4 +1,4 @@
-import { Net, Transition } from "@prisma/client";
+import type { Net, Transition } from "@prisma/client";
 import { prisma } from "~/db.server";
 import type { ArcDetails } from "~/models/arc.server";
 import { getTransIO } from "~/models/arc.server";

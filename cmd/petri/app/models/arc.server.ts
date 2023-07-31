@@ -6,7 +6,7 @@ export type ArcDetails = Pick<Place | Transition, "id" | "name"> & {
   arcID: Arc["id"]
 }
 
-export function getPlaceIO({ id }: Pick<Place, "id">): Promise<{ inputs: ArcDetails[], outputs: ArcDetails[] }> {
+export function getPlaceIO({ id }: Pick<Place, "id">) {
   return prisma.arc.findMany({
     where: {
       placeID: id
@@ -21,19 +21,7 @@ export function getPlaceIO({ id }: Pick<Place, "id">): Promise<{ inputs: ArcDeta
         }
       }
     }
-  }).then((arcs) => {
-      let inputs: ArcDetails[] = [];
-      let outputs: ArcDetails[] = [];
-      arcs.forEach((arc) => {
-        if (arc.fromPlace) {
-          inputs.push({ id: arc.transition.id, name: arc.transition.name, arcID: arc.id });
-        } else {
-          outputs.push({ id: arc.transition.id, name: arc.transition.name, arcID: arc.id });
-        }
-      });
-      return { inputs, outputs };
-    }
-  );
+  });
 }
 
 export function getTransIO({ id }: Pick<Transition, "id">) {

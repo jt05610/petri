@@ -10,7 +10,6 @@ export function getNet({
   return prisma.net.findFirst({
     select: {
       id: true,
-      type: true,
       authorID: true,
       parentID: true,
       places: {

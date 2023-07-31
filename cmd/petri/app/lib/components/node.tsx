@@ -1,4 +1,5 @@
-import type { UpdatePlaceInput, UpdateTransitionInput } from "~/models/net.server";
+import type {UpdatePlaceInput} from "~/models/place.server";
+import type {UpdateTransitionInput} from "~/models/transition.server";
 
 export type NodeUpdate = (UpdatePlaceInput | UpdateTransitionInput) & {
   arcs: {
@@ -12,11 +13,4 @@ export type NodeUpdate = (UpdatePlaceInput | UpdateTransitionInput) & {
 export enum NodeKind {
   Place = "Place",
   Transition = "Transition"
-}
-
-export type Node = {
-  id: string,
-  name: string,
-  kind: NodeKind,
-  data: NodeUpdate,
 }

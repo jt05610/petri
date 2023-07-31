@@ -22,7 +22,7 @@ export enum InputKind {
   ARC = "arc",
 }
 
-type ActionParams = {
+export type ActionParams = {
   kind: ActionKind,
   inputKind: InputKind,
   action: Function,
@@ -61,12 +61,7 @@ export const defaultActions: ActionParams[] = [
     schema: UpdatePlaceInputSchema,
     buttons: [{
       label: "Update Place"
-    },
-      {
-        label: "Delete Place",
-        route: "delete-place",
-        color: "bg-red-500"
-      }]
+    }]
   },
   {
     kind: ActionKind.DELETE,
@@ -90,7 +85,8 @@ export const defaultActions: ActionParams[] = [
     }],
     input: {
       name: "",
-      description: ""
+      description: "",
+      condition: ""
     }
   },
   {
@@ -101,13 +97,9 @@ export const defaultActions: ActionParams[] = [
     requiredFields: ["id", "name", "description", "inputs", "outputs"],
     buttons: [
       {
-        label: "Update transition",
-        route: "update-transition"
-      },
-      {
-        label: "Delete transition",
-        route: "delete-transition"
-      }]
+        label: "Update transition"
+      }
+    ]
   },
   {
     kind: ActionKind.DELETE,

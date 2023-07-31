@@ -10,7 +10,7 @@ export type NetState = {
   arcs: Pick<Arc, "id" | "placeID" | "transitionID" | "fromPlace">[];
 }
 
-export const NetContext = createContext<NetState>({ id: "", places: [], transitions: [], arcs: []});
+export const NetContext = createContext<NetState>({ id: "", places: [], transitions: [], arcs: [] });
 export const NetDispatchContext = createContext<Dispatch<NetAction> | null>(null);
 
 type NetProviderProps = {
@@ -48,49 +48,56 @@ interface NetAction {
 function netReducer(net: NetState, action: NetAction): NetState {
   switch (action.type) {
     case NetActionKind.AddPlace: {
-      if (net.places.find((place) => place.id === action.payload.id)) {
+      const p = action.payload as Place;
+      if (net.places.find((place) => place.id === p.id)) {
         break;
       }
-      net.places.push(action.payload as Place);
+      net.places.push(p);
       break;
     }
     case NetActionKind.AddTransition: {
-      if (net.transitions.find((transition) => transition.id === action.payload.id)) {
+      const t = action.payload as Transition;
+      if (net.transitions.find((transition) => transition.id === t.id)) {
         break;
       }
-      net.transitions.push(action.payload as Transition);
+      net.transitions.push(t);
       break;
     }
     case NetActionKind.AddArc: {
-      if (net.arcs.find((arc) => arc.id === action.payload.id)) {
+      const t = action.payload as Arc;
+      if (net.arcs.find((arc) => arc.id === t.id)) {
         break;
       }
-      net.arcs.push(action.payload as Arc);
+      net.arcs.push(t);
       break;
     }
     case NetActionKind.DeletePlace: {
+      const { id } = action.payload as { id: string };
       return {
         ...net,
-        places: net.places.filter((place) => place.id !== action.payload.id)
+        places: net.places.filter((place) => place.id !== id)
       };
     }
     case NetActionKind.DeleteTransition: {
+      const { id } = action.payload as { id: string };
       return {
         ...net,
-        transitions: net.transitions.filter((transition) => transition.id !== action.payload.id)
+        transitions: net.transitions.filter((transition) => transition.id !== id)
       };
     }
     case NetActionKind.DeleteArc: {
+      const { id } = action.payload as { id: string };
       return {
         ...net,
-        arcs: net.arcs.filter((arc) => arc.id !== action.payload.id)
+        arcs: net.arcs.filter((arc) => arc.id !== id)
       };
     }
     case NetActionKind.UpdatePlace: {
+      const p = action.payload as Place;
       return {
         ...net,
         places: net.places.map((place) => {
-          if (place.id === action.payload.id) {
+          if (place.id === p.id) {
             return {
               ...place,
               ...action.payload
@@ -101,10 +108,11 @@ function netReducer(net: NetState, action: NetAction): NetState {
       };
     }
     case NetActionKind.UpdateTransition: {
+      const t = action.payload as Transition;
       return {
         ...net,
         transitions: net.transitions.map((transition) => {
-          if (transition.id === action.payload.id) {
+          if (transition.id === t.id) {
             return {
               ...transition,
               ...action.payload

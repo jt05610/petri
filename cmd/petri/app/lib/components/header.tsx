@@ -28,6 +28,5 @@ export default function Header() {
         </Form>
       </div>
     </header>
-
   );
 }

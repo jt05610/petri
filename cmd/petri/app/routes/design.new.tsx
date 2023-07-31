@@ -29,10 +29,10 @@ export const action = async ({ request }: ActionArgs) => {
 
   const net = await createNet({ name, description, authorID });
 
-  return redirect(`/notes/${net.id}`);
+  return redirect(`/design/${net.id}`);
 };
 
-export default function NewNotePage() {
+export default function NetNetPage() {
   const actionData = useActionData<typeof action>();
   const titleRef = useRef<HTMLInputElement>(null);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
@@ -57,7 +57,7 @@ export default function NewNotePage() {
     >
       <div>
         <label className="flex w-full flex-col gap-1">
-          <span>Title: </span>
+          <span>Name: </span>
           <input
             ref={titleRef}
             name="title"
@@ -77,7 +77,7 @@ export default function NewNotePage() {
 
       <div>
         <label className="flex w-full flex-col gap-1">
-          <span>Body: </span>
+          <span>Description: </span>
           <textarea
             ref={bodyRef}
             name="desc"

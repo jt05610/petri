@@ -4,7 +4,7 @@ import type { MermaidConfig, RenderResult } from "mermaid";
 export async function render(
   config: MermaidConfig,
   code: string,
-  id: string
+  id: string,
 ): Promise<RenderResult> {
   // Should be able to call this multiple times without any issues.
   mermaid.initialize(config);

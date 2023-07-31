@@ -1,3 +1,5 @@
 ArcInput
 PlaceInput
 TransitionInput
+UpdatePlaceInput
+UpdateTransitionInput

@@ -7,10 +7,18 @@ generator client {
   provider = "prisma-client-js"
 }
 
-model User {
-  id    String @id @default(cuid())
-  email String @unique
+enum UserRole {
+  NONE
+  ADMIN
+  DEVELOPER
+  REVIERWER
+  USER
+}
 
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  role      UserRole
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -33,62 +41,44 @@ enum NetType {
 }
 
 model Net {
-  id          String          @id @default(uuid())
-  type        NetType         @default(SYSTEM)
+  id          String       @id @default(uuid())
+  type        NetType      @default(SYSTEM)
   name        String
   description String
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
-  author      User            @relation(fields: [authorID], references: [id])
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  author      User         @relation(fields: [authorID], references: [id])
   authorID    String
   arcs        Arc[]
-  places      NetPlace[]
-  transitions NetTransition[]
-  parent      Net?            @relation("NetChildren", fields: [parentID], references: [id])
+  places      Place[]
+  transitions Transition[]
+  parent      Net?         @relation("NetChildren", fields: [parentID], references: [id])
   parentID    String?
-  children    Net[]           @relation("NetChildren")
+  children    Net[]        @relation("NetChildren")
 }
 
 model Place {
-  id          String     @id @default(uuid())
+  id          String   @id @default(uuid())
   name        String
   description String?
   condition   String?
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
   arcs        Arc[]
   bound       Int
-  nets        NetPlace[]
-}
-
-model NetPlace {
-  net     Net    @relation(fields: [netID], references: [id])
-  netID   String
-  place   Place  @relation(fields: [placeID], references: [id])
-  placeID String
-
-  @@id([netID, placeID])
+  nets        Net[]
 }
 
 model Transition {
-  id          String              @id @default(uuid())
+  id          String   @id @default(uuid())
   condition   String?
   description String?
   name        String
   arcs        Arc[]
-  events      LabeledTransition[]
-  createdAt   DateTime            @default(now())
-  updatedAt   DateTime            @updatedAt
-  nets        NetTransition[]
-}
-
-model NetTransition {
-  net          Net        @relation(fields: [netID], references: [id])
-  netID        String
-  transition   Transition @relation(fields: [transitionID], references: [id])
-  transitionID String
-
-  @@id([netID, transitionID])
+  events      Event[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  nets        Net[]
 }
 
 model Arc {
@@ -116,19 +106,9 @@ model Field {
 }
 
 model Event {
-  id          String              @id @default(uuid())
-  transitions LabeledTransition[]
-  createdAt   DateTime            @default(now())
-  updatedAt   DateTime            @updatedAt
+  id          String       @id @default(uuid())
+  transitions Transition[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
   Field       Field[]
-}
-
-model LabeledTransition {
-  label        String
-  transition   Transition @relation(fields: [transitionID], references: [id])
-  transitionID String
-  event        Event      @relation(fields: [eventID], references: [id])
-  eventID      String
-
-  @@id([transitionID, eventID])
 }

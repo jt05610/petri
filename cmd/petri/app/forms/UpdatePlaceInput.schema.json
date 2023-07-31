@@ -1,0 +1,74 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "allOf": [
+        {
+            "$ref": "#/definitions/Pick<GetResult<{id:string;name:string;description:string|null;condition:string|null;createdAt:Date;updatedAt:Date;bound:number;},unknown,never>&{},\"id\"|\"name\"|\"description\"|\"bound\">"
+        },
+        {
+            "properties": {
+                "inputs": {
+                    "items": {
+                        "$ref": "#/definitions/ArcDetails"
+                    },
+                    "type": "array"
+                },
+                "outputs": {
+                    "items": {
+                        "$ref": "#/definitions/ArcDetails"
+                    },
+                    "type": "array"
+                }
+            },
+            "type": "object"
+        }
+    ],
+    "definitions": {
+        "ArcDetails": {
+            "allOf": [
+                {
+                    "$ref": "#/definitions/Pick<(GetResult<{id:string;name:string;description:string|null;condition:string|null;createdAt:Date;updatedAt:Date;bound:number;},unknown,never>&{})|(GetResult<{id:string;condition:string|null;description:string|null;name:string;createdAt:Date;updatedAt:Date;},unknown,never>&{}),\"id\"|\"name\">"
+                },
+                {
+                    "properties": {
+                        "arcID": {
+                            "type": "string"
+                        }
+                    },
+                    "type": "object"
+                }
+            ]
+        },
+        "Pick<(GetResult<{id:string;name:string;description:string|null;condition:string|null;createdAt:Date;updatedAt:Date;bound:number;},unknown,never>&{})|(GetResult<{id:string;condition:string|null;description:string|null;name:string;createdAt:Date;updatedAt:Date;},unknown,never>&{}),\"id\"|\"name\">": {
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            },
+            "type": "object"
+        },
+        "Pick<GetResult<{id:string;name:string;description:string|null;condition:string|null;createdAt:Date;updatedAt:Date;bound:number;},unknown,never>&{},\"id\"|\"name\"|\"description\"|\"bound\">": {
+            "properties": {
+                "bound": {
+                    "type": "number"
+                },
+                "description": {
+                    "type": [
+                        "null",
+                        "string"
+                    ]
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            },
+            "type": "object"
+        }
+    }
+}
+

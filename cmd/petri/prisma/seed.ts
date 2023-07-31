@@ -7,7 +7,11 @@ async function seed() {
   const email = "rachel@remix.run";
 
   // cleanup the existing database
-  await prisma.user.deleteMany({ where: { email } }).catch(() => {
+  await prisma.user.delete({
+    where: {
+      email
+    }
+  }).catch(() => {
     // no worries if it doesn't exist yet
   });
 
@@ -15,6 +19,7 @@ async function seed() {
   const user = await prisma.user.create({
     data: {
       email,
+      role: "ADMIN",
       password: {
         create: {
           hash: hashedPassword
@@ -37,9 +42,7 @@ async function seed() {
       description: "the door was opened",
       bound: 1,
       nets: {
-        create: {
-          netID: net.id
-        }
+        connect: net
       }
     }
   });
@@ -50,9 +53,7 @@ async function seed() {
       description: "the door was closed",
       bound: 1,
       nets: {
-        create: {
-          netID: net.id
-        }
+        connect: net
       }
     }
   });
@@ -62,9 +63,7 @@ async function seed() {
       name: "open",
       description: "open the door",
       nets: {
-        create: {
-          netID: net.id
-        }
+        connect: net
       }
     }
   });
@@ -74,9 +73,7 @@ async function seed() {
       name: "close",
       description: "close the door",
       nets: {
-        create: {
-          netID: net.id
-        }
+        connect: net
       }
     }
   });

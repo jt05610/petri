@@ -34,45 +34,69 @@ model Password {
 }
 
 model Net {
+  id                   String                @id @default(uuid())
+  name                 String
+  description          String
+  initialMarking       Int[]
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  author               User                  @relation(fields: [authorID], references: [id])
+  authorID             String
+  arcs                 Arc[]
+  places               Place[]
+  transitions          Transition[]
+  parent               Net?                  @relation("NetChildren", fields: [parentID], references: [id])
+  parentID             String?
+  children             Net[]                 @relation("NetChildren")
+  device               Device?               @relation(fields: [deviceId], references: [id])
+  deviceId             String?
+  placeInterfaces      PlaceInterface[]
+  transitionInterfaces TransitionInterface[]
+}
+
+model PlaceInterface {
+  id        String   @id @default(uuid())
+  name      String
+  net       Net      @relation(fields: [netID], references: [id])
+  netID     String
+  places    Place[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model TransitionInterface {
   id          String       @id @default(uuid())
   name        String
-  description String
+  net         Net          @relation(fields: [netID], references: [id])
+  netID       String
+  transitions Transition[]
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
-  author      User         @relation(fields: [authorID], references: [id])
-  authorID    String
-  arcs        Arc[]
-  places      Place[]
-  transitions Transition[]
-  parent      Net?         @relation("NetChildren", fields: [parentID], references: [id])
-  parentID    String?
-  children    Net[]        @relation("NetChildren")
-  Device      Device?      @relation(fields: [deviceId], references: [id])
-  deviceId    String?
 }
 
 model Place {
-  id          String   @id @default(uuid())
+  id          String           @id @default(uuid())
   name        String
   description String?
-  condition   String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
   arcs        Arc[]
   bound       Int
   nets        Net[]
+  interfaces  PlaceInterface[]
 }
 
 model Transition {
-  id          String   @id @default(uuid())
+  id          String                @id @default(uuid())
   condition   String?
   description String?
   name        String
   arcs        Arc[]
   events      Event[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
   nets        Net[]
+  interfaces  TransitionInterface[]
 }
 
 model Arc {
@@ -125,7 +149,7 @@ model DeviceEvent {
   id              String         @id @default(uuid())
   device          Device         @relation(fields: [deviceId], references: [id])
   deviceId        String
-  events          Event          @relation(fields: [eventID], references: [id])
+  event           Event          @relation(fields: [eventID], references: [id])
   eventID         String
   sequence        SequenceEvent? @relation(fields: [sequenceEventId], references: [id])
   sequenceEventId String?

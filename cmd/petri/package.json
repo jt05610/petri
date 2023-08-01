@@ -39,6 +39,7 @@
     "@remix-run/react": "^1.19.1",
     "@remix-run/router": "^1.7.2",
     "@remix-run/serve": "^1.19.1",
+    "@ts-graphviz/react": "^0.9.1",
     "@types/react-test-renderer": "^18.0.0",
     "bcryptjs": "^2.4.3",
     "isbot": "^3.6.12",

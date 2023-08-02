@@ -2,17 +2,6 @@ import type { Arc, Transition, Place, Event } from "@prisma/client";
 import { prisma } from "~/db.server";
 import { z } from "zod";
 
-export const EventFieldSchema = z.object({
-  name: z.string(),
-  description: z.string().optional(),
-  type: z.string()
-});
-export const EventInputSchema = z.object({
-  name: z.string(),
-  description: z.string().optional(),
-  fields: z.array(EventFieldSchema)
-});
-
 export const TransitionInputSchema = z.object({
   netID: z.string().uuid(),
   name: z.string(),
@@ -124,7 +113,7 @@ export async function listTransitions({ netID }: { netID: string }): Promise<Tra
   });
 }
 
-export function addTransition(input: TransitionInput) {
+export async function addTransition(input: TransitionInput) {
   const { netID, name, description, condition } = TransitionInputSchema.parse(input);
   return prisma.transition.create({
     data: {
@@ -149,13 +138,14 @@ export const UpdateTransitionSchema = z.object({
 
 export type UpdateTransitionInput = z.infer<typeof UpdateTransitionSchema>
 
-export function updateTransition({ id, name, description, condition }: UpdateTransitionInput) {
+export async function updateTransition(input: UpdateTransitionInput) {
+  const { id, name, description, condition } = UpdateTransitionSchema.parse(input);
   return prisma.transition.updateMany({
     where: { id },
     data: { name, description, condition }
   });
 }
-export function deleteTransition({ id }: Pick<Transition, "id">) {
+export async function deleteTransition({ id }: Pick<Transition, "id">) {
   return prisma.transition.deleteMany({
     where: {
       id: id

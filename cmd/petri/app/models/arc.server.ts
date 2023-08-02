@@ -1,51 +1,26 @@
 import type { Arc, Place, Transition } from "@prisma/client";
 import { prisma } from "~/db.server";
-import { Net } from "@prisma/client";
+import { z } from "zod";
 
-export type ArcDetails = Pick<Place | Transition, "id" | "name"> & {
-  arcID: Arc["id"]
-}
+export const ArcInputFormSchema = z.object({
+  netID: z.string().uuid(),
+  placeID: z.string().uuid(),
+  transitionID: z.string().uuid(),
+  fromPlace: z.preprocess((val) => {
+    return val === "true" || val === "on";
+  }, z.boolean())
+});
+export const ArcInputSchema = z.object({
+  netID: z.string().uuid(),
+  placeID: z.string().uuid(),
+  transitionID: z.string().uuid(),
+  fromPlace: z.boolean()
+});
 
-export function getPlaceIO({ id }: Pick<Place, "id">) {
-  return prisma.arc.findMany({
-    where: {
-      placeID: id
-    },
-    select: {
-      id: true,
-      fromPlace: true,
-      transition: {
-        select: {
-          id: true,
-          name: true
-        }
-      }
-    }
-  });
-}
+export type ArcInput = z.infer<typeof ArcInputSchema>;
 
-export function getTransIO({ id }: Pick<Transition, "id">) {
-  return prisma.arc.findMany({
-    where: {
-      transitionID: id
-    },
-    select: {
-      id: true,
-      fromPlace: true,
-      place: {
-        select: {
-          id: true,
-          name: true
-        }
-      }
-    }
-  });
-}
-
-
-export type ArcInput = Pick<Arc, "placeID" | "transitionID" | "fromPlace">
-
-export function addArc({ placeID, transitionID, netID, fromPlace }: ArcInput & { netID: Net["id"] }) {
+export async function addArc(input: ArcInput) {
+  const { netID, placeID, transitionID, fromPlace } = input;
   return prisma.arc.create({
     data: {
       place: {
@@ -65,6 +40,118 @@ export function addArc({ placeID, transitionID, netID, fromPlace }: ArcInput & {
       },
       fromPlace: fromPlace
     }
+  });
+}
+
+export const ArcUpdateSchema = z.object({
+  id: z.string().uuid().optional(),
+  fromPlace: z.boolean().optional(),
+  placeID: z.string().uuid().optional(),
+  transitionID: z.string().uuid().optional()
+});
+
+export const ArcUpdateFormSchema = z.object({
+  id: z.string().uuid().optional(),
+  fromPlace: z.preprocess((val) => {
+    return val === "true" || val === "on";
+  }, z.boolean()),
+  placeID: z.string().uuid().optional(),
+  transitionID: z.string().uuid().optional()
+});
+export type ArcUpdate = z.infer<typeof ArcUpdateSchema>;
+
+export async function updateArc(input: ArcUpdate) {
+  const { id, fromPlace, placeID, transitionID } = ArcUpdateSchema.parse(input);
+  return prisma.arc.update({
+    where: { id },
+    data: {
+      fromPlace: fromPlace,
+      place: {
+        connect: {
+          id: placeID
+        }
+      },
+      transition: {
+        connect: {
+          id: transitionID
+        }
+      }
+    }
+  });
+}
+
+export type ArcDetails = Pick<Arc, "id" | "fromPlace" | "createdAt" | "updatedAt"> & {
+  place: Pick<Place, "id" | "name">,
+  transition: Pick<Transition, "id" | "name">
+}
+
+export const GetArcSchema = z.object({
+  id: z.string().uuid()
+});
+
+export type GetArcInput = z.infer<typeof GetArcSchema>
+
+export async function getArc(input: GetArcInput): Promise<ArcDetails> {
+  const { id } = GetArcSchema.parse(input);
+  return prisma.arc.findFirst({
+    select: {
+      id: true,
+      fromPlace: true,
+      createdAt: true,
+      updatedAt: true,
+      place: {
+        select: {
+          id: true,
+          name: true
+        }
+      },
+      transition: {
+        select: {
+          id: true,
+          name: true
+        }
+      }
+    },
+    where: { id }
+  }).then((arc) => {
+    if (!arc) {
+      throw new Error("arc not found");
+    }
+    return arc;
+  });
+}
+
+export type ArcListItem = Pick<Arc, "id" | "fromPlace"> & {
+  place: Pick<Place, "id" | "name">,
+  transition: Pick<Transition, "id" | "name">
+}
+
+export const ListArcsSchema = z.object({
+  netID: z.string().uuid()
+});
+
+export type ListArcsInput = z.infer<typeof ListArcsSchema>
+
+export async function listArcs(input: ListArcsInput): Promise<ArcListItem[]> {
+  const { netID } = ListArcsSchema.parse(input);
+  return prisma.arc.findMany({
+    select: {
+      id: true,
+      fromPlace: true,
+      place: {
+        select: {
+          id: true,
+          name: true
+        }
+      },
+      transition: {
+        select: {
+          id: true,
+          name: true
+        }
+      }
+    },
+    where: { netID }
   });
 }
 

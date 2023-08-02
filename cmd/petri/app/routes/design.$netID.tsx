@@ -54,13 +54,11 @@ export default function NetDetailsPage() {
         <h3 className="text-2xl justify-start font-bold">Actions</h3>
         <h4 className="text-xl font-bold">Create</h4>
         <LinkList btnClass={"rounded bg-slate-600 text-white p-2"} routes={[
-          { name: "Place", path: "add-place" },
-          { name: "Transition", path: "add-transition" },
-          { name: "Arc", path: "add-arc" }
+          { name: "Places", path: "places" },
+          { name: "Transitions", path: "transitions" },
+          { name: "Arcs", path: "arcs" }
         ]} />
         <hr />
-        <NavLink to={"places"}>Places</NavLink>
-        <NavLink to={"transitions"}>Transitions</NavLink>
         <Outlet />
       </div>
       <div className="flex flex-col w-full h-full items-center">

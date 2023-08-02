@@ -1,5 +1,5 @@
 import type { LoaderArgs } from "@remix-run/node";
-import { redirect } from "@remix-run/node";
+import { json, redirect } from "@remix-run/node";
 import { requireUserId } from "~/session.server";
 import invariant from "tiny-invariant";
 import { getUserById } from "~/models/user.server";
@@ -34,7 +34,7 @@ export const loader = async ({ params, request }: LoaderArgs) => {
   if (!user) {
     throw new Error("User not found");
   }
-  return {};
+  return json({});
 }
 
 export default function NewPlace() {

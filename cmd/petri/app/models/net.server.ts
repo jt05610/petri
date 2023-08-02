@@ -1,5 +1,44 @@
 import type { User, Net } from "@prisma/client";
 import { prisma } from "~/db.server";
+import { z } from "zod";
+
+export const NetInputSchema = z.object({
+  name: z.string(),
+  authorID: z.string().uuid(),
+  description: z.string()
+});
+
+export type NetInput = z.infer<typeof NetInputSchema>;
+
+export async function createNet(input: NetInput) {
+  const { name, authorID, description } = NetInputSchema.parse(input);
+  return prisma.net.create({
+    data: {
+      authorID,
+      name,
+      description
+    }
+  });
+}
+
+export const NetUpdateSchema = z.object({
+  id: z.string().uuid().optional(),
+  name: z.string().optional(),
+  description: z.string().optional()
+});
+
+export type NetUpdate = z.infer<typeof NetUpdateSchema>;
+
+export async function updateNet(input: NetUpdate) {
+  const { id, name, description } = NetUpdateSchema.parse(input);
+  return prisma.net.update({
+    where: { id },
+    data: {
+      name,
+      description
+    }
+  });
+}
 
 export function getNet({
                          id,
@@ -28,7 +67,52 @@ export function getNet({
       name: true,
       createdAt: true,
       updatedAt: true,
-      description: true
+      description: true,
+      placeInterfaces: {
+        select: {
+          id: true,
+          name: true,
+          places: {
+            select: {
+              id: true,
+              name: true
+            }
+          }
+        }
+      },
+      transitionInterfaces: {
+        select: {
+          id: true,
+          name: true,
+          transitions: {
+            select: {
+              id: true,
+              name: true
+            }
+          }
+        }
+      },
+      initialMarking: true,
+      children: {
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          places: {
+            select: {
+              id: true,
+              name: true
+            }
+          },
+          transitions: {
+            select: {
+              id: true,
+              name: true
+            }
+          },
+          arcs: true
+        }
+      }
     },
     where: { id, authorID }
   }).then((net) => {
@@ -54,39 +138,6 @@ export function getNetListItems({ authorID }: { authorID: User["id"] }) {
     orderBy: { updatedAt: "desc" }
   });
 }
-
-type CreateNetInput = Pick<Net, "name" | "description"> & {
-  authorID: User["id"];
-}
-
-export function createNet({ name, description, authorID }: CreateNetInput): Promise<Net> {
-  return prisma.net.create({
-    data: {
-      name: name,
-      description: description,
-      author: {
-        connect: {
-          id: authorID
-        }
-      }
-    }
-  });
-}
-
-
-export type UpdateNetInput = Pick<Net, "id" | "name" | "description">
-
-export function updateNet({
-                            id,
-                            name,
-                            authorID
-                          }: UpdateNetInput & { authorID: User["id"]; }) {
-  return prisma.net.updateMany({
-    where: { id, authorID },
-    data: { name }
-  });
-}
-
 
 export function deleteNet({ id, authorID }: Pick<Net, "id"> & { authorID: User["id"] }) {
   return prisma.net.deleteMany({

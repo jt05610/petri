@@ -34,15 +34,17 @@ export async function addEvent(input: EventInput) {
   });
 }
 
-export const EventUpdateSchema = z.object({
+export const UpdateEventSchema = z.object({
   id: z.string().uuid().optional(),
-  name: z.string().optional()
+  name: z.string().optional(),
+  description: z.string().optional(),
+  fields: z.array(EventFieldSchema)
 });
 
-export type EventUpdate = z.infer<typeof EventUpdateSchema>;
+export type EventUpdate = z.infer<typeof UpdateEventSchema>;
 
 export async function updateEvent(input: EventUpdate) {
-  const { id, name } = EventUpdateSchema.parse(input);
+  const { id, name } = UpdateEventSchema.parse(input);
   return prisma.event.update({
     where: { id },
     data: {

@@ -70,5 +70,4 @@ export default function Transition() {
       </Form>
     </div>
   );
-
 }

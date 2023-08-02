@@ -1,7 +1,7 @@
-import type {UpdatePlaceInput} from "~/models/place.server";
+import type {PlaceDetails} from "~/models/place.server";
 import type {UpdateTransitionInput} from "~/models/transition.server";
 
-export type NodeUpdate = (UpdatePlaceInput | UpdateTransitionInput) & {
+export type NodeUpdate = (PlaceDetails | UpdateTransitionInput) & {
   arcs: {
     id: string,
     other: string,

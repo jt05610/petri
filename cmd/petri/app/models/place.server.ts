@@ -1,49 +1,85 @@
-import type { Net, Place } from "@prisma/client";
+import type { Arc, Transition, Place } from "@prisma/client";
 import { prisma } from "~/db.server";
-import type { ArcDetails } from "~/models/arc.server";
-import { getPlaceIO } from "~/models/arc.server";
+import { z } from "zod";
+export const PlaceFormSchema = z.object({
+  name: z.string(),
+  bound: z.preprocess(
+    (bound) => parseInt(z.string().parse(bound), 10),
+    z.number().gt(0).positive()
+  ),
+  description: z.string().optional(),
+  netID: z.string().uuid()
+});
+export const PlaceInputSchema = z.object({
+  name: z.string(),
+  bound: z.number().gt(0).positive(),
+  description: z.string().optional(),
+  netID: z.string().uuid()
+});
+
+export type PlaceInput = z.infer<typeof PlaceInputSchema>;
 
 
-export async function getPlace({ id }: Pick<Place, "id">): Promise<UpdatePlaceInput> {
-  const arcs = await getPlaceIO({ id });
-  const res = await prisma.place.findFirst({
+export async function getPlace({ id }: Pick<Place, "id">): Promise<PlaceDetails> {
+  return prisma.place.findFirst({
     select: {
       id: true,
+      createdAt: true,
+      updatedAt: true,
       name: true,
       description: true,
-      bound: true
+      bound: true,
+      arcs: {
+        select: {
+          id: true,
+          fromPlace: true,
+          transition: {
+            select: {
+              id: true,
+              name: true
+            }
+          }
+        }
+      }
     },
     where: { id }
-  });
-  if (!res) {
-    return {} as UpdatePlaceInput;
-  }
-  let inputs: ArcDetails[] = [];
-  let outputs: ArcDetails[] = [];
-  arcs.forEach((arc) => {
-    if (arc.fromPlace) {
-      inputs.push({ id: arc.transition.id, name: arc.transition.name, arcID: arc.id });
-    } else {
-      outputs.push({ id: arc.transition.id, name: arc.transition.name, arcID: arc.id });
+  }).then((place) => {
+    if (!place) {
+      throw new Error("place not found");
     }
+
+    return place;
   });
-  return { ...res, inputs: inputs, outputs: outputs };
 }
 
+export type PlaceListItem = Pick<Place, "id" | "name" | "bound">;
 
-export type PlaceInput = Pick<Place, "name" | "bound" | "description">
-
-export type UpdatePlaceInput = Pick<Place, "id" | "name" | "bound" | "description"> & {
-  inputs: ArcDetails[]
-  outputs: ArcDetails[]
+export async function listPlaces({ netID }: { netID: string }): Promise<PlaceListItem[]> {
+  return prisma.place.findMany({
+    where: {
+      nets: {
+        some: {
+          id: netID
+        }
+      }
+    },
+    select: { id: true, name: true, bound: true }
+  });
 }
 
-export function addPlace({
-                           name,
-                           bound,
-                           description,
-                           netID
-                         }: PlaceInput & { netID: Net["id"] }) {
+export type PlaceDetails = Pick<Place, "id" | "name" | "bound" | "description" | "createdAt" | "updatedAt"> & {
+  arcs: {
+    id: Arc["id"];
+    fromPlace: boolean;
+    transition: {
+      id: Transition["id"]
+      name: Transition["name"]
+    },
+  }[]
+}
+
+export async function addPlace(place: PlaceInput) {
+  const { name, bound, description, netID } = PlaceInputSchema.parse(place);
   return prisma.place.create({
     data: {
       name: name,
@@ -53,31 +89,30 @@ export function addPlace({
         connect: {
           id: netID
         }
-
       }
     }
   });
 }
 
-export async function updatePlace({ id, name, bound, description, inputs, outputs }: UpdatePlaceInput) {
-  const allArcs = await prisma.arc.findMany({
-    where: { placeID: id }
-  });
-  const io = inputs.concat(outputs);
+export const UpdatePlaceFormSchema = z.object({
+  name: z.string().optional(),
+  bound: z.preprocess(
+    (bound) => parseInt(z.string().parse(bound), 10),
+    z.number().gt(0).positive()
+  ),
+  description: z.string().optional()
+});
 
-  if (allArcs.length > io.length) {
-    const toDelete = allArcs.filter((arc) => {
-      return !io.some((io) => io.arcID === arc.id);
-    });
-    await prisma.arc.deleteMany({
-      where: {
-        id: {
-          in: toDelete.map((arc) => arc.id)
-        }
-      }
-    });
-  }
+export const UpdatePlaceInputSchema = z.object({
+  name: z.string().optional(),
+  bound: z.number().gt(0).positive(),
+  description: z.string().optional()
+});
 
+export type UpdatePlaceInput = z.infer<typeof UpdatePlaceInputSchema>;
+
+export async function updatePlace(id: Place["id"], place: UpdatePlaceInput) {
+  const { name, bound, description } = UpdatePlaceInputSchema.parse(place);
   return prisma.place.updateMany({
     where: { id },
     data: { name, bound, description }

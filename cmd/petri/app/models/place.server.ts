@@ -95,6 +95,7 @@ export async function addPlace(place: PlaceInput) {
 }
 
 export const UpdatePlaceFormSchema = z.object({
+  id: z.string().uuid(),
   name: z.string().optional(),
   bound: z.preprocess(
     (bound) => parseInt(z.string().parse(bound), 10),
@@ -104,6 +105,7 @@ export const UpdatePlaceFormSchema = z.object({
 });
 
 export const UpdatePlaceInputSchema = z.object({
+  id: z.string().uuid(),
   name: z.string().optional(),
   bound: z.number().gt(0).positive(),
   description: z.string().optional()
@@ -111,8 +113,8 @@ export const UpdatePlaceInputSchema = z.object({
 
 export type UpdatePlaceInput = z.infer<typeof UpdatePlaceInputSchema>;
 
-export async function updatePlace(id: Place["id"], place: UpdatePlaceInput) {
-  const { name, bound, description } = UpdatePlaceInputSchema.parse(place);
+export async function updatePlace(place: UpdatePlaceInput) {
+  const { id, name, bound, description } = UpdatePlaceInputSchema.parse(place);
   return prisma.place.updateMany({
     where: { id },
     data: { name, bound, description }

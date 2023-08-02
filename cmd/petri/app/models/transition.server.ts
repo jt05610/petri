@@ -1,43 +1,131 @@
-import type { Net, Transition } from "@prisma/client";
+import type { Arc, Transition, Place, Event } from "@prisma/client";
 import { prisma } from "~/db.server";
-import type { ArcDetails } from "~/models/arc.server";
-import { getTransIO } from "~/models/arc.server";
+import { z } from "zod";
 
-export type UpdateTransitionInput = Pick<Transition, "id" | "name" | "description" | "condition"> & {
-  inputs: ArcDetails[]
-  outputs: ArcDetails[]
+export const EventFieldSchema = z.object({
+  name: z.string(),
+  description: z.string().optional(),
+  type: z.string()
+});
+export const EventInputSchema = z.object({
+  name: z.string(),
+  description: z.string().optional(),
+  fields: z.array(EventFieldSchema)
+});
+
+export const TransitionInputSchema = z.object({
+  netID: z.string().uuid(),
+  name: z.string(),
+  description: z.string().optional(),
+  condition: z.string().optional()
+});
+
+export type TransitionInput = z.infer<typeof TransitionInputSchema>;
+
+
+export type TransitionDetails =
+  Pick<Transition, "id" | "name" | "description" | "condition" | "createdAt" | "updatedAt">
+  & {
+  arcs: {
+    id: Arc["id"];
+    fromPlace: boolean;
+    place: {
+      id: Place["id"]
+      name: Place["name"]
+    },
+  }[],
+  events: {
+    id: Event["id"];
+    name: Event["name"];
+    description?: Event["description"];
+    fields: {
+      id: string;
+      name: string;
+      type: string;
+    }[]
+  }[]
 }
 
-export async function getTransition({ id }: Pick<Transition, "id">): Promise<UpdateTransitionInput | null> {
-  const io = await getTransIO({ id });
-  const res = await prisma.transition.findFirst({
+export async function getTransition({ id }: Pick<Transition, "id">): Promise<TransitionDetails> {
+  return prisma.transition.findFirst({
+    where: { id },
+    select: {
+      id: true,
+      createdAt: true,
+      updatedAt: true,
+      name: true,
+      description: true,
+      condition: true,
+      arcs: {
+        select: {
+          id: true,
+          fromPlace: true,
+          place: {
+            select: {
+              id: true,
+              name: true
+            }
+          }
+        }
+      },
+      events: {
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          fields: {
+            select: {
+              id: true,
+              name: true,
+              type: true
+            }
+          }
+        }
+      }
+    }
+  }).then((transition) => {
+    if (!transition) {
+      throw new Error("transition not found");
+    }
+    return transition;
+  });
+}
+
+export type TransitionListItem = Pick<Transition, "id" | "name"> & {
+  hasEvent: boolean
+}
+
+export async function listTransitions({ netID }: { netID: string }): Promise<TransitionListItem[]> {
+  return prisma.transition.findMany({
+    where: {
+      nets: {
+        some: {
+          id: netID
+        }
+      }
+    },
     select: {
       id: true,
       name: true,
-      description: true,
-      condition: true
-    },
-    where: { id }
-  });
-  if (!res) {
-    return null;
-  }
-  let inputs: ArcDetails[] = [];
-  let outputs: ArcDetails[] = [];
-  io.forEach((arc) => {
-    if (arc.fromPlace) {
-      inputs.push({ id: arc.place.id, name: arc.place.name, arcID: arc.id });
-    } else {
-      outputs.push({ id: arc.place.id, name: arc.place.name, arcID: arc.id });
+      events: {
+        select: {
+          id: true
+        }
+      }
     }
+  }).then((transitions) => {
+    return transitions.map((transition) => {
+      return {
+        id: transition.id,
+        name: transition.name,
+        hasEvent: transition.events.length > 0
+      };
+    });
   });
-  return { ...res, inputs: inputs, outputs: outputs };
 }
 
-
-export type TransitionInput = Pick<Transition, "name" | "description" | "condition">
-
-export function addTransition({ name, description, condition, netID }: TransitionInput & { netID: Net["id"] }) {
+export function addTransition(input: TransitionInput) {
+  const { netID, name, description, condition } = TransitionInputSchema.parse(input);
   return prisma.transition.create({
     data: {
       name: name,
@@ -52,14 +140,21 @@ export function addTransition({ name, description, condition, netID }: Transitio
   });
 }
 
+export const UpdateTransitionSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  description: z.string().optional(),
+  condition: z.string().optional()
+});
+
+export type UpdateTransitionInput = z.infer<typeof UpdateTransitionSchema>
+
 export function updateTransition({ id, name, description, condition }: UpdateTransitionInput) {
   return prisma.transition.updateMany({
     where: { id },
     data: { name, description, condition }
   });
 }
-
-export type DeleteTransitionInput = Pick<Transition, "id">
 export function deleteTransition({ id }: Pick<Transition, "id">) {
   return prisma.transition.deleteMany({
     where: {

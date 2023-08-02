@@ -60,6 +60,7 @@ export default function NetDetailsPage() {
         ]} />
         <hr />
         <NavLink to={"places"}>Places</NavLink>
+        <NavLink to={"transitions"}>Transitions</NavLink>
         <Outlet />
       </div>
       <div className="flex flex-col w-full h-full items-center">

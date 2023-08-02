@@ -3,37 +3,37 @@ import { json, redirect } from "@remix-run/node";
 import { requireUserId } from "~/session.server";
 import invariant from "tiny-invariant";
 import { getUserById } from "~/models/user.server";
-import { deletePlace, getPlace } from "~/models/place.server";
+import { deleteTransition, getTransition } from "~/models/transition.server";
 import { Form, NavLink, Outlet, useLoaderData } from "@remix-run/react";
 
 export const action = async ({ params }: LoaderArgs) => {
-  invariant(params.placeID, "placeID not found");
-  await deletePlace({id: params.placeID});
-  return redirect(`/design/${params.netID}/places`);
+  invariant(params.transitionID, "transitionID not found");
+  await deleteTransition({id: params.transitionID});
+  return redirect(`/design/${params.netID}/transitions`);
 }
 
 export const loader = async ({ params, request }: LoaderArgs) => {
   const authorID = await requireUserId(request);
-  invariant(params.placeID, "netID not found");
+  invariant(params.transitionID, "netID not found");
   const user = await getUserById(authorID);
   if (!user) {
     throw new Error("User not found");
   }
-  const place = await getPlace({ id: params.placeID });
-  return json({ place: place });
+  const transition = await getTransition({ id: params.transitionID });
+  return json({ transition: transition });
 };
 
-export default function Place() {
-  const { place } = useLoaderData<typeof loader>();
+export default function Transition() {
+  const { transition } = useLoaderData<typeof loader>();
 
-  const creation = new Date(place.createdAt).toLocaleString();
-  const updated = new Date(place.updatedAt).toLocaleString();
+  const creation = new Date(transition.createdAt).toLocaleString();
+  const updated = new Date(transition.updatedAt).toLocaleString();
 
   return (
     <div className={"flex flex-col justify-center space-y-2 p-2"}>
-      <h1 className={"text-2xl font-bold"}>{place.name}</h1>
-      <p className={"text-xs justify-start"}>ID: {place.id}</p>
-      <p className={"text-sm"}>{place.description}</p>
+      <h1 className={"text-2xl font-bold"}>{transition.name}</h1>
+      <p className={"text-xs justify-start"}>ID: {transition.id}</p>
+      <p className={"text-sm"}>{transition.description}</p>
       <p className={"text-sm justify-start"}>Created: {creation}</p>
       <p className={"text-sm"}>Updated: {updated}</p>
       <br />

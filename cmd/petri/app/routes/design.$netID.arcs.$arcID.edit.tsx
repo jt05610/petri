@@ -84,5 +84,4 @@ export default function Arc() {
       </Form>
     </div>
   );
-
 }

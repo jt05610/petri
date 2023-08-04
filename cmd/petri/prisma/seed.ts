@@ -130,7 +130,7 @@ async function seed() {
     }
   });
 
-  function join({ netID, placeName, transitionName, fromPlace }: {
+  async function join({ netID, placeName, transitionName, fromPlace }: {
     netID: string,
     fromPlace: boolean,
     placeName: string,
@@ -139,7 +139,7 @@ async function seed() {
     const placeID = valve.places.find(place => place.name === placeName)?.id;
     const transitionID = valve.transitions.find(transition => transition.name === transitionName)?.id;
     if (placeID && transitionID) {
-      prisma.arc.create({
+      return await prisma.arc.create({
         data: {
           netID,
           placeID,
@@ -417,6 +417,30 @@ async function seed() {
     syringes.push(syringe);
   }
 
+  await prisma.device.create({
+    data: {
+      name: "two position three way valve",
+      description: "A two position three way valve.",
+      authorID: user.id,
+      nets: {
+        connect: [
+          {
+            id: valve.id
+          }
+        ]
+      },
+      instances: {
+        create: [
+          {
+            authorID: user.id,
+            name: "valve",
+            language: "GO",
+            addr: "http://localhost:8080/valve",
+          }
+        ]
+      }
+    }
+  });
   console.log(`Database has been seeded. 🌱`);
 }
 

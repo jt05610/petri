@@ -1,10 +1,24 @@
-import { NavLink } from "@remix-run/react";
+import { NavLink, useLoaderData } from "@remix-run/react";
 import Dropdown from "~/lib/components/dropdown";
-import { useContext } from "react";
-import { NetListContext } from "~/context/netList";
+import type { LoaderArgs } from "@remix-run/node";
+import { json } from "@remix-run/node";
+import { requireUserId } from "~/session.server";
+import { getNetListItems } from "~/models/net.server";
+import { getUserById } from "~/models/user.server";
+
+export const loader = async ({ request }: LoaderArgs) => {
+  const authorID = await requireUserId(request);
+  const netListItems = await getNetListItems({ authorID });
+  const user = await getUserById(authorID);
+  if (!user) {
+    throw new Error("User not found");
+  }
+
+  return json({ items: netListItems });
+};
 
 export default function DesignIndexPage() {
-  const items = useContext(NetListContext);
+  const { items } = useLoaderData<typeof loader>();
   return (
     <div className={`h-full w-full p-2`}>
       <h2 className={"text-2xl font-bold"}>No design loaded</h2>

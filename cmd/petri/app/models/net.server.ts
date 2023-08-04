@@ -1,4 +1,4 @@
-import type { User, Net } from "@prisma/client";
+import type { User, Net, Arc, Transition, Place, Event } from "@prisma/client";
 import { prisma } from "~/db.server";
 import { z } from "zod";
 
@@ -40,10 +40,32 @@ export async function updateNet(input: NetUpdate) {
   });
 }
 
-export function getNet({
-                         id,
-                         authorID
-                       }: Pick<Net, "id"> & {
+export type TransitionWithEvents = Pick<Transition, "id" | "name"> & {
+  events?: (Pick<Event, "id" | "name"> & {
+    fields: {
+      name: string
+      type: "string" | "number" | "boolean" | string
+    }[]
+  })[]
+};
+
+export type NetDetails = Pick<Net, "id" | "name" | "initialMarking"> & {
+  places: Pick<Place, "id" | "name" | "bound">[]
+  transitions: TransitionWithEvents[]
+  device: {
+    instances: {
+      id: string
+      name: string
+      addr: string
+    }[] | null
+  } | null
+  arcs: Pick<Arc, "placeID" | "fromPlace" | "transitionID">[]
+}
+
+export async function getNet({
+                               id,
+                               authorID
+                             }: Pick<Net, "id"> & {
   authorID: User["id"];
 }) {
   return prisma.net.findFirst({
@@ -54,7 +76,8 @@ export function getNet({
       places: {
         select: {
           id: true,
-          name: true
+          name: true,
+          bound: true
         }
       },
       transitions: {
@@ -131,11 +154,76 @@ export type NetListItem = {
   updatedAt: string;
 }
 
-export function getNetListItems({ authorID }: { authorID: User["id"] }) {
+export async function getNetListItems({ authorID }: { authorID: User["id"] }) {
   return prisma.net.findMany({
     where: { authorID },
     select: { id: true, authorID: true, name: true, createdAt: true, updatedAt: true },
     orderBy: { updatedAt: "desc" }
+  });
+}
+
+
+export async function getNetWithDeviceInstances({ id, authorID }: Pick<Net, "id"> & {
+  authorID: User["id"]
+}) {
+  return prisma.net.findFirst({
+    where: { id, authorID },
+    select: {
+      id: true,
+      name: true,
+      initialMarking: true,
+      places: {
+        select: {
+          id: true,
+          name: true,
+          bound: true
+        }
+      },
+      transitions: {
+        select: {
+          id: true,
+          name: true,
+          events: {
+            select: {
+              id: true,
+              name: true,
+              fields: {
+                select: {
+                  id: true,
+                  name: true,
+                  type: true
+                }
+              }
+            }
+          }
+        }
+      },
+      arcs: {
+        select: {
+          id: true,
+          fromPlace: true,
+          placeID: true,
+          transitionID: true
+        }
+      },
+      device: {
+        select: {
+          instances: {
+            select: {
+              id: true,
+              addr: true,
+              name: true
+            }
+          }
+        }
+      }
+    }
+
+  }).then((net) => {
+    if (!net) {
+      throw new Error("net not found");
+    }
+    return net;
   });
 }
 

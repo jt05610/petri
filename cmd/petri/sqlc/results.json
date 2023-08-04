@@ -1,0 +1,206 @@
+{
+  "FindUserByEmail": {
+    "id": "clku684vj00000g10daathnv1",
+    "email": "jonathan@petri.local",
+    "role": "ADMIN",
+    "createdAt": "2023-08-02T20:18:55.279Z",
+    "updatedAt": "2023-08-02T20:18:55.279Z"
+  },
+  "FindUserByID": {
+    "id": "clku684vj00000g10daathnv1",
+    "email": "jonathan@petri.local",
+    "role": "ADMIN",
+    "createdAt": "2023-08-02T20:18:55.279Z",
+    "updatedAt": "2023-08-02T20:18:55.279Z"
+  },
+  "ListNetsByAuthor": [
+    {
+      "id": "clku684vn00020g10f2p4btuy",
+      "name": "transfer syringe pump",
+      "description": "A syringe pump connected to a two-position three-way valve. \n      The three-way valve is connected to two separate containers, and fluid can \n      be transferred between the containers by switching the valve to the source \n      container, reloading the pump with the desired volume, switching the valve \n      to the destination container, and then dispensing the volume. The pump can \n      be reloaded and the process repeated.",
+      "initialMarking": [],
+      "createdAt": "2023-08-02T20:18:55.283Z",
+      "updatedAt": "2023-08-02T20:18:55.283Z",
+      "authorID": "clku684vj00000g10daathnv1",
+      "parentID": null,
+      "deviceId": null
+    },
+    {
+      "id": "clku684xk00130g10f0e37069",
+      "name": "syringe pump",
+      "description": "A syringe pump.",
+      "initialMarking": [],
+      "createdAt": "2023-08-02T20:18:55.307Z",
+      "updatedAt": "2023-08-02T20:18:55.307Z",
+      "authorID": "clku684vj00000g10daathnv1",
+      "parentID": "clku684vn00020g10f2p4btuy",
+      "deviceId": null
+    },
+    {
+      "id": "clku684xs001m0g10v46iaq9d",
+      "name": "syringe",
+      "description": "A syringe.",
+      "initialMarking": [],
+      "createdAt": "2023-08-02T20:18:55.360Z",
+      "updatedAt": "2023-08-02T20:18:55.360Z",
+      "authorID": "clku684vj00000g10daathnv1",
+      "parentID": "clku684vn00020g10f2p4btuy",
+      "deviceId": null
+    },
+    {
+      "id": "clku684xx001s0g10jbdmjq6b",
+      "name": "syringe",
+      "description": "A syringe.",
+      "initialMarking": [],
+      "createdAt": "2023-08-02T20:18:55.365Z",
+      "updatedAt": "2023-08-02T20:18:55.365Z",
+      "authorID": "clku684vj00000g10daathnv1",
+      "parentID": "clku684vn00020g10f2p4btuy",
+      "deviceId": null
+    },
+    {
+      "id": "clku684xz001y0g108qv20iet",
+      "name": "syringe",
+      "description": "A syringe.",
+      "initialMarking": [],
+      "createdAt": "2023-08-02T20:18:55.367Z",
+      "updatedAt": "2023-08-02T20:18:55.367Z",
+      "authorID": "clku684vj00000g10daathnv1",
+      "parentID": "clku684vn00020g10f2p4btuy",
+      "deviceId": null
+    },
+    {
+      "id": "clku684vs00060g102ngbfki0",
+      "name": "two-position three-way valve",
+      "description": "A valve with two ",
+      "initialMarking": [
+        1,
+        0,
+        0,
+        0,
+        0
+      ],
+      "createdAt": "2023-08-02T20:18:55.288Z",
+      "updatedAt": "2023-08-02T20:18:55.369Z",
+      "authorID": "clku684vj00000g10daathnv1",
+      "parentID": "clku684vn00020g10f2p4btuy",
+      "deviceId": "clku684y100240g107wow48py"
+    }
+  ],
+  "FindNetByID": {
+    "id": "clku684xk00130g10f0e37069",
+    "name": "syringe pump",
+    "description": "A syringe pump.",
+    "initialMarking": [],
+    "deviceId": null
+  },
+  "FindPlacesByNetID": [
+    {
+      "id": "clku684xl00140g102w2gghkl",
+      "name": "Unknown",
+      "bound": 1
+    },
+    {
+      "id": "clku684xl00150g10zq3wvj31",
+      "name": "Idle",
+      "bound": 1
+    },
+    {
+      "id": "clku684xl00160g10um52qhrc",
+      "name": "Dispensing",
+      "bound": 1
+    },
+    {
+      "id": "clku684xl00170g10f0zyplkv",
+      "name": "Reloading",
+      "bound": 1
+    },
+    {
+      "id": "clku684xl00180g106febaeth",
+      "name": "Flow syringe",
+      "bound": 1
+    }
+  ],
+  "FindTransitionsByNetID": [
+    {
+      "id": "clku684xl00190g10jfvfk8l7",
+      "name": "Initialized"
+    },
+    {
+      "id": "clku684xl001b0g10vmc085o5",
+      "name": "Dispensed"
+    },
+    {
+      "id": "clku684xl001d0g10b0w9kaoe",
+      "name": "Reloaded"
+    },
+    {
+      "id": "clku684xl001f0g10306sz9gh",
+      "name": "Stopped"
+    }
+  ],
+  "FindArcsByNetID": [],
+  "FindNetsByParentID": [],
+  "FindDevicesByUser": [
+    {
+      "id": "clku684y100240g107wow48py",
+      "name": "two position three way valve",
+      "description": "A two position three way valve."
+    }
+  ],
+  "FindNetsByDeviceID": [
+    {
+      "id": "clku684vs00060g102ngbfki0",
+      "name": "two-position three-way valve",
+      "description": "A valve with two ",
+      "initialMarking": [
+        1,
+        0,
+        0,
+        0,
+        0
+      ],
+      "deviceId": "clku684y100240g107wow48py"
+    }
+  ],
+  "FindInstancesByUserID": [
+    {
+      "id": "clku684y100260g108sq042l4",
+      "name": "valve",
+      "addr": "http://localhost:8080/valve"
+    }
+  ],
+  "FindInstancesByDeviceID": [],
+  "FindInstancesByAddr": [
+    {
+      "id": "clku684y100260g108sq042l4",
+      "name": "valve",
+      "addr": "http://localhost:8080/valve"
+    }
+  ],
+  "FindTransitionsWithNonNullEventsByNetID": [
+    {
+      "id": "clku684xl00190g10jfvfk8l7",
+      "name": "Initialized"
+    },
+    {
+      "id": "clku684xl001b0g10vmc085o5",
+      "name": "Dispensed"
+    },
+    {
+      "id": "clku684xl001d0g10b0w9kaoe",
+      "name": "Reloaded"
+    },
+    {
+      "id": "clku684xl001f0g10306sz9gh",
+      "name": "Stopped"
+    }
+  ],
+  "FindEventsByTransitionID": [
+    {
+      "id": "clku684xl001a0g10ad6lxdfy",
+      "name": "Initialize"
+    }
+  ],
+  "FindFieldsByEvent": []
+}

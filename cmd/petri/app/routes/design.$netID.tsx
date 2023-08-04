@@ -4,8 +4,6 @@ import { isRouteErrorResponse, NavLink, Outlet, useLoaderData, useRouteError } f
 import invariant from "tiny-invariant";
 import { getNet } from "~/models/net.server";
 import { requireUserId } from "~/session.server";
-import { MermaidDiagram } from "~/lib/components/mermaid";
-import { FormProvider} from "~/context/form";
 
 export const loader = async ({ params, request }: LoaderArgs) => {
   const authorID = await requireUserId(request);
@@ -41,25 +39,31 @@ function LinkList(props: LinkListProps) {
 
 export default function NetDetailsPage() {
   const data = useLoaderData<typeof loader>();
-  const clicked = (id: string, kind: "place" | "transition") => {
-
-  };
 
   return (
     <div className={"flex flex-row w-full h-full space-y-2"}>
-      <div className={"flex flex-col w-1/4 bg-slate-100 p-2"}>
+      <div className={"flex flex-col w-1/4 bg-slate-100 space-y-1 p-2"}>
         <h3 className="text-2xl font-bold">{data.net.name}</h3>
         <p className="py-6">{data.net.description}</p>
-        <hr />
-        <h3 className="text-2xl justify-start font-bold">Actions</h3>
-        <h4 className="text-xl font-bold">Create</h4>
-        <LinkList btnClass={"rounded bg-slate-600 text-white p-2"} routes={[
-          { name: "Places", path: "places" },
-          { name: "Transitions", path: "transitions" },
-          { name: "Arcs", path: "arcs" }
-        ]} />
-        <hr />
-        <Outlet />
+        <h3 className="text-2xl font-bold">Subsystems</h3>
+        <hr className="rounded-full border-2 border-slate-200" />
+        <div>
+          {data.net.children.map((child, i) => (
+            <div key={child.id}>
+              <NavLink to={`/design/${child.id}`}>{i + 1}. {child.name}</NavLink>
+            </div>
+          ))}
+        </div>
+        <h3 className="text-2xl font-bold">Actions</h3>
+        <hr className="rounded-full border-2 border-slate-200" />
+        <div>
+          <LinkList btnClass={"rounded bg-slate-600 text-white p-2"} routes={[
+            { name: "Places", path: "places" },
+            { name: "Transitions", path: "transitions" },
+            { name: "Arcs", path: "arcs" },
+          ]} />
+          <Outlet />
+        </div>
       </div>
       <div className="flex flex-col w-full h-full items-center">
       </div>

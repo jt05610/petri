@@ -28,7 +28,7 @@ declare global {
       cleanupUser: typeof cleanupUser;
 
       /**
-       * Extends the standard visit command to wait for the page to load
+       * Extends the standard visit command.ts to wait for the page to load
        *
        * @returns {typeof visitAndCheck}
        * @memberof Chainable

@@ -8,13 +8,13 @@ export const PlaceFormSchema = z.object({
     z.number().gt(0).positive()
   ),
   description: z.string().optional(),
-  netID: z.string().uuid()
+  netID: z.string().cuid()
 });
 export const PlaceInputSchema = z.object({
   name: z.string(),
   bound: z.number().gt(0).positive(),
   description: z.string().optional(),
-  netID: z.string().uuid()
+  netID: z.string().cuid()
 });
 
 export type PlaceInput = z.infer<typeof PlaceInputSchema>;
@@ -95,7 +95,7 @@ export async function addPlace(place: PlaceInput) {
 }
 
 export const UpdatePlaceFormSchema = z.object({
-  id: z.string().uuid(),
+  id: z.string().cuid(),
   name: z.string().optional(),
   bound: z.preprocess(
     (bound) => parseInt(z.string().parse(bound), 10),
@@ -105,7 +105,7 @@ export const UpdatePlaceFormSchema = z.object({
 });
 
 export const UpdatePlaceInputSchema = z.object({
-  id: z.string().uuid(),
+  id: z.string().cuid(),
   name: z.string().optional(),
   bound: z.number().gt(0).positive(),
   description: z.string().optional()

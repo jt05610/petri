@@ -3,7 +3,7 @@ import { prisma } from "~/db.server";
 import { z } from "zod";
 
 export const TransitionInputSchema = z.object({
-  netID: z.string().uuid(),
+  netID: z.string().cuid(),
   name: z.string(),
   description: z.string().optional(),
   condition: z.string().optional()
@@ -130,7 +130,7 @@ export async function addTransition(input: TransitionInput) {
 }
 
 export const UpdateTransitionSchema = z.object({
-  id: z.string().uuid(),
+  id: z.string().cuid(),
   name: z.string(),
   description: z.string().optional(),
   condition: z.string().optional()

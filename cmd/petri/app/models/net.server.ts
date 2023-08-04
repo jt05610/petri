@@ -4,7 +4,7 @@ import { z } from "zod";
 
 export const NetInputSchema = z.object({
   name: z.string(),
-  authorID: z.string().uuid(),
+  authorID: z.string().cuid(),
   description: z.string()
 });
 
@@ -22,7 +22,7 @@ export async function createNet(input: NetInput) {
 }
 
 export const NetUpdateSchema = z.object({
-  id: z.string().uuid().optional(),
+  id: z.string().cuid().optional(),
   name: z.string().optional(),
   description: z.string().optional()
 });

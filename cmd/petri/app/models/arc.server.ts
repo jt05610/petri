@@ -3,17 +3,17 @@ import { prisma } from "~/db.server";
 import { z } from "zod";
 
 export const ArcInputFormSchema = z.object({
-  netID: z.string().uuid(),
-  placeID: z.string().uuid(),
-  transitionID: z.string().uuid(),
+  netID: z.string().cuid(),
+  placeID: z.string().cuid(),
+  transitionID: z.string().cuid(),
   fromPlace: z.preprocess((val) => {
     return val === "true" || val === "on";
   }, z.boolean())
 });
 export const ArcInputSchema = z.object({
-  netID: z.string().uuid(),
-  placeID: z.string().uuid(),
-  transitionID: z.string().uuid(),
+  netID: z.string().cuid(),
+  placeID: z.string().cuid(),
+  transitionID: z.string().cuid(),
   fromPlace: z.boolean()
 });
 
@@ -44,19 +44,19 @@ export async function addArc(input: ArcInput) {
 }
 
 export const ArcUpdateSchema = z.object({
-  id: z.string().uuid().optional(),
+  id: z.string().cuid().optional(),
   fromPlace: z.boolean().optional(),
-  placeID: z.string().uuid().optional(),
-  transitionID: z.string().uuid().optional()
+  placeID: z.string().cuid().optional(),
+  transitionID: z.string().cuid().optional()
 });
 
 export const ArcUpdateFormSchema = z.object({
-  id: z.string().uuid().optional(),
+  id: z.string().cuid().optional(),
   fromPlace: z.preprocess((val) => {
     return val === "true" || val === "on";
   }, z.boolean()),
-  placeID: z.string().uuid().optional(),
-  transitionID: z.string().uuid().optional()
+  placeID: z.string().cuid().optional(),
+  transitionID: z.string().cuid().optional()
 });
 export type ArcUpdate = z.infer<typeof ArcUpdateSchema>;
 
@@ -86,7 +86,7 @@ export type ArcDetails = Pick<Arc, "id" | "fromPlace" | "createdAt" | "updatedAt
 }
 
 export const GetArcSchema = z.object({
-  id: z.string().uuid()
+  id: z.string().cuid()
 });
 
 export type GetArcInput = z.infer<typeof GetArcSchema>
@@ -127,7 +127,7 @@ export type ArcListItem = Pick<Arc, "id" | "fromPlace"> & {
 }
 
 export const ListArcsSchema = z.object({
-  netID: z.string().uuid()
+  netID: z.string().cuid()
 });
 
 export type ListArcsInput = z.infer<typeof ListArcsSchema>

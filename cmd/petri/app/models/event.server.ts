@@ -8,7 +8,7 @@ export const EventFieldSchema = z.object({
   type: z.string()
 });
 export const EventInputSchema = z.object({
-  transitionID: z.string().uuid(),
+  transitionID: z.string().cuid(),
   name: z.string(),
   description: z.string().optional(),
   fields: z.array(EventFieldSchema)
@@ -35,7 +35,7 @@ export async function addEvent(input: EventInput) {
 }
 
 export const UpdateEventSchema = z.object({
-  id: z.string().uuid().optional(),
+  id: z.string().cuid().optional(),
   name: z.string().optional(),
   description: z.string().optional(),
   fields: z.array(EventFieldSchema)
@@ -54,7 +54,7 @@ export async function updateEvent(input: EventUpdate) {
 }
 
 export const GetEventSchema = z.object({
-  id: z.string().uuid()
+  id: z.string().cuid()
 });
 
 export type GetEventInput = z.infer<typeof GetEventSchema>;
@@ -95,7 +95,7 @@ export async function getEvent(input: GetEventInput): Promise<EventDetails> {
 }
 
 export const ListEventsSchema = z.object({
-  transitionID: z.string().uuid()
+  transitionID: z.string().cuid()
 });
 
 export type ListEventsInput = z.infer<typeof ListEventsSchema>;
@@ -121,7 +121,7 @@ export async function listEvents(input: ListEventsInput): Promise<EventListItem[
 }
 
 export const DeleteEventSchema = z.object({
-  id: z.string().uuid()
+  id: z.string().cuid()
 });
 
 export type DeleteEventInput = z.infer<typeof DeleteEventSchema>;

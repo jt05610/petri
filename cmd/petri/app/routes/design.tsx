@@ -6,8 +6,6 @@ import { requireUserId } from "~/session.server";
 import { getNetListItems } from "~/models/net.server";
 import { getUserById } from "~/models/user.server";
 import Header from "~/lib/components/header";
-import { NetListContext } from "~/context/netList";
-import { NetProvider } from "~/context/net";
 
 
 

@@ -1,62 +1,126 @@
-import {
-  materialRenderers,
-  materialCells
-} from "@jsonforms/material-renderers";
-
-import type { JsonSchema, UISchemaElement } from "@jsonforms/core";
-import { JsonForms } from "@jsonforms/react";
-import { useSubmit } from "@remix-run/react";
-import type { HTMLFormMethod } from "@remix-run/router";
-import { useContext } from "react";
-import { FormContext, FormSetterContext } from "~/context/form";
-
-type Props = {
-  netID: string
-  schema: JsonSchema,
-  ui?: UISchemaElement
-  method: HTMLFormMethod
-  buttons: {
-    label: string
-    route?: string
-    color?: string
+type FormProps = {
+  activeButton?: boolean;
+  fields: {
+    name: string;
+    content?: string;
+    type: "text" | "textarea" | "select" | "checkbox" | "radio" | "number";
+    options?: {value: string, display: string}[];
+    error?: string;
   }[]
 }
 
-export function Form(props: Props) {
-  const data = useContext(FormContext);
-  const setter = useContext(FormSetterContext);
-  const submit = useSubmit();
-
-  function onSubmit(route?: string) {
-    if (!route) {
-      route = "";
-    }
-    submit(data, { method: props.method, action: route, encType: "application/json" });
-  }
+export default function FormContent(props: FormProps) {
 
   return (
-    <div>
-      <JsonForms
-        schema={props.schema}
-        data={data}
-        uischema={props.ui}
-        renderers={materialRenderers}
-        cells={materialCells}
-        onChange={({ data }) => setter!(data)}
-      />
-      <div className="flex flex-row justify-between">
-        {props.buttons.map(({ label, route, color }, i) => (
-          <button
-            key={i}
-            className={`rounded bg-${color ? color : "blue-500"} px-4 py-2 text-white hover:bg-blue-600 focus:bg-blue-400`}
-            onClick={() => {
-              onSubmit(route);
-            }}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+    <div className={`flex flex-col space-y-2`}>
+      {props.fields.map((field, i) => (
+        <div
+          key={i}
+          className={`flex flex-col space-y-1 form-field ${field.type === "checkbox" ? "form-field-checkbox" : ""}`}
+        >
+          <div className={`flex flex-row justify-between`}>
+            <label htmlFor={field.name}>
+              {field.name}:{" "}
+            </label>
+            {field.error ? (
+              <p
+                className="form-validation-error text-amber-600"
+                id={`${field.name}-error`}
+                role="alert"
+              >
+                {field.error}
+              </p>
+            ) : null}
+          </div>
+          {field.type === "textarea" ? (
+            <textarea
+              defaultValue={field.content}
+              name={field.name}
+              aria-invalid={Boolean(field.error)}
+              aria-errormessage={
+                field.error
+                  ? `${field.name}-error`
+                  : undefined
+              }
+              className={`rounded-lg px-2`}
+            />
+          ) : field.type === "select" ? (
+            <select
+              defaultValue={field.content}
+              name={field.name}
+              aria-invalid={Boolean(field.error)}
+              aria-errormessage={
+                field.error
+                  ? `${field.name}-error`
+                  : undefined
+              }
+              className={`rounded-full px-2`}
+            >
+              {field.options?.map(({value, display}, i) => (
+                <option key={i} value={value}>
+                  {display}
+                </option>
+              ))}
+            </select>
+          ) : field.type === "checkbox" ? (
+            <input
+              defaultChecked={field.content === "true"}
+              name={field.name}
+              type={field.type}
+              aria-invalid={Boolean(field.error)}
+              aria-errormessage={
+                field.error
+                  ? `${field.name}-error`
+                  : undefined
+              }
+              className={`rounded-lg`}
+            />
+          ) : field.type === "radio" ? (
+            <input
+              defaultChecked={field.content === "true"}
+              name={field.name}
+              type={field.type}
+              aria-invalid={Boolean(field.error)}
+              aria-errormessage={
+                field.error
+                  ? `${field.name}-error`
+                  : undefined
+              }
+            />
+          ) : field.type === "number" ? (
+            <input
+              defaultValue={field.content}
+              name={field.name}
+              type={field.type}
+              aria-invalid={Boolean(field.error)}
+              aria-errormessage={
+                field.error
+                  ? `${field.name}-error`
+                  : undefined
+              }
+              className={`rounded-full px-2`}
+            />
+          ) : (
+            <input
+              defaultValue={field.content}
+              name={field.name}
+              type={field.type}
+              aria-invalid={Boolean(field.error)}
+              aria-errormessage={
+                field.error
+                  ? `${field.name}-error`
+                  : undefined
+              }
+              className={`rounded-full px-2`}
+            />
+          )}
+        </div>
+      ))}
+      <button
+        type="submit"
+        className={`rounded-full text-white py-2 px-4 bg-slate-700 ${(props.activeButton !== undefined && !props.activeButton) ? "disabled cursor-not-allowed" : ""}`}
+      >Submit
+      </button>
     </div>
   );
 }

@@ -5,41 +5,13 @@ import (
 	"io"
 )
 
-// Transition represents a transition
-type Transition struct {
-	ID   string
-	Name string
-}
+var ErrWrongInput = errors.New("wrong input")
+var ErrWrongUpdate = errors.New("wrong update")
 
-func (t *Transition) Kind() NodeKind { return TransitionNode }
-
-func (t *Transition) String() string { return t.Name }
-
-func NewTransition(id, name string) *Transition {
-	return &Transition{
-		ID:   id,
-		Name: name,
-	}
-}
-
-// Place represents a place
-type Place struct {
-	ID    string
-	Name  string
-	Bound int
-}
-
-func NewPlace(id, name string, bound int) *Place {
-	return &Place{
-		ID:    id,
-		Name:  name,
-		Bound: bound,
-	}
-}
-
-func (p *Place) Kind() NodeKind { return PlaceNode }
-
-func (p *Place) String() string { return p.Name }
+var _ Object = (*Net)(nil)
+var _ Input = (*NetInput)(nil)
+var _ Update = (*NetUpdate)(nil)
+var _ Filter = (*NetFilter)(nil)
 
 // Net struct
 type Net struct {
@@ -52,12 +24,77 @@ type Net struct {
 	outputs     map[string][]*Arc
 }
 
+func (p *Net) Init(id string, input Input) error {
+	in, ok := input.(*NetInput)
+	if !ok {
+		return ErrWrongInput
+	}
+	p.ID = id
+	p.Name = in.Name
+	p.Places = in.Places
+	p.Transitions = in.Transitions
+	p.Arcs = in.Arcs
+	p.inputs = make(map[string][]*Arc)
+	p.outputs = make(map[string][]*Arc)
+	for _, arc := range p.Arcs {
+		if _, ok := p.outputs[arc.Src.Identifier()]; !ok {
+			p.outputs[arc.Src.Identifier()] = make([]*Arc, 0)
+		}
+		p.outputs[arc.Src.Identifier()] = append(p.outputs[arc.Src.Identifier()], arc)
+		if _, ok := p.inputs[arc.Dest.Identifier()]; !ok {
+			p.inputs[arc.Dest.Identifier()] = make([]*Arc, 0)
+		}
+		p.inputs[arc.Dest.Identifier()] = append(p.inputs[arc.Dest.Identifier()], arc)
+	}
+	return nil
+}
+
+func (p *Net) Update(update Update) error {
+	u, ok := update.(*NetUpdate)
+	if !ok {
+		return ErrWrongUpdate
+	}
+	if u.Mask.Name {
+		p.Name = u.Input.Name
+	}
+	if u.Mask.Places {
+		p.Places = u.Input.Places
+	}
+	if u.Mask.Transitions {
+		p.Transitions = u.Input.Transitions
+	}
+	if u.Mask.Arcs {
+		p.Arcs = u.Input.Arcs
+	}
+	p.inputs = make(map[string][]*Arc)
+	p.outputs = make(map[string][]*Arc)
+	for _, arc := range p.Arcs {
+		if _, ok := p.outputs[arc.Src.Identifier()]; !ok {
+			p.outputs[arc.Src.Identifier()] = make([]*Arc, 0)
+		}
+		p.outputs[arc.Src.Identifier()] = append(p.outputs[arc.Src.Identifier()], arc)
+		if _, ok := p.inputs[arc.Dest.Identifier()]; !ok {
+			p.inputs[arc.Dest.Identifier()] = make([]*Arc, 0)
+		}
+		p.inputs[arc.Dest.Identifier()] = append(p.inputs[arc.Dest.Identifier()], arc)
+	}
+	return nil
+}
+
+func (p *Net) Identifier() string {
+	return p.ID
+}
+
+func (p *Net) String() string {
+	return p.Name
+}
+
 func (p *Net) Arc(head, tail Node) *Arc {
-	if _, ok := p.outputs[head.String()]; !ok {
+	if _, ok := p.outputs[head.Identifier()]; !ok {
 		return nil
 	}
-	for _, arc := range p.outputs[head.String()] {
-		if arc.Dest.String() == tail.String() {
+	for _, arc := range p.outputs[head.Identifier()] {
+		if arc.Dest.Identifier() == tail.Identifier() {
 			return arc
 		}
 	}
@@ -66,15 +103,21 @@ func (p *Net) Arc(head, tail Node) *Arc {
 
 func (p *Net) Inputs(n Node) []*Arc {
 	var inputs []*Arc
-	for _, o := range p.inputs[n.String()] {
+	for _, o := range p.inputs[n.Identifier()] {
 		inputs = append(inputs, o)
 	}
 	return inputs
 }
 
+type Node interface {
+	Kind() Kind
+	Identifier() string
+	IsNode()
+}
+
 func (p *Net) Outputs(n Node) []*Arc {
 	var outputs []*Arc
-	for _, o := range p.outputs[n.String()] {
+	for _, o := range p.outputs[n.Identifier()] {
 		outputs = append(outputs, o)
 	}
 	return outputs
@@ -92,14 +135,14 @@ func (p *Net) AddArc(from, to Node) (*Arc, error) {
 		Dest: to,
 	}
 	p.Arcs = append(p.Arcs, a)
-	if _, ok := p.outputs[from.String()]; !ok {
-		p.outputs[from.String()] = make([]*Arc, 0)
+	if _, ok := p.outputs[from.Identifier()]; !ok {
+		p.outputs[from.Identifier()] = make([]*Arc, 0)
 	}
-	p.outputs[from.String()] = append(p.outputs[from.String()], a)
-	if _, ok := p.inputs[to.String()]; !ok {
-		p.inputs[to.String()] = make([]*Arc, 0)
+	p.outputs[from.Identifier()] = append(p.outputs[from.Identifier()], a)
+	if _, ok := p.inputs[to.Identifier()]; !ok {
+		p.inputs[to.Identifier()] = make([]*Arc, 0)
 	}
-	p.inputs[to.String()] = append(p.inputs[to.String()], a)
+	p.inputs[to.Identifier()] = append(p.inputs[to.Identifier()], a)
 	return a, nil
 }
 
@@ -122,17 +165,19 @@ func New(places []*Place, transitions []*Transition, arcs []*Arc, id ...string) 
 		outputs:     make(map[string][]*Arc),
 	}
 	for _, arc := range arcs {
-		if _, ok := net.outputs[arc.Src.String()]; !ok {
-			net.outputs[arc.Src.String()] = make([]*Arc, 0)
+		if _, ok := net.outputs[arc.Src.Identifier()]; !ok {
+			net.outputs[arc.Src.Identifier()] = make([]*Arc, 0)
 		}
-		net.outputs[arc.Src.String()] = append(net.outputs[arc.Src.String()], arc)
-		if _, ok := net.inputs[arc.Dest.String()]; !ok {
-			net.inputs[arc.Dest.String()] = make([]*Arc, 0)
+		net.outputs[arc.Src.Identifier()] = append(net.outputs[arc.Src.Identifier()], arc)
+		if _, ok := net.inputs[arc.Dest.Identifier()]; !ok {
+			net.inputs[arc.Dest.Identifier()] = make([]*Arc, 0)
 		}
-		net.inputs[arc.Dest.String()] = append(net.inputs[arc.Dest.String()], arc)
+		net.inputs[arc.Dest.Identifier()] = append(net.inputs[arc.Dest.Identifier()], arc)
 	}
 	return net
 }
+
+func (p *Net) Kind() Kind { return NetObject }
 
 type Loader[T any] interface {
 	Load(io.Reader) (T, error)
@@ -142,50 +187,11 @@ type Flusher[T any] interface {
 	Flush(io.Writer, T) error
 }
 
-type TransitionInput struct {
-	Name string
-}
-
-type TransitionMask struct {
-	Name bool
-}
-
-type TransitionUpdate struct {
-	Input *TransitionInput
-	Mask  *TransitionMask
-}
-
-type TransitionFilter struct {
-	Name string
-	*TransitionMask
-}
-
-type PlaceInput struct {
-	Name  string
-	Bound int
-}
-
-type PlaceMask struct {
-	Name  bool
-	Bound bool
-}
-
-type PlaceFilter struct {
-	Name  string
-	Bound int
-	*PlaceMask
-}
-
-type PlaceUpdate struct {
-	Input *PlaceInput
-	Mask  *PlaceMask
-}
-
 type NetInput struct {
 	Name        string
-	Places      []*PlaceInput
-	Transitions []*TransitionInput
-	Arcs        []*ArcInput
+	Arcs        []*Arc
+	Places      []*Place
+	Transitions []*Transition
 }
 
 type NetMask struct {
@@ -208,42 +214,63 @@ type NetFilter struct {
 	Arcs        []string
 }
 
-type Getter[T any] interface {
-	Get(id string) (*T, error)
+type Getter interface {
+	Get(id string) (Object, error)
 }
 
-type Lister[T, F any] interface {
-	List(T, F) ([]*T, error)
+type Lister interface {
+	List(f Filter) ([]Object, error)
 }
 
-type Adder[T, U any] interface {
-	Add(t *T) (*U, error)
+type Input interface {
+	IsInput()
 }
 
-type Remover[T any] interface {
-	Remove(id string) (*T, error)
+type Kind int
+
+const (
+	PlaceObject Kind = iota
+	TransitionObject
+	ArcObject
+	NetObject
+)
+
+type Object interface {
+	Kind() Kind
+	Identifier() string
+	String() string
+	Update(update Update) error
+	Init(id string, input Input) error
 }
 
-type Updater[T, U any] interface {
-	Update(id string, update *T) (*U, error)
+type Update interface {
+	IsUpdate()
 }
 
-type Service[I, U, T, F any] interface {
-	Getter[T]
-	Lister[T, F]
-	Adder[I, T]
-	Remover[T]
-	Updater[U, T]
+type Filter interface {
+	IsFilter()
 }
 
-type NetService interface {
-	Service[NetInput, NetUpdate, Net, NetFilter]
+type Adder interface {
+	Add(Input) (Object, error)
 }
 
-type PlaceService interface {
-	Service[PlaceInput, PlaceUpdate, Place, PlaceFilter]
+type Remover interface {
+	Remove(id string) (Object, error)
 }
 
-type TransitionService interface {
-	Service[TransitionInput, TransitionMask, Transition, TransitionFilter]
+type Updater interface {
+	Update(id string, update Update) (Object, error)
 }
+
+type Service interface {
+	Updater
+	Getter
+	Lister
+	Adder
+	Remover
+}
+
+func (n *NetInput) IsInput()   {}
+func (n *NetUpdate) IsUpdate() {}
+func (n *NetFilter) IsFilter() {}

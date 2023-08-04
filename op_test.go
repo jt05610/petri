@@ -36,7 +36,7 @@ func ExampleAdd() {
 	if len(combined.Places) > 3 {
 		panic("too many places")
 	}
-	fmt.Println("Places")
+	fmt.Println("PlaceNames")
 	for i, place := range combined.Places {
 		if place.Name != "a" && place.Name != "c" && place.Name != "d" {
 			panic("unexpected place")
@@ -47,7 +47,7 @@ func ExampleAdd() {
 	if len(combined.Transitions) > 1 {
 		panic("too many transitions")
 	}
-	fmt.Println("Transitions")
+	fmt.Println("TransitionNames")
 	fmt.Println("1. ", combined.Transitions[0].Name)
 
 	if len(combined.Arcs) > 3 {
@@ -58,11 +58,11 @@ func ExampleAdd() {
 		fmt.Printf("%s\n", arc)
 	}
 	// Output:
-	// Places
+	// PlaceNames
 	// 1. a
 	// 2. c
 	// 3. d
-	// Transitions
+	// TransitionNames
 	// 1.  b
 	// Arcs
 	// a -> b

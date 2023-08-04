@@ -1,0 +1,42 @@
+syntax = "proto3";
+
+package valve;
+
+option go_package = "github.com/jt05610/petri/devices/valve/proto/v1/valve";
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/any.proto";
+
+message State {
+  int32 a = 1;
+  int32 b = 2;
+}
+
+message ValveStateResponse {
+  State state = 1;
+}
+
+enum Command {
+  OpenA = 0;
+  CloseA = 1;
+}
+
+enum Event {
+  OpenedA = 0;
+  ClosedA = 1;
+}
+
+message ValveEvent {
+  Event event = 1;
+  google.protobuf.Any data = 2;
+}
+
+message ValveCommand {
+  Command command = 1;
+  google.protobuf.Any data = 2;
+}
+
+service ValveService {
+  rpc GetState (google.protobuf.Empty) returns (ValveStateResponse);
+  rpc Control (stream ValveCommand) returns (stream ValveEvent);
+}

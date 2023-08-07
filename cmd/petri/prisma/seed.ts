@@ -7,15 +7,12 @@ async function seed() {
   const email = "jonathan@petri.local";
 
   // cleanup the existing database
-  await prisma.user.delete({
-    where: {
-      email
-    }
-  }).catch(() => {
+  await prisma.user.deleteMany({}).catch(() => {
     // no worries if it doesn't exist yet
   });
 
   const hashedPassword = await bcrypt.hash("jonathaniscool", 10);
+
   const user = await prisma.user.create({
     data: {
       email,
@@ -52,6 +49,10 @@ async function seed() {
           }
         ]
       }
+    },
+    include: {
+      places: true,
+      transitions: true
     }
   });
 
@@ -125,19 +126,31 @@ async function seed() {
       }
     },
     include: {
-      places: true,
-      transitions: true
+      places: {
+        select: {
+          id: true,
+          name: true
+        }
+      },
+      transitions: {
+        select: {
+          id: true,
+          name: true
+        }
+      }
     }
   });
 
-  async function join({ netID, placeName, transitionName, fromPlace }: {
+  async function join({ netID, placeName, transitionName, fromPlace, places, transitions }: {
     netID: string,
     fromPlace: boolean,
     placeName: string,
-    transitionName: string
+    transitionName: string,
+    places: (typeof valve.places)
+    transitions: (typeof valve.transitions)
   }) {
-    const placeID = valve.places.find(place => place.name === placeName)?.id;
-    const transitionID = valve.transitions.find(transition => transition.name === transitionName)?.id;
+    const placeID = places.find(place => place.name === placeName)?.id;
+    const transitionID = transitions.find(transition => transition.name === transitionName)?.id;
     if (placeID && transitionID) {
       return await prisma.arc.create({
         data: {
@@ -150,7 +163,11 @@ async function seed() {
     }
   }
 
-  const arcs: { fromPlace: boolean, placeName: string, transitionName: string }[] = [
+  const arcs: {
+    fromPlace: boolean,
+    placeName: string,
+    transitionName: string
+  }[] = [
     {
       fromPlace: true,
       placeName: "Position A",
@@ -213,7 +230,16 @@ async function seed() {
     }
   ];
 
-  arcs.forEach(arc => join({ netID: valve.id, ...arc }));
+  for (let arc of arcs) {
+    await join({
+      netID: valve.id,
+      fromPlace: arc.fromPlace,
+      placeName: arc.placeName,
+      transitionName: arc.transitionName,
+      places: valve.places,
+      transitions: valve.transitions
+    });
+  }
 
   const pump = await prisma.net.create({
     data: {
@@ -221,6 +247,7 @@ async function seed() {
       description: "A syringe pump.",
       authorID: user.id,
       parentID: mainNet.id,
+      initialMarking: [1, 0, 0, 0],
       places: {
         create: [
           {
@@ -234,13 +261,8 @@ async function seed() {
             bound: 1
           },
           {
-            name: "Dispensing",
+            name: "Pumping",
             description: "The pump is dispensing.",
-            bound: 1
-          },
-          {
-            name: "Reloading",
-            description: "The pump is reloading.",
             bound: 1
           },
           {
@@ -263,22 +285,22 @@ async function seed() {
             }
           },
           {
-            name: "Dispensed",
-            description: "Fluid was dispensed.",
+            name: "Pumped",
+            description: "Fluid was pumped.",
             events: {
               create: [{
-                name: "Dispense",
-                description: "Dispense fluid."
-              }]
-            }
-          },
-          {
-            name: "Reloaded",
-            description: "The pump was reloaded.",
-            events: {
-              create: [{
-                name: "Reload",
-                description: "Reload the pump."
+                name: "Pump",
+                description: "Pump fluid.",
+                fields: {
+                  create: [{
+                    name: "Volume",
+                    type: "number"
+                  },
+                    {
+                      name: "Rate",
+                      type: "number"
+                    }]
+                }
               }]
             }
           },
@@ -301,7 +323,11 @@ async function seed() {
     }
   });
 
-  const pumpArcs: { fromPlace: boolean, placeName: string, transitionName: string }[] = [
+  const pumpArcs: {
+    fromPlace: boolean,
+    placeName: string,
+    transitionName: string
+  }[] = [
     {
       fromPlace: true,
       placeName: "Unknown",
@@ -315,31 +341,16 @@ async function seed() {
     {
       fromPlace: true,
       placeName: "Idle",
-      transitionName: "Dispensed"
+      transitionName: "Pumped"
     },
     {
       fromPlace: false,
-      placeName: "Dispensing",
-      transitionName: "Dispensed"
+      placeName: "Pumping",
+      transitionName: "Pumped"
     },
     {
       fromPlace: true,
-      placeName: "Dispensing",
-      transitionName: "Stopped"
-    },
-    {
-      fromPlace: true,
-      placeName: "Idle",
-      transitionName: "Reloaded"
-    },
-    {
-      fromPlace: false,
-      placeName: "Reloading",
-      transitionName: "Reloaded"
-    },
-    {
-      fromPlace: true,
-      placeName: "Reloading",
+      placeName: "Pumping",
       transitionName: "Stopped"
     },
     {
@@ -348,75 +359,149 @@ async function seed() {
       transitionName: "Stopped"
     },
     {
-      fromPlace: true,
+      fromPlace: false,
       placeName: "Flow syringe",
       transitionName: "Stopped"
     }
   ];
 
-  pumpArcs.forEach(arc => join({ netID: pump.id, ...arc }));
-
-  let syringes = [];
-  for (let i = 0; i < 3; i++) {
-
-    const syringe = await prisma.net.create({
-      data: {
-        name: "syringe",
-        description: "A syringe.",
-        authorID: user.id,
-        parentID: mainNet.id,
-        places: {
-          create: [
-            {
-              name: "Solution",
-              description: "The syringe contains solution.",
-              bound: 1
-            },
-            {
-              name: "Flow",
-              description: "Fluid is flowing through the syringe.",
-              bound: 1
-            }
-          ]
-        },
-        transitions: {
-          create: [
-            {
-              name: "Flowed",
-              description: "Fluid flowed through the syringe.",
-              events: {
-                create: [{
-                  name: "Flow",
-                  description: "Flow fluid through the syringe."
-                }]
-              }
-            }
-          ]
-        }
-      },
-      include: {
-        places: true,
-        transitions: true
-      }
+  for (let arc of pumpArcs) {
+    await join({
+      netID: pump.id,
+      places: pump.places,
+      transitions: pump.transitions,
+      ...arc
     });
-
-    const syringeArcs: { fromPlace: boolean, placeName: string, transitionName: string }[] = [
-      {
-        fromPlace: false,
-        placeName: "Solution",
-        transitionName: "Flowed"
-      },
-      {
-        fromPlace: true,
-        placeName: "Flow",
-        transitionName: "Flowed"
-      }
-    ];
-
-    syringeArcs.forEach(arc => join({ netID: syringe.id, ...arc }));
-    syringes.push(syringe);
   }
 
+
+  const syringe = await prisma.net.create({
+    data: {
+      name: "syringe",
+      description: "A syringe.",
+      authorID: user.id,
+      parentID: mainNet.id,
+      places: {
+        create: [
+          {
+            name: "Solution",
+            description: "The syringe contains solution.",
+            bound: 1
+          },
+          {
+            name: "Flow",
+            description: "Fluid is flowing through the syringe.",
+            bound: 1
+          }
+        ]
+      },
+      transitions: {
+        create: [
+          {
+            name: "Flowed",
+            description: "Fluid flowed through the syringe."
+          }
+        ]
+      }
+    },
+    include: {
+      places: true,
+      transitions: true
+    }
+  });
+
+  const syringeArcs: {
+    fromPlace: boolean,
+    placeName: string,
+    transitionName: string
+  }[] = [
+    {
+      fromPlace: true,
+      placeName: "Solution",
+      transitionName: "Flowed"
+    },
+    {
+      fromPlace: false,
+      placeName: "Flow",
+      transitionName: "Flowed"
+    }
+  ];
+  for (let arc of syringeArcs) {
+    await join({
+      netID: syringe.id,
+      places: syringe.places,
+      transitions: syringe.transitions,
+      ...arc
+    });
+  }
+
+  await prisma.net.update({
+    where: {
+      id: mainNet.id
+    },
+    data: {
+      placeInterfaces: {
+        create: [
+          {
+            name: "Flow through syringe",
+            bound: 1,
+            places: {
+              connect: [
+                {
+                  id: syringe.places.find(place => place.name === "Solution")!.id
+                },
+                {
+                  id: pump.places.find(place => place.name === "Flow syringe")!.id
+                }
+              ]
+            }
+          },
+          {
+            name: "Flow through main",
+            bound: 1,
+            places: {
+              connect: [
+                {
+                  id: syringe.places.find(place => place.name === "Flow")!.id
+                },
+                {
+                  id: valve.places.find(place => place.name === "Flow main")!.id
+                }
+              ]
+            }
+          },
+          {
+            name: "Flow through inlet",
+            bound: 1,
+            places: {
+              connect: [
+                {
+                  id: valve.places.find(place => place.name === "Flow A")!.id
+                },
+                {
+                  id: mainNet.places.find(place => place.name === "source")!.id
+                }
+              ]
+            }
+          },
+          {
+            name: "Flow through outlet",
+            bound: 1,
+            places: {
+              connect: [
+                {
+                  id: valve.places.find(place => place.name === "Flow B")!.id
+                },
+                {
+                  id: mainNet.places.find(place => place.name === "destination")!.id
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  });
   await prisma.device.create({
     data: {
       name: "two position three way valve",
@@ -435,7 +520,31 @@ async function seed() {
             authorID: user.id,
             name: "valve",
             language: "GO",
-            addr: "http://localhost:8080/valve",
+            addr: "http://localhost:8080/valve"
+          }
+        ]
+      }
+    }
+  });
+  await prisma.device.create({
+    data: {
+      name: "syringe pump",
+      description: "A syringe pump.",
+      authorID: user.id,
+      nets: {
+        connect: [
+          {
+            id: pump.id
+          }
+        ]
+      },
+      instances: {
+        create: [
+          {
+            authorID: user.id,
+            name: "pump",
+            language: "GO",
+            addr: "http://localhost:8080/pump"
           }
         ]
       }

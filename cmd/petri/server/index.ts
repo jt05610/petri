@@ -11,7 +11,7 @@ import { listen } from "./rabbitmq.listener";
 import { publisher } from "./amqp.publisher";
 import invariant from "tiny-invariant";
 import type amqp from "amqplib/callback_api";
-import type { Command} from "./command";
+import type { Command } from "./command";
 import { CommandSchema } from "./command";
 
 dotenv.config();
@@ -40,16 +40,9 @@ const exchange = process.env.RABBITMQ_EXCHANGE;
 // from a client
 
 io.on("connection", async (socket) => {
-  const handleRecv = (msg: amqp.Message | null) => {
-    if (!msg) return;
-    console.log(" [x] %s:'%s'", msg.fields.routingKey, msg!.content.toString());
-    const [deviceID, event] = msg.fields.routingKey.toString().split(".");
-    console.log(deviceID, event);
-    socket.emit("event", { deviceID, event, message: msg!.content.toJSON() });
-  };
-  const routingKey = (id: string, name: string) => id + "." + name.replace(/\s/g, "_").toLowerCase();
 
-  listen(handleRecv);
+  const routingKey = (id: string, name: string) => id + ".commands." + name.replace(/\s/g, "_").toLowerCase();
+
   const channel = await publisher;
   // from this point you are on the WS connection with a specific client
   console.log(socket.id, "connected");
@@ -57,8 +50,17 @@ io.on("connection", async (socket) => {
   socket.on("event", async (cmd: Command) => {
     const { deviceID, data, command } = CommandSchema.parse(cmd);
     channel.publish(exchange, routingKey(deviceID, command), data ? Buffer.from(JSON.stringify(data)) : Buffer.from(""));
-    console.log(socket.id, data);
+    console.log(" [x] Sent %s:'%s'", routingKey(deviceID, command), data ? JSON.stringify(data) : "");
   });
+});
+
+listen((msg: amqp.Message | null) => {
+  if (!msg) return;
+  const rk = msg.fields.routingKey;
+  console.log(" [x] %s:'%s'", rk, msg!.content.toString());
+  const [deviceID, kind, event] = msg.fields.routingKey.toString().split(".");
+  console.log(deviceID, kind, event);
+  io.emit(kind.slice(0, -1), { deviceID, event, message: msg!.content.toJSON() });
 });
 
 app.use(compression());

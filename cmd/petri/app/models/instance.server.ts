@@ -19,13 +19,17 @@ export type InstanceInput = z.infer<typeof InstanceInputSchema>;
 
 export async function addInstance(instance: InstanceInput) {
   const { authorID, deviceID, name, addr, language } = InstanceInputSchema.parse(instance);
-  return prisma.deviceInstance.create({
+  return prisma.device.update({
+    where: { id: deviceID },
     data: {
-      authorID,
-      name,
-      addr,
-      language,
-      deviceId: deviceID
+      instances: {
+        create: {
+          authorID,
+          name,
+          addr,
+          language
+        }
+      }
     }
   });
 }

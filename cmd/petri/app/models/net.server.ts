@@ -40,19 +40,41 @@ export async function updateNet(input: NetUpdate) {
   });
 }
 
+export type EventDetails = Pick<Event, "id" | "name"> & {
+  fields: {
+    id: string
+    name: string
+    type: "string" | "number" | "boolean" | string
+  }[]
+}
+
+export type EventDetailsWithEnabled = EventDetails & {
+  enabled: boolean
+}
+
 export type TransitionWithEvents = Pick<Transition, "id" | "name"> & {
-  events?: (Pick<Event, "id" | "name"> & {
-    fields: {
-      name: string
-      type: "string" | "number" | "boolean" | string
-    }[]
-  })[]
+  events?: EventDetails[]
 };
 
-export type NetDetails = Pick<Net, "id" | "name" | "initialMarking"> & {
+export type NetDetails = Pick<Net, "id" | "name" | "description" | "initialMarking"> & {
   places: Pick<Place, "id" | "name" | "bound">[]
+  placeInterfaces: {
+    id: string
+    name: string
+    bound: number
+    places: {
+      id: string
+    }[]
+  }[]
+  transitionInterfaces: (TransitionWithEvents & {
+    transitions: {
+      id: string
+    }[]
+  })[]
   transitions: TransitionWithEvents[]
   device: {
+    id: string
+    name: string
     instances: {
       id: string
       name: string
@@ -62,13 +84,18 @@ export type NetDetails = Pick<Net, "id" | "name" | "initialMarking"> & {
   arcs: Pick<Arc, "placeID" | "fromPlace" | "transitionID">[]
 }
 
+export type NetDetailsWithChildren = NetDetails & {
+  children: NetDetails[]
+}
+
 export async function getNet({
                                id,
                                authorID
                              }: Pick<Net, "id"> & {
   authorID: User["id"];
-}) {
-  return prisma.net.findFirst({
+}): Promise<NetDetailsWithChildren> {
+
+  const select = {
     select: {
       id: true,
       authorID: true,
@@ -83,7 +110,20 @@ export async function getNet({
       transitions: {
         select: {
           id: true,
-          name: true
+          name: true,
+          events: {
+            select: {
+              id: true,
+              name: true,
+              fields: {
+                select: {
+                  id: true,
+                  name: true,
+                  type: true
+                }
+              }
+            }
+          }
         }
       },
       arcs: true,
@@ -91,14 +131,27 @@ export async function getNet({
       createdAt: true,
       updatedAt: true,
       description: true,
+      device: {
+        select: {
+          id: true,
+          name: true,
+          instances: {
+            select: {
+              id: true,
+              name: true,
+              addr: true
+            }
+          }
+        }
+      },
       placeInterfaces: {
         select: {
           id: true,
           name: true,
+          bound: true,
           places: {
             select: {
-              id: true,
-              name: true
+              id: true
             }
           }
         }
@@ -107,42 +160,43 @@ export async function getNet({
         select: {
           id: true,
           name: true,
-          transitions: {
+          events: {
             select: {
               id: true,
-              name: true
+              name: true,
+              fields: {
+                select: {
+                  id: true,
+                  name: true,
+                  type: true
+                }
+              }
+            }
+          },
+          transitions: {
+            select: {
+              id: true
             }
           }
         }
       },
-      initialMarking: true,
-      children: {
-        select: {
-          id: true,
-          name: true,
-          description: true,
-          places: {
-            select: {
-              id: true,
-              name: true
-            }
-          },
-          transitions: {
-            select: {
-              id: true,
-              name: true
-            }
-          },
-          arcs: true
-        }
-      }
-    },
-    where: { id, authorID }
-  }).then((net) => {
-    if (!net) {
-      throw new Error("net not found");
+      initialMarking: true
     }
-    return net;
+  };
+
+  const netSelectWithChildren = {
+    ...select,
+    select: {
+      ...select.select,
+      children: {
+        select: select.select
+      }
+    }
+  };
+
+  return prisma.net.findFirstOrThrow({
+    where: { id, authorID },
+    ...netSelectWithChildren
   });
 }
 
@@ -154,7 +208,9 @@ export type NetListItem = {
   updatedAt: string;
 }
 
-export async function getNetListItems({ authorID }: { authorID: User["id"] }) {
+export async function getNetListItems({ authorID }: {
+  authorID: User["id"]
+}) {
   return prisma.net.findMany({
     where: { authorID },
     select: { id: true, authorID: true, name: true, createdAt: true, updatedAt: true },
@@ -227,7 +283,93 @@ export async function getNetWithDeviceInstances({ id, authorID }: Pick<Net, "id"
   });
 }
 
-export function deleteNet({ id, authorID }: Pick<Net, "id"> & { authorID: User["id"] }) {
+export function getNetsThatHaveEvents({ authorID }: {
+  authorID: User["id"]
+}) {
+  return prisma.net.findMany({
+    where: {
+      authorID,
+      transitions: {
+        some: {
+          events: {
+            some: {}
+          }
+        }
+      }
+    },
+    select: {
+      id: true,
+      name: true,
+      transitions: {
+        select: {
+          id: true,
+          name: true,
+          events: {
+            select: {
+              id: true,
+              name: true,
+              fields: {
+                select: {
+                  id: true,
+                  name: true,
+                  type: true
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  });
+}
+
+export function getNetsWithEvents({ authorID }: {
+  authorID: User["id"]
+}) {
+  return prisma.net.findMany({
+    where: {
+      authorID,
+      children: {
+        some: {
+          transitions: {
+            some: {
+              events: {
+                some: {}
+              }
+            }
+          }
+        }
+      }
+    },
+    select: {
+      id: true,
+      name: true,
+      description: true
+    }
+  });
+}
+
+export function getNetsWithDevice({ authorID }: {
+  authorID: User["id"]
+}) {
+  return prisma.net.findMany({
+    where: {
+      authorID,
+      device: {
+        isNot: null
+      }
+    },
+    select: {
+      id: true,
+      name: true,
+      description: true
+    }
+  });
+}
+
+export function deleteNet({ id, authorID }: Pick<Net, "id"> & {
+  authorID: User["id"]
+}) {
   return prisma.net.deleteMany({
     where: { id, authorID }
   });

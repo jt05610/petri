@@ -36,7 +36,7 @@ export const loader = async ({ request }: LoaderArgs) => {
     throw new Error("User not found");
   }
   const nets = await getNetListItems({ authorID });
-  return json({ nets });
+  return json({ nets: nets });
 };
 
 export default function Transition() {

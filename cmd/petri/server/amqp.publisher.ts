@@ -22,5 +22,4 @@ const publisher = singleton("amqp", async () => {
   });
 });
 
-
 export { publisher };

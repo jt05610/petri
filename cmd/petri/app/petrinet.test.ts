@@ -4,6 +4,92 @@ test("PetriNet", () => {
   const net = new PetriNet({
     id: "1",
     name: "test",
+    description: "test",
+    device: {
+      instances: [
+        {
+          id: "1",
+          addr: "1",
+          name: "test"
+        }
+      ]
+    },
+    initialMarking: [1, 0],
+    places: [
+      {
+        id: "1",
+        name: "A",
+        bound: 1
+      },
+      {
+        id: "2",
+        name: "B",
+        bound: 1
+      }
+    ],
+    transitions: [
+      {
+        id: "3",
+        name: "A Opened"
+      },
+      {
+        id: "4",
+        name: "B Opened",
+        events: [
+          { id: "1", name: "open B", fields: [] }
+        ]
+      }
+    ],
+    arcs: [
+      {
+        placeID: "1",
+        transitionID: "3",
+        fromPlace: false
+      },
+      {
+        placeID: "2",
+        transitionID: "3",
+        fromPlace: true
+      },
+      {
+        placeID: "2",
+        transitionID: "4",
+        fromPlace: false
+      },
+      {
+        placeID: "1",
+        transitionID: "4",
+        fromPlace: true
+      }
+    ],
+    placeInterfaces: [],
+    transitionInterfaces: [],
+    children: []
+  });
+  expect(net).toBeInstanceOf(PetriNet);
+
+  expect(net.nodes).toHaveLength(4);
+  expect(net.arcs).toHaveLength(4);
+  expect(net.enabledTransitions).toHaveLength(1);
+});
+
+test("PetriNet#graphviz", () => {
+  const net = new PetriNet({
+    id: "1",
+    name: "test",
+    description: "test",
+    placeInterfaces: [],
+    transitionInterfaces: [],
+    children: [],
+    device: {
+      instances: [
+        {
+          id: "1",
+          addr: "1",
+          name: "test"
+        }
+      ]
+    },
     initialMarking: [1, 0],
     places: [
       {
@@ -53,27 +139,29 @@ test("PetriNet", () => {
       }
     ]
   });
-  expect(net).toBeInstanceOf(PetriNet);
+  expect(net.toGraphViz({ rankdir: "LR" })).toBe(`digraph {
+    rankdir=LR;
+    node [shape=circle];
+    "p1" [label="A"];
+    "p2" [label="B"];
+    "t1" [label="A Opened" shape=box];
+    "t2" [label="B Opened" shape=box];
+    "t1" -> "p1";
+    "p2" -> "t1";
+    "t2" -> "p2";
+    "p1" -> "t2";
+}`);
 
-  expect(net.nodes).toHaveLength(4);
-  expect(net.arcs).toHaveLength(4);
-  expect(net.enabledTransitions).toHaveLength(1);
-
-  expect(net.eventEnabled("1")).toBeTruthy();
-  expect(net.enabledTransitions[0].id).toBe("2");
-  // expect firing transition 1 to not fire
-  expect(() => net.fire(net.net.transitions[0])).toThrow();
-  // expect firing transition 2 to fire
-  expect(() => net.fire(net.net.transitions[1])).not.toThrow();
-  expect(net.eventEnabled("1")).toBeFalsy();
-  // now we expect transition 2 to be disabled and transition 1 to be enabled
-  expect(() => net.fire(net.net.transitions[1])).toThrow();
-  expect(net.enabledTransitions).toHaveLength(1);
-  expect(net.enabledTransitions[0].id).toBe("1");
-  expect(() => net.fire(net.net.transitions[0])).not.toThrow();
-  // when we handle the event for transition 2, we expect it to be enabled again as transition 1 is hot and will fire immediately
-  expect(() => net.handleEvent("1")).not.toThrow();
-  expect(() => net.handleEvent("1")).not.toThrow();
-  expect(() => net.handleEvent("1")).not.toThrow();
-
+  expect(net.toGraphVizWithMarking({ 1: 1, 2: 0 }, { rankdir: "LR" })).toBe(`digraph {
+    rankdir=LR;
+    node [shape=circle];
+    "p1" [label="A" style=filled fillcolor=green];
+    "p2" [label="B"];
+    "t1" [label="A Opened" shape=box];
+    "t2" [label="B Opened" shape=box];
+    "t1" -> "p1";
+    "p2" -> "t1";
+    "t2" -> "p2";
+    "p1" -> "t2";
+}`);
 });

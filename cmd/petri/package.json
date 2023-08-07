@@ -5,14 +5,16 @@
   "scripts": {
     "build": "node_modules/.bin/remix build",
     "dev": "node_modules/.bin/remix watch",
+    "prod": "cross-env NODE_OPTIONS=--max_old_space_size=4096 NODE_ENV=production node_modules/.bin/remix watch",
     "dev:serve": "node_modules/.bin/binode --require ./mocks -- @remix-run/serve:remix-serve ./build",
     "format": "node_modules/.bin/prettier --write .",
     "format:repo": "npm run format && npm run lint:repo -- --fix",
     "lint": "node_modules/.bin/eslint --cache --cache-location ./node_modules/.cache/eslint .",
     "lint:repo": "npm run lint -- --config .eslintrc.repo.js",
     "setup": "node_modules/.bin/prisma generate && prisma migrate deploy && prisma db seed",
-    "start": "cross-env NODE_ENV=production ts-node --require tsconfig-paths/register server/index.ts",
-    "start:dev": "concurrently \"cross-env NODE_ENV=development ts-node --require tsconfig-paths/register server/index.ts\" \"pnpm run dev\"",
+    "start": "cross-env NODE_OPTIONS=--max_old_space_size=4096 NODE_ENV=production ts-node --require tsconfig-paths/register server/index.ts",
+    "start:prod": "cross-env NODE_OPTIONS=--max_old_space_size=4096 NODE_ENV=production concurrently \"ts-node --require tsconfig-paths/register server/index.ts\" \"pnpm run dev\"",
+    "start:dev": "cross-env NODE_OPTIONS=--max_old_space_size=4096 NODE_ENV=development concurrently \"ts-node --require tsconfig-paths/register server/index.ts\" \"pnpm run dev\"",
     "start:mocks": "node_modules/.bin/binode --require ./mocks -- @remix-run/serve:remix-serve build",
     "test": "node_modules/.bin/vitest",
     "test:e2e:dev": "node_modules/.bin/start-server-and-test dev http://localhost:3000 \\\"npx cypress open\\\"",
@@ -20,7 +22,8 @@
     "test:e2e:run": "node_modules/.bin/cross-env PORT=8811 start-server-and-test start:mocks http://localhost:8811 \\\"npx cypress run\\\"",
     "typecheck": "node_modules/.bin/tsc && tsc -p cypress",
     "validate": "node_modules/.bin/run-p \\\"test -- --run\\\" lint typecheck test:e2e:run",
-    "makeQueries": "ts-node --require tsconfig-paths/register prisma/queries.ts && sqlc generate"
+    "makeQueries": "ts-node --require tsconfig-paths/register prisma/queries.ts && sqlc generate",
+    "seed": "ts-node --require tsconfig-paths/register prisma/seed.ts"
   },
   "prettier": {},
   "eslintIgnore": [
@@ -29,14 +32,17 @@
     "/public/build"
   ],
   "dependencies": {
+    "@chakra-ui/react": "^2.8.0",
     "@conform-to/react": "^0.7.4",
     "@conform-to/zod": "^0.7.4",
+    "@emotion/react": "^11",
+    "@emotion/styled": "^11",
     "@grpc/grpc-js": "^1.9.0",
     "@grpc/proto-loader": "^0.7.8",
     "@headlessui/react": "^1.7.16",
     "@heroicons/react": "^2.0.18",
     "@npmcli/fs": "^3.1.0",
-    "@prisma/client": "^5.0.0",
+    "@prisma/client": "^5.1.1",
     "@remix-run/css-bundle": "^1.19.1",
     "@remix-run/express": "^1.19.1",
     "@remix-run/node": "^1.19.1",
@@ -50,6 +56,8 @@
     "d3": "^7.8.5",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
+    "framer-motion": "^6",
+    "graphviz-react": "^1.2.5",
     "isbot": "^3.6.12",
     "kill-port": "^2.0.1",
     "morgan": "^1.10.0",
@@ -71,6 +79,7 @@
     "@testing-library/jest-dom": "^5.16.5",
     "@types/amqplib": "^0.10.1",
     "@types/bcryptjs": "^2.4.2",
+    "@types/compression": "^1.7.2",
     "@types/cookie": "^0.5.1",
     "@types/eslint": "^8.40.2",
     "@types/express": "^4.17.17",
@@ -97,7 +106,7 @@
     "postcss": "^8.4.24",
     "prettier": "2.8.8",
     "prettier-plugin-tailwindcss": "^0.3.0",
-    "prisma": "^5.0.0",
+    "prisma": "^5.1.1",
     "start-server-and-test": "^2.0.0",
     "tailwindcss": "^3.3.2",
     "ts-node": "^10.9.1",
@@ -112,7 +121,6 @@
     "node": ">=14"
   },
   "prisma": {
-    "seed": "ts-node --require tsconfig-paths/register prisma/seed.ts",
-    "queries": "ts-node --require tsconfig-paths/register prisma/queries.ts"
+    "seed": "ts-node --require tsconfig-paths/register prisma/seed.ts"
   }
 }

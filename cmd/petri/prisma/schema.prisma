@@ -54,12 +54,14 @@ model Net {
   deviceId             String?
   placeInterfaces      PlaceInterface[]
   transitionInterfaces TransitionInterface[]
+  Sequence             Sequence[]
 }
 
 model PlaceInterface {
   id        String   @id @default(cuid())
   name      String
   net       Net      @relation(fields: [netID], references: [id])
+  bound     Int
   netID     String
   places    Place[]
   createdAt DateTime @default(now())
@@ -70,6 +72,7 @@ model TransitionInterface {
   id          String       @id @default(cuid())
   name        String
   net         Net          @relation(fields: [netID], references: [id])
+  events      Event[]
   netID       String
   transitions Transition[]
   createdAt   DateTime     @default(now())
@@ -115,26 +118,30 @@ model Arc {
 }
 
 model Field {
-  id        String   @id @default(cuid())
-  name      String
-  type      String
-  condition String?
-  event     Event    @relation(fields: [eventID], references: [id])
-  eventID   String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                  String                @id @default(cuid())
+  name                String
+  type                String
+  condition           String?
+  event               Event                 @relation(fields: [eventID], references: [id])
+  eventID             String
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+  deviceEventConstant DeviceEventConstant[]
 }
 
 model Event {
-  id             String        @id @default(cuid())
-  name           String
-  description    String?
-  transitions    Transition[]
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-  fields         Field[]
-  deviceEvents   DeviceEvent[]
-  deviceEventsId String?
+  id                    String               @id @default(cuid())
+  name                  String
+  description           String?
+  transitions           Transition[]
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
+  fields                Field[]
+  deviceEvents          DeviceEvent[]
+  deviceEventsId        String?
+  placeInterfaceId      String?
+  transitionInterface   TransitionInterface? @relation(fields: [transitionInterfaceId], references: [id])
+  transitionInterfaceId String?
 }
 
 enum Language {
@@ -171,21 +178,32 @@ model Device {
   events      DeviceEvent[]
 }
 
+model DeviceEventConstant {
+  id            String      @id @default(cuid())
+  deviceEvent   DeviceEvent @relation(fields: [deviceEventId], references: [id])
+  deviceEventId String
+  field         Field       @relation(fields: [fieldID], references: [id])
+  fieldID       String
+  value         String
+}
+
 model DeviceEvent {
-  id              String         @id @default(cuid())
-  device          Device         @relation(fields: [deviceId], references: [id])
+  id              String                @id @default(cuid())
+  device          Device                @relation(fields: [deviceId], references: [id])
   deviceId        String
-  event           Event          @relation(fields: [eventID], references: [id])
+  event           Event                 @relation(fields: [eventID], references: [id])
   eventID         String
-  sequence        SequenceEvent? @relation(fields: [sequenceEventId], references: [id])
-  sequenceEventId String?
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
+  sequenceEvent   SequenceEvent         @relation(fields: [sequenceEventId], references: [id])
+  sequenceEventId String
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+  constants       DeviceEventConstant[]
 }
 
 model SequenceEvent {
   id         String        @id @default(cuid())
   name       String
+  notes      String[]
   events     DeviceEvent[]
   sequence   Sequence      @relation(fields: [sequenceID], references: [id])
   sequenceID String
@@ -194,9 +212,12 @@ model SequenceEvent {
 }
 
 model Sequence {
-  id        String          @id @default(cuid())
-  name      String
-  events    SequenceEvent[]
-  createdAt DateTime        @default(now())
-  updatedAt DateTime        @updatedAt
+  id          String          @id @default(cuid())
+  name        String
+  description String
+  events      SequenceEvent[]
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  net         Net             @relation(fields: [netID], references: [id])
+  netID       String
 }

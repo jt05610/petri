@@ -3,12 +3,12 @@ import { redirect } from "@remix-run/node";
 import { requireUserId } from "~/session.server";
 import invariant from "tiny-invariant";
 import { getUserById } from "~/models/user.server";
-import { addInstance, InstanceInputSchema } from "~/models/instance.server";
+import { addInstance, InstanceInputSchema } from "~/models/device.instance.server";
 import { Form, useActionData } from "@remix-run/react";
 import { parse } from "@conform-to/zod";
 import { badRequest } from "~/util/request.server";
 import { useForm } from "@conform-to/react";
-import FormContent from "~/lib/components/form";
+import FormContent from "~/lib/layouts/form";
 import { Language } from "@prisma/client";
 
 export const action = async ({ params, request }: LoaderArgs) => {

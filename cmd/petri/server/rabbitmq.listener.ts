@@ -33,7 +33,7 @@ export const listen = (callback: (msg: amqp.Message | null) => void) => {
           }
           console.log(" [*] Waiting for events. To exit press CTRL+C");
 
-          channel.bindQueue(q.queue, exchange, "#");
+          channel.bindQueue(q.queue, exchange, "*.events.*");
           channel.consume(q.queue, callback, {
             noAck: true
           });

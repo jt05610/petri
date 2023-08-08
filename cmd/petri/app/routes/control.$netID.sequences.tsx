@@ -1,7 +1,7 @@
 import type { LoaderArgs } from "@remix-run/node";
-import { json, redirect } from "@remix-run/node";
+import { json } from "@remix-run/node";
 import { Link, NavLink, Outlet, useLoaderData } from "@remix-run/react";
-import { addSequence, listSequences, SequenceInputSchema } from "~/models/sequence.server";
+import { listRuns } from "~/models/net.run.server";
 import { requireUserId } from "~/session.server";
 import { getUserById } from "~/models/user.server";
 import Header from "~/lib/components/header";
@@ -14,13 +14,13 @@ export const loader = async ({ params, request }: LoaderArgs) => {
     throw new Error("User not found");
   }
   invariant(params.netID, "netID not found");
-  const sequences = await listSequences({ netID: params.netID });
+  const sequences = await listRuns({ netID: params.netID });
 
   return json({ sequences });
 };
 
-export default function SequencesPage() {
-  const {sequences} = useLoaderData<typeof loader>();
+export default function RunsPage() {
+  const { sequences } = useLoaderData<typeof loader>();
   return (
     <div className="flex h-full min-h-screen flex-col">
       <Header />

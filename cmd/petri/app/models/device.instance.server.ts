@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { prisma } from "~/db.server";
-import type { DeviceInstance, Field, Event } from "@prisma/client";
+import type { Instance, Field, Event } from "@prisma/client";
 import { Language } from "@prisma/client";
 
 /*
@@ -45,7 +45,7 @@ export const GetInstanceInputSchema = z.object({
 export type GetInstanceInput = z.infer<typeof GetInstanceInputSchema>;
 
 export type InstanceDetails =
-  Pick<DeviceInstance, "id" | "name" | "addr" | "createdAt" | "updatedAt" | "deviceId" | "language">
+  Pick<Instance, "id" | "name" | "addr" | "createdAt" | "updatedAt" | "deviceId" | "language">
   & {
   events: (Pick<Event, "id" | "name" | "description"> & {
     fields: Pick<Field, "name" | "type">[]
@@ -54,7 +54,7 @@ export type InstanceDetails =
 
 export async function getInstance(inputs: GetInstanceInput): Promise<InstanceDetails> {
   const { id } = GetInstanceInputSchema.parse(inputs);
-  return prisma.deviceInstance.findFirstOrThrow({
+  return prisma.instance.findFirstOrThrow({
     where: { id },
     select: {
       id: true,
@@ -108,7 +108,7 @@ export const ListInstancesInputSchema = z.object({
 
 export type ListInstancesInput = z.infer<typeof ListInstancesInputSchema>;
 
-export type InstanceListItem = Pick<DeviceInstance, "id" | "name" | "addr" | "language" | "updatedAt">
+export type InstanceListItem = Pick<Instance, "id" | "name" | "addr" | "language" | "updatedAt">
 
 export async function listInstances(inputs: ListInstancesInput): Promise<InstanceListItem[]> {
   const { deviceID } = ListInstancesInputSchema.parse(inputs);
@@ -148,7 +148,7 @@ export type UpdateInstanceInput = z.infer<typeof UpdateInstanceInputSchema>;
 
 export async function updateInstance(inputs: UpdateInstanceInput) {
   const { id, name, addr, language } = UpdateInstanceInputSchema.parse(inputs);
-  return prisma.deviceInstance.update({
+  return prisma.instance.update({
     where: { id },
     data: {
       name,

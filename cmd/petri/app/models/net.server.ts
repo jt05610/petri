@@ -204,122 +204,17 @@ export type NetListItem = {
   id: Net["id"];
   authorID: Net["authorID"];
   name: Net["name"];
-  createdAt: string;
-  updatedAt: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export async function getNetListItems({ authorID }: {
   authorID: User["id"]
-}) {
+}): Promise<NetListItem[]> {
   return prisma.net.findMany({
     where: { authorID },
     select: { id: true, authorID: true, name: true, createdAt: true, updatedAt: true },
     orderBy: { updatedAt: "desc" }
-  });
-}
-
-
-export async function getNetWithDeviceInstances({ id, authorID }: Pick<Net, "id"> & {
-  authorID: User["id"]
-}) {
-  return prisma.net.findFirst({
-    where: { id, authorID },
-    select: {
-      id: true,
-      name: true,
-      initialMarking: true,
-      places: {
-        select: {
-          id: true,
-          name: true,
-          bound: true
-        }
-      },
-      transitions: {
-        select: {
-          id: true,
-          name: true,
-          events: {
-            select: {
-              id: true,
-              name: true,
-              fields: {
-                select: {
-                  id: true,
-                  name: true,
-                  type: true
-                }
-              }
-            }
-          }
-        }
-      },
-      arcs: {
-        select: {
-          id: true,
-          fromPlace: true,
-          placeID: true,
-          transitionID: true
-        }
-      },
-      device: {
-        select: {
-          instances: {
-            select: {
-              id: true,
-              addr: true,
-              name: true
-            }
-          }
-        }
-      }
-    }
-
-  }).then((net) => {
-    if (!net) {
-      throw new Error("net not found");
-    }
-    return net;
-  });
-}
-
-export function getNetsThatHaveEvents({ authorID }: {
-  authorID: User["id"]
-}) {
-  return prisma.net.findMany({
-    where: {
-      authorID,
-      transitions: {
-        some: {
-          events: {
-            some: {}
-          }
-        }
-      }
-    },
-    select: {
-      id: true,
-      name: true,
-      transitions: {
-        select: {
-          id: true,
-          name: true,
-          events: {
-            select: {
-              id: true,
-              name: true,
-              fields: {
-                select: {
-                  id: true,
-                  name: true,
-                  type: true
-                }
-              }
-            }
-          }
-        }
-      }
-    }
   });
 }
 

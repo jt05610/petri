@@ -3,7 +3,7 @@ import type { LoaderArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import invariant from "tiny-invariant";
 import { getUserById } from "~/models/user.server";
-import { listPlaces } from "~/models/place.server";
+import { listPlaces } from "~/models/net.place.server";
 import { NavLink, Outlet, useLoaderData } from "@remix-run/react";
 
 

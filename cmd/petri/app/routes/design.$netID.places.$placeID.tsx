@@ -3,7 +3,7 @@ import { json, redirect } from "@remix-run/node";
 import { requireUserId } from "~/session.server";
 import invariant from "tiny-invariant";
 import { getUserById } from "~/models/user.server";
-import { deletePlace, getPlace } from "~/models/place.server";
+import { deletePlace, getPlace } from "~/models/net.place.server";
 import { Form, NavLink, Outlet, useLoaderData } from "@remix-run/react";
 
 export const action = async ({ params }: LoaderArgs) => {

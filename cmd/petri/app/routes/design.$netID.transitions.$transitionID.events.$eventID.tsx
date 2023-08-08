@@ -3,7 +3,7 @@ import { json, redirect } from "@remix-run/node";
 import { requireUserId } from "~/session.server";
 import invariant from "tiny-invariant";
 import { getUserById } from "~/models/user.server";
-import { deleteEvent, getEvent } from "~/models/event.server";
+import { deleteEvent, getEvent } from "~/models/net.transition.event.server";
 import { Form, NavLink, Outlet, useLoaderData } from "@remix-run/react";
 
 export const action = async ({ params, request }: LoaderArgs) => {

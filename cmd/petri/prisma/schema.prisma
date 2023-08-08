@@ -22,19 +22,20 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  password        Password?
-  nets            Net[]
-  devices         Device[]
-  deviceInstances DeviceInstance[]
+  password  Password?
+  nets      Net[]
+  devices   Device[]
+  instances Instance[]
+  sessions  Session[]
 }
 
 model Password {
-  hash String
-
+  hash   String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   userId String @unique
 }
 
+// A Net is a Petri Net. It is a directed graph consisting of places, transitions, and arcs.
 model Net {
   id                   String                @id @default(cuid())
   name                 String
@@ -54,9 +55,10 @@ model Net {
   deviceId             String?
   placeInterfaces      PlaceInterface[]
   transitionInterfaces TransitionInterface[]
-  Sequence             Sequence[]
+  runs                 Run[]
 }
 
+// PlaceInterface is a place that connect
 model PlaceInterface {
   id        String   @id @default(cuid())
   name      String
@@ -118,15 +120,15 @@ model Arc {
 }
 
 model Field {
-  id                  String                @id @default(cuid())
-  name                String
-  type                String
-  condition           String?
-  event               Event                 @relation(fields: [eventID], references: [id])
-  eventID             String
-  createdAt           DateTime              @default(now())
-  updatedAt           DateTime              @updatedAt
-  deviceEventConstant DeviceEventConstant[]
+  id        String     @id @default(cuid())
+  name      String
+  type      String
+  condition String?
+  event     Event      @relation(fields: [eventID], references: [id])
+  eventID   String
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  constants Constant[]
 }
 
 model Event {
@@ -137,8 +139,8 @@ model Event {
   createdAt             DateTime             @default(now())
   updatedAt             DateTime             @updatedAt
   fields                Field[]
-  deviceEvents          DeviceEvent[]
-  deviceEventsId        String?
+  commands              Action[]
+  data                  Datum[]
   placeInterfaceId      String?
   transitionInterface   TransitionInterface? @relation(fields: [transitionInterfaceId], references: [id])
   transitionInterfaceId String?
@@ -152,7 +154,7 @@ enum Language {
   PYTHON
 }
 
-model DeviceInstance {
+model Instance {
   id        String   @id @default(cuid())
   author    User     @relation(fields: [authorID], references: [id])
   createdAt DateTime @default(now())
@@ -163,61 +165,79 @@ model DeviceInstance {
   device    Device   @relation(fields: [deviceId], references: [id])
   deviceId  String
   addr      String
+  data      Datum[]
 }
 
 model Device {
-  id          String           @id @default(cuid())
-  author      User             @relation(fields: [authorID], references: [id])
+  id          String     @id @default(cuid())
+  author      User       @relation(fields: [authorID], references: [id])
   authorID    String
   name        String
   description String
-  instances   DeviceInstance[]
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
+  instances   Instance[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
   nets        Net[]
-  events      DeviceEvent[]
+  events      Action[]
 }
 
-model DeviceEventConstant {
-  id            String      @id @default(cuid())
-  deviceEvent   DeviceEvent @relation(fields: [deviceEventId], references: [id])
-  deviceEventId String
-  field         Field       @relation(fields: [fieldID], references: [id])
-  fieldID       String
-  value         String
+model Constant {
+  id        String @id @default(cuid())
+  command   Action @relation(fields: [commandId], references: [id])
+  commandId String
+  field     Field  @relation(fields: [fieldID], references: [id])
+  fieldID   String
+  value     String
 }
 
-model DeviceEvent {
-  id              String                @id @default(cuid())
-  device          Device                @relation(fields: [deviceId], references: [id])
-  deviceId        String
-  event           Event                 @relation(fields: [eventID], references: [id])
-  eventID         String
-  sequenceEvent   SequenceEvent         @relation(fields: [sequenceEventId], references: [id])
-  sequenceEventId String
-  createdAt       DateTime              @default(now())
-  updatedAt       DateTime              @updatedAt
-  constants       DeviceEventConstant[]
+model Action {
+  id        String     @id @default(cuid())
+  input     Json
+  output    Json
+  device    Device     @relation(fields: [deviceId], references: [id])
+  deviceId  String
+  event     Event      @relation(fields: [eventID], references: [id])
+  eventID   String
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  constants Constant[]
+  runs      Run[]
 }
 
-model SequenceEvent {
-  id         String        @id @default(cuid())
-  name       String
-  notes      String[]
-  events     DeviceEvent[]
-  sequence   Sequence      @relation(fields: [sequenceID], references: [id])
-  sequenceID String
-  createdAt  DateTime      @default(now())
-  updatedAt  DateTime      @updatedAt
-}
-
-model Sequence {
-  id          String          @id @default(cuid())
+model Run {
+  id          String    @id @default(cuid())
   name        String
   description String
-  events      SequenceEvent[]
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
-  net         Net             @relation(fields: [netID], references: [id])
+  actions     Action[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  net         Net       @relation(fields: [netID], references: [id])
   netID       String
+  sessions    Session[]
+}
+
+model Datum {
+  id         String   @id @default(cuid())
+  instance   Instance @relation(fields: [instanceID], references: [id])
+  instanceID String
+  session    Session  @relation(fields: [sessionID], references: [id])
+  sessionID  String
+  value      Json?
+  history    Json[]
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  event      Event    @relation(fields: [eventId], references: [id])
+  eventId    String
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  user      User     @relation(fields: [userID], references: [id])
+  userID    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  run       Run      @relation(fields: [runID], references: [id])
+  deleted   Boolean  @default(false)
+  runID     String
+  data      Datum[]
 }

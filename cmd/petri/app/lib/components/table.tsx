@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import type { FC} from "react";
+import { useState } from "react";
 
 type TableRowProps = {
   item: any; // replace with your appropriate type
@@ -7,7 +8,7 @@ type TableRowProps = {
   lastRow: boolean;
 }
 
-export const TableRow: React.FC<TableRowProps> = ({ item, handleDelete, handleEdit, lastRow }) => {
+export const TableRow: FC<TableRowProps> = ({ item, handleDelete, handleEdit, lastRow }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [values, setValues] = useState(item);
 

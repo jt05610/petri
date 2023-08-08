@@ -1,16 +1,27 @@
 import type { Dispatch, ReactNode, Reducer } from "react";
-import { createContext, useContextSelector } from "use-context-selector";
+import { createContext } from "use-context-selector";
 import type { Socket } from "socket.io-client";
 import { PetriNet } from "~/util/petrinet";
 import { useReducer, useState } from "react";
 import type { NetDetailsWithChildren } from "~/models/net.server";
-import type { Place } from "@prisma/client";
 import type {
-  DeviceInputDisplay,
-  SequenceInputDisplay,
-  SequenceEventInputDisplay
-} from "~/models/sequence.server";
+  ActionInputDisplay,
+  RunInputDisplay
+} from "~/models/net.run.server";
+import type { Place, PrismaClient } from "@prisma/client";
+import type { DataListItem } from "~/models/net.run.session.data.server";
+import type { RunSessionDetails } from "~/models/net.run.session.server";
 
+export const PrismaContext = createContext<PrismaClient | undefined>(undefined);
+
+export type PrismaProviderProps = {
+  prisma: PrismaClient;
+  children: ReactNode;
+}
+
+export function PrismaProvider({ prisma, children }: PrismaProviderProps) {
+  return <PrismaContext.Provider value={prisma}>{children}</PrismaContext.Provider>;
+}
 
 type ProviderProps = {
   socket: Socket | undefined;
@@ -25,8 +36,12 @@ export function SocketProvider({ socket, children }: ProviderProps) {
 
 export const PetriNetContext = createContext<({
   petriNet: PetriNet;
-  marking: { [key: string]: number };
-  setMarking: (marking: { [key: string]: number }) => void;
+  marking: {
+    [key: string]: number
+  };
+  setMarking: (marking: {
+    [key: string]: number
+  }) => void;
 }) | null>(null);
 
 type PetriNetProviderProps = {
@@ -39,7 +54,9 @@ const netMarking = (places: Pick<Place, "id">[], initial: number[]) => {
 
 export function PetriNetProvider({ net, children }: PetriNetProviderProps) {
   const [petriNet] = useState<PetriNet>(net.device?.instances ? new PetriNet(net) : new PetriNet(net).combinedNet);
-  const [marking, setMarking] = useState<{ [key: string]: number }>(netMarking(petriNet.net.places, petriNet.net.initialMarking));
+  const [marking, setMarking] = useState<{
+    [key: string]: number
+  }>(netMarking(petriNet.net.places, petriNet.net.initialMarking));
   return (
     <PetriNetContext.Provider value={{ petriNet, marking, setMarking }}>
       {children}
@@ -47,152 +64,167 @@ export function PetriNetProvider({ net, children }: PetriNetProviderProps) {
   );
 }
 
-export const RecordSequenceContext = createContext<({
-  sequence: SequenceInputDisplay;
-  dispatch: Dispatch<SequenceAction>;
+export const RecordRunContext = createContext<({
+  run: RunInputDisplay;
+  dispatch: Dispatch<RunAction>;
 }) | null>(null);
 
-type RemoveDeviceEventPayload = {
-  sequenceEventIndex: number;
-  deviceEventIndex: number;
+type ActionAddedPayload = ActionInputDisplay;
+
+
+type ActionRemovedPayload = {
+  index: number;
 }
 
-type DeviceEventMovedPayload = {
-  sequenceEventIndex: number;
-  deviceEventIndex: number;
-  newSequenceEventIndex: number;
+type ConstantDeletedPayload = {
+  fieldID: string;
+  actionIndex: number;
 }
 
-type SequenceEventNoteAdded = {
-  sequenceEventIndex: number;
-  note: string;
+type RunActionPayload = ActionAddedPayload | ActionRemovedPayload | ConstantDeletedPayload;
+
+export enum RunActionType {
+  ActionAdded = "actionAdded",
+  ActionRemoved = "actionRemoved",
+  ConstantDeleted = "removeConstant",
 }
 
-type SequenceEventNoteRemoved = {
-  sequenceEventIndex: number;
-  noteIndex: number;
+type RunAction = {
+  type: RunActionType;
+  payload: RunActionPayload;
 }
 
-type DeviceEventChanged = {
-  sequenceEventIndex: number;
-  deviceEventIndex: number;
-  deviceEvent: DeviceInputDisplay;
-}
-
-type ReducerActionPayload =
-  DeviceInputDisplay
-  | SequenceEventInputDisplay
-  | RemoveDeviceEventPayload
-  | DeviceEventMovedPayload
-  | SequenceEventNoteAdded
-  | SequenceEventNoteRemoved
-  | DeviceEventChanged
-
-export enum SequenceActionType {
-  EVENT_ADDED = "eventAdded",
-  EVENT_REMOVED = "eventRemoved",
-  DEVICE_EVENT_MOVED = "deviceEventMoved",
-  NOTE_ADDED_TO_EVENT = "noteAddedToEvent",
-  NOTE_REMOVED_FROM_EVENT = "noteRemovedFromEvent",
-  DEVICE_EVENT_CHANGED = "deviceEventChanged",
-}
-
-type SequenceAction = {
-  type: SequenceActionType;
-  payload: ReducerActionPayload;
-}
-
-const defaultInitial: SequenceInputDisplay = {
+const defaultInitial: RunInputDisplay = {
   deviceNames: [],
   description: "",
   name: "",
   netID: "",
-  events: []
+  actions: []
 };
 
 
-type RecordSequenceProviderProps = {
-  initialSequence?: SequenceInputDisplay;
+type RecordRunProviderProps = {
+  initialRun?: RunInputDisplay;
   children: ReactNode;
 }
 
-export const addDeviceNames = (sequence: SequenceInputDisplay, pNet: PetriNet): SequenceInputDisplay => {
+export const addDeviceNames = (run: RunInputDisplay, pNet: PetriNet): RunInputDisplay => {
   return {
-    ...sequence,
+    ...run,
     deviceNames: pNet.devices.map((d) => d.name)
   };
 };
 
-export function RecordSequenceProvider({ initialSequence, children }: RecordSequenceProviderProps) {
-  const [sequence, dispatch] = useReducer<Reducer<SequenceInputDisplay, SequenceAction>>(sequenceReducer, initialSequence || defaultInitial);
+export function RecordRunProvider({ initialRun, children }: RecordRunProviderProps) {
+  const [run, dispatch] = useReducer<Reducer<RunInputDisplay, RunAction>>(runReducer, initialRun || defaultInitial);
   return (
-    <RecordSequenceContext.Provider value={{ sequence, dispatch }}>
+    <RecordRunContext.Provider value={{ run, dispatch }}>
       {children}
-    </RecordSequenceContext.Provider>
+    </RecordRunContext.Provider>
   );
 }
 
-function sequenceReducer(state: SequenceInputDisplay, action: { type: string; payload: ReducerActionPayload }): SequenceInputDisplay {
+function runReducer(state: RunInputDisplay, action: RunAction): RunInputDisplay {
   switch (action.type) {
-    case SequenceActionType.EVENT_ADDED: {
-      const devInput = action.payload as DeviceInputDisplay;
-      const events = [...state.events];
-      const newSequenceEvent: SequenceEventInputDisplay = {
-        sequenceID: "",
-        events: [devInput],
-        name: `Step ${events.length + 1}`,
-        notes: []
-      };
-      events.push(newSequenceEvent);
-      return { ...state, events };
+    case RunActionType.ActionAdded: {
+      const payload = action.payload as ActionAddedPayload;
+      const actions = [...state.actions];
+      actions.push(payload);
+      return { ...state, actions };
     }
-    case SequenceActionType.EVENT_REMOVED: {
-      const { sequenceEventIndex, deviceEventIndex } = action.payload as RemoveDeviceEventPayload;
-      const events = [...state.events];
-      const sequenceEvent = events[sequenceEventIndex];
-      const deviceEvents = [...sequenceEvent.events];
-      deviceEvents.splice(deviceEventIndex, 1);
-      if (deviceEvents.length === 0) {
-        events.splice(sequenceEventIndex, 1);
-      }
-      return { ...state, events };
+    case RunActionType.ActionRemoved: {
+      const { index } = action.payload as ActionRemovedPayload;
+      const actions = [...state.actions];
+      actions.splice(index, 1);
+      return { ...state, actions };
     }
-    case SequenceActionType.DEVICE_EVENT_MOVED: {
-      const { sequenceEventIndex, deviceEventIndex, newSequenceEventIndex } = action.payload as DeviceEventMovedPayload;
-      const events = [...state.events];
-      const sequenceEvent = events[sequenceEventIndex];
-      const deviceEvents = [...sequenceEvent.events];
-      const deviceEvent = deviceEvents.splice(deviceEventIndex, 1)[0];
-      const newSequenceEvent = events[newSequenceEventIndex];
-      newSequenceEvent.events.push(deviceEvent);
-      if (deviceEvents.length === 0) {
-        events.splice(sequenceEventIndex, 1);
-      }
-      return { ...state, events };
-    }
-    case SequenceActionType.NOTE_ADDED_TO_EVENT: {
-      const { sequenceEventIndex, note } = action.payload as SequenceEventNoteAdded;
-      const events = [...state.events];
-      const sequenceEvent = events[sequenceEventIndex];
-      sequenceEvent.notes.push(note);
-      return { ...state, events };
-    }
-    case SequenceActionType.NOTE_REMOVED_FROM_EVENT: {
-      const { sequenceEventIndex, noteIndex } = action.payload as SequenceEventNoteRemoved;
-      const events = [...state.events];
-      const sequenceEvent = events[sequenceEventIndex];
-      sequenceEvent.notes.splice(noteIndex, 1);
-      return { ...state, events };
-    }
-    case SequenceActionType.DEVICE_EVENT_CHANGED: {
-      const { sequenceEventIndex, deviceEventIndex, deviceEvent } = action.payload as DeviceEventChanged;
-      const events = [...state.events];
-      const sequenceEvent = events[sequenceEventIndex];
-      sequenceEvent.events[deviceEventIndex] = deviceEvent;
-      return { ...state, events };
+    case RunActionType.ConstantDeleted: {
+      const { fieldID, actionIndex } = action.payload as ConstantDeletedPayload;
+      const actions = [...state.actions];
+      const runAction = actions[actionIndex];
+      const constants = runAction.constants.filter((c) => c.fieldID !== fieldID);
+      actions[actionIndex] = { ...runAction, constants };
+      return { ...state, actions };
     }
     default:
       throw Error("Invalid action type");
   }
-
 }
+
+enum SessionActionType {
+  ActionStarted = "actionStarted",
+  ActionCompleted = "actionCompleted",
+}
+
+type ActionStartedPayload = {}
+
+type ActionCompletedPayload = DataListItem
+
+type SessionActionPayload = ActionStartedPayload | ActionCompletedPayload;
+
+type SessionAction = {
+  type: SessionActionType;
+  payload: SessionActionPayload;
+}
+
+type LiveSession = RunSessionDetails & {
+  remainingActions: RunSessionDetails["run"]["actions"];
+  activeAction: string | null;
+  data: DataListItem[];
+}
+
+type SessionContext = {
+  session: LiveSession
+  dispatch: Dispatch<SessionAction>;
+}
+
+export const RunSessionContext = createContext<SessionContext | null>(null);
+
+type SessionProviderProps = {
+  sessionDetails: RunSessionDetails;
+  children: ReactNode;
+}
+
+function createLiveSession(session: RunSessionDetails): LiveSession {
+  return {
+    ...session,
+    remainingActions: [...session.run.actions],
+    activeAction: null,
+    data: [] as DataListItem[]
+  };
+}
+
+export function SessionProvider({ sessionDetails, children }: SessionProviderProps) {
+  const [session, dispatch] = useReducer<Reducer<LiveSession, SessionAction>>(sessionReducer, createLiveSession(sessionDetails));
+
+  return (
+    <RunSessionContext.Provider value={{ session, dispatch }}>
+      {children}
+    </RunSessionContext.Provider>
+  );
+}
+
+function sessionReducer(state: LiveSession, action: SessionAction): LiveSession {
+  switch (action.type) {
+    case SessionActionType.ActionStarted: {
+      const remainingActions = [...state.remainingActions];
+      const activeAction = remainingActions.shift();
+      return {
+        ...state,
+        remainingActions,
+        activeAction: activeAction?.id || null
+      };
+    }
+    case SessionActionType.ActionCompleted: {
+      const payload = action.payload as ActionCompletedPayload;
+      const data = [...state.data];
+      data.push(payload);
+      return {
+        ...state,
+        data,
+        activeAction: null
+      };
+    }
+  }
+}
+

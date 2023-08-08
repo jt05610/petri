@@ -7,7 +7,7 @@ import { Form, useActionData, useLoaderData } from "@remix-run/react";
 import { parse } from "@conform-to/zod";
 import { badRequest } from "~/util/request.server";
 import { useForm } from "@conform-to/react";
-import FormContent from "~/lib/components/form";
+import FormContent from "~/lib/layouts/form";
 import { useState } from "react";
 import { getNetListItems } from "~/models/net.server";
 

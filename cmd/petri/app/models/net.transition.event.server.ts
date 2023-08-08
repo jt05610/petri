@@ -7,6 +7,7 @@ export const EventFieldSchema = z.object({
   description: z.string().optional(),
   type: z.string()
 });
+
 export const EventInputSchema = z.object({
   transitionID: z.string().cuid(),
   name: z.string(),

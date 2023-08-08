@@ -6,7 +6,6 @@
       <excludeFolder url="file://$MODULE_DIR$/temp" />
       <excludeFolder url="file://$MODULE_DIR$/tmp" />
       <excludeFolder url="file://$MODULE_DIR$/build" />
-      <excludeFolder url="file://$MODULE_DIR$/public" />
       <excludeFolder url="file://$MODULE_DIR$/.cache" />
       <excludeFolder url="file://$MODULE_DIR$/.github" />
       <excludeFolder url="file://$MODULE_DIR$/prisma/migrations" />
@@ -17,6 +16,7 @@
     <content url="file://$MODULE_DIR$/node_modules/.pnpm/@prisma+client@5.1.1_prisma@5.1.1" />
     <content url="file://$MODULE_DIR$/node_modules/.pnpm/@prisma+client@5.1.1_prisma@5.1.1/node_modules/@prisma/client" />
     <content url="file://$MODULE_DIR$/node_modules/@prisma/client" />
+    <content url="file://$MODULE_DIR$/node_modules/tailwindcss" />
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
   </component>

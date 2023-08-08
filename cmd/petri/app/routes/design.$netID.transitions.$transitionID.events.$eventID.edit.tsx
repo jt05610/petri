@@ -3,7 +3,7 @@ import { json, redirect } from "@remix-run/node";
 import { requireUserId } from "~/session.server";
 import invariant from "tiny-invariant";
 import { getUserById } from "~/models/user.server";
-import { getEvent, updateEvent, UpdateEventSchema } from "~/models/event.server";
+import { getEvent, updateEvent, UpdateEventSchema } from "~/models/net.transition.event.server";
 import { Form, useActionData } from "@remix-run/react";
 import { parse } from "@conform-to/zod";
 import { badRequest } from "~/util/request.server";

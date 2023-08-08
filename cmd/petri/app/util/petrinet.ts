@@ -1,12 +1,13 @@
-import type { Place, Transition } from "@prisma/client";
+import type { Place, Transition , Arc } from "@prisma/client";
 import type {
   EventDetails,
   EventDetailsWithEnabled,
   NetDetailsWithChildren,
   TransitionWithEvents
 } from "~/models/net.server";
+import type { ColorProfile } from "~/lib/components/markedNet";
 
-type Marking = {
+export type Marking = {
   [placeID: string]: number;
 }
 
@@ -30,7 +31,7 @@ type DeviceWithEvents = {
     enabled?: boolean;
     fields: {
       name: string;
-      type: "string" | "number" | "boolean" | string;
+      type: "string" | "number" | "boolean" | string
     }[]
   }[]
 }
@@ -38,8 +39,11 @@ type DeviceWithEvents = {
 export class PetriNet {
   net: NetDetailsWithChildren;
   events: EventDetails[];
-  deviceIDFromInstanceID: { [instanceID: string]: string };
+  deviceIDFromInstanceID: {
+    [instanceID: string]: string
+  };
   devices: DeviceWithEvents[];
+  initialMarking: Marking;
 
   constructor(net: NetDetailsWithChildren) {
     this.net = net;
@@ -90,6 +94,10 @@ export class PetriNet {
         });
       });
     }
+    this.initialMarking = {};
+    this.net.places.forEach((place, i) => {
+      this.initialMarking[place.id] = this.net.initialMarking[i];
+    });
   }
 
   deviceIndexFromID(deviceID: string) {
@@ -150,7 +158,7 @@ export class PetriNet {
     return marking;
   }
 
-  instanceOf(instanceID: string) : string {
+  instanceOf(instanceID: string): string {
     return this.deviceIDFromInstanceID[instanceID];
   }
 
@@ -208,17 +216,16 @@ export class PetriNet {
 
   // handle the event and keep calling hot transitions until there are no more hot transitions
   handleEvent(marking: Marking, eventID: string): Marking {
-    console.log("Handling event: " + eventID + " with marking: " + JSON.stringify(marking));
-    if (!this.eventEnabled(marking, eventID)) {
+    let newMarking = marking
+    if (!this.eventEnabled(newMarking, eventID)) {
       console.log("Event: " + eventID + " is not enabled");
-      return marking;
+      return newMarking;
     }
-    marking = this.fireEvent(marking, eventID);
-    while (this.hotTransitions(marking).length > 0) {
-      marking = this.fire(marking, this.hotTransitions(marking)[0]);
+    newMarking = this.fireEvent(marking, eventID);
+    while (this.hotTransitions(newMarking).length > 0) {
+      newMarking = this.fire(newMarking, this.hotTransitions(newMarking)[0]);
     }
-    console.log("Handled event: " + eventID + " with marking: " + JSON.stringify(marking));
-    return marking;
+    return newMarking;
   }
 
   // return a graphviz dot string representing the petri net. places are represented by circles, and transitions are represented by rectangles.
@@ -236,16 +243,33 @@ export class PetriNet {
     return graph.join("\n");
   }
 
+  makePlaceNode(colorProfile: ColorProfile, place: Pick<Place, "id" | "name">, marking: Marking): string {
+    return `    "p${place.id}" [color="${colorProfile.border}" label="${place.name}"  style=filled fillcolor="${marking[place.id] > 0 ? colorProfile.placeTokenColor : colorProfile.placeColor}"];`;
+  }
+
+  makeTransitionNode(colorProfile: ColorProfile, transition: Pick<Transition, "id" | "name">, marking: Marking): string {
+    return `    "t${transition.id}" [color="${colorProfile.border}" label="${transition.name}" shape=box style=filled fillcolor="${this.enabledTransitions(marking).includes(transition) ? colorProfile.enabledTransition : colorProfile.transitionColor}"];`;
+  }
+
+  makeArc(colorProfile: ColorProfile, arc: Pick<Arc, "fromPlace" | "placeID" | "transitionID">, marking: Marking): string {
+    const baseString = arc.fromPlace ? `    "p${arc.placeID}" -> "t${arc.transitionID}"` : `    "t${arc.transitionID}" -> "p${arc.placeID}"`;
+    if (this.enabledTransitions(marking).some(transition => transition.id === arc.transitionID)) {
+      return `${baseString} [color="${colorProfile.enabledArc}"];`;
+    }
+    return `${baseString} [color="${colorProfile.border}"];`;
+  }
+
   // return a graphviz dot string representing the petri net with the passed marking. tokens in the markings are represented by black dots.
-  toGraphVizWithMarking(marking: Marking, params: GraphVizParams = {}) {
+  toGraphVizWithMarking(placeSize: number, colorProfile: ColorProfile, marking: Marking, params: GraphVizParams = {}) {
     const { rankdir = "LR" } = params;
     const graph = [
       "digraph {",
+      `    bgcolor="${colorProfile.bg}"`,
       `    rankdir=${rankdir};`,
-      "    node [shape=circle];",
-      ...this.net.places.map(place => `    "p${place.id}" [label="${place.name}"${marking[place.id] > 0 ? ` style=filled fillcolor=green` : ""}];`),
-      ...this.net.transitions.map(transition => `    "t${transition.id}" [label="${transition.name}" shape=box];`),
-      ...this.net.arcs.map(arc => arc.fromPlace ? `    "p${arc.placeID}" -> "t${arc.transitionID}";` : `    "t${arc.transitionID}" -> "p${arc.placeID}";`),
+      `    node [shape=circle fontname="Arial" fontsize=10 fixedsize=false fontcolor="${colorProfile.text}" width=${placeSize}];`,
+      ...this.net.places.map(place => this.makePlaceNode(colorProfile, place, marking)),
+      ...this.net.transitions.map(transition => this.makeTransitionNode(colorProfile, transition, marking)),
+      ...this.net.arcs.map(arc => this.makeArc(colorProfile, arc, marking)),
       "}"
     ];
     return graph.join("\n");
@@ -307,7 +331,6 @@ export class PetriNet {
     const initialMark = places.map(place => {
       return markingMap[place.id] || 0;
     });
-    console.log(initialMark);
     return new PetriNet({
       description: this.net.description,
       places, transitions, arcs,

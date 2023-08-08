@@ -3,14 +3,14 @@ import { json, redirect } from "@remix-run/node";
 import { requireUserId } from "~/session.server";
 import invariant from "tiny-invariant";
 import { getUserById } from "~/models/user.server";
-import {  ArcInputFormSchema, addArc } from "~/models/arc.server";
+import {  ArcInputFormSchema, addArc } from "~/models/net.arc.server";
 import { Form, useActionData, useLoaderData } from "@remix-run/react";
 import { parse } from "@conform-to/zod";
 import { badRequest } from "~/util/request.server";
 import { useForm } from "@conform-to/react";
-import FormContent from "~/lib/components/form";
-import { listPlaces } from "~/models/place.server";
-import { listTransitions } from "~/models/transition.server";
+import FormContent from "~/lib/layouts/form";
+import { listPlaces } from "~/models/net.place.server";
+import { listTransitions } from "~/models/net.transition.server";
 
 export const action = async ({ params, request }: LoaderArgs) => {
   invariant(params.netID, "netID not found");

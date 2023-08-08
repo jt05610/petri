@@ -1,16 +1,16 @@
 type FormProps = {
+  noButton?: boolean;
   activeButton?: boolean;
   fields: {
     name: string;
     content?: string;
     type: "text" | "textarea" | "select" | "checkbox" | "radio" | "number";
-    options?: {value: string, display: string}[];
+    options?: { value: string, display: string }[];
     error?: string;
   }[]
 }
 
 export default function FormContent(props: FormProps) {
-
   return (
     <div className={`flex flex-col space-y-2`}>
       {props.fields.map((field, i) => (
@@ -56,7 +56,7 @@ export default function FormContent(props: FormProps) {
               }
               className={`rounded-full px-2`}
             >
-              {field.options?.map(({value, display}, i) => (
+              {field.options?.map(({ value, display }, i) => (
                 <option key={i} value={value}>
                   {display}
                 </option>
@@ -116,11 +116,13 @@ export default function FormContent(props: FormProps) {
           )}
         </div>
       ))}
-      <button
-        type="submit"
-        className={`rounded-full text-white py-2 px-4 bg-slate-700 ${(props.activeButton !== undefined && !props.activeButton) ? "disabled cursor-not-allowed" : ""}`}
-      >Submit
-      </button>
+      {props.noButton ? null : (
+        <button
+          type="submit"
+          className={`rounded-full text-white py-2 px-4 bg-slate-700 ${(props.activeButton !== undefined && !props.activeButton) ? "disabled cursor-not-allowed" : ""}`}
+        >Submit
+        </button>
+      )}
     </div>
   );
 }

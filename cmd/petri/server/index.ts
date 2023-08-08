@@ -47,10 +47,11 @@ io.on("connection", async (socket) => {
   // from this point you are on the WS connection with a specific client
   console.log(socket.id, "connected");
   socket.emit("confirmation", "connected!");
-  socket.on("event", async (cmd: Command) => {
+  socket.on("command", async (cmd: Command) => {
     const { deviceID, data, command } = CommandSchema.parse(cmd);
     channel.publish(exchange, routingKey(deviceID, command), data ? Buffer.from(JSON.stringify(data)) : Buffer.from(""));
     console.log(" [x] Sent %s:'%s'", routingKey(deviceID, command), data ? JSON.stringify(data) : "");
+    socket.emit("command", cmd);
   });
 });
 

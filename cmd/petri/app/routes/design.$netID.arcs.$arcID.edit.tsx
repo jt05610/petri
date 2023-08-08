@@ -3,15 +3,15 @@ import { json, redirect } from "@remix-run/node";
 import { requireUserId } from "~/session.server";
 import invariant from "tiny-invariant";
 import { getUserById } from "~/models/user.server";
-import { getArc, updateArc, ArcUpdateFormSchema } from "~/models/arc.server";
+import { getArc, updateArc, ArcUpdateFormSchema } from "~/models/net.arc.server";
 import { Form, useActionData, useLoaderData } from "@remix-run/react";
 import { parse } from "@conform-to/zod";
 import { badRequest } from "~/util/request.server";
 import { useForm } from "@conform-to/react";
-import FormContent from "~/lib/components/form";
+import FormContent from "~/lib/layouts/form";
 import { useState } from "react";
-import { listTransitions } from "~/models/transition.server";
-import { listPlaces } from "~/models/place.server";
+import { listTransitions } from "~/models/net.transition.server";
+import { listPlaces } from "~/models/net.place.server";
 
 export const action = async ({ params, request }: LoaderArgs) => {
   invariant(params.arcID, "arcID not found");

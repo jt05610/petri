@@ -3,7 +3,7 @@ import { createSession } from "~/models/net.run.session.server";
 import invariant from "tiny-invariant";
 import { requireUser } from "~/session.server";
 import { redirect } from "@remix-run/node";
-import { NavLink } from "@remix-run/react";
+import { Form } from "@remix-run/react";
 
 export const action = async ({ params, request }: ActionArgs) => {
   const { sequenceID } = params;
@@ -18,8 +18,10 @@ export const action = async ({ params, request }: ActionArgs) => {
 
 export default function PlaySequence() {
   return (
-    <NavLink to={"."}>
-      New session
-    </NavLink>
+    <Form method={"post"}>
+      <button type={"submit"}>
+        New session
+      </button>
+    </Form>
   );
 };

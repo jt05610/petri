@@ -2,7 +2,7 @@
 export default function SequenceIndexPage() {
   return (
     <p>
-      No sequence selected.
+      No action selected
     </p>
   );
 }

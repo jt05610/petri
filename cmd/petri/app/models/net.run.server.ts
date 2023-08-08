@@ -21,25 +21,25 @@ export type ConstantInputDisplay = z.infer<typeof ConstantInputDisplaySchema>;
 
 export type ConstantInput = z.infer<typeof ConstantInputSchema>
 
-export const AddConstantToEventInputSchema = ConstantInputSchema.extend({
+export const AddConstantToActionSchema = ConstantInputSchema.extend({
   actionId: z.string().cuid()
 });
 
-export type AddConstantToEventInput = z.infer<typeof AddConstantToEventInputSchema>;
+export type AddConstantToAction = z.infer<typeof AddConstantToActionSchema>;
 
-export async function addConstant(input: AddConstantToEventInput) {
-  const { fieldID, value, actionId } = AddConstantToEventInputSchema.parse(input);
-  return prisma.action.update({
-    where: { id: actionId },
+export async function addConstant(input: AddConstantToAction): Promise<ConstantDetails> {
+  const { fieldID, value, actionId } = AddConstantToActionSchema.parse(input);
+  return prisma.constant.create({
     data: {
-      constants: {
-        create: {
-          field: {
-            connect: {
-              id: fieldID
-            }
-          },
-          value
+      value,
+      field: {
+        connect: {
+          id: fieldID
+        }
+      },
+      action: {
+        connect: {
+          id: actionId
         }
       }
     }
@@ -48,20 +48,20 @@ export async function addConstant(input: AddConstantToEventInput) {
 
 export const UpdateConstantSchema = z.object({
   actionId: z.string().cuid(),
-  constantID: z.string().cuid(),
+  constantId: z.string().cuid(),
   value: z.string()
 });
 
 export type UpdateConstantInput = z.infer<typeof UpdateConstantSchema>;
 
 export async function updateConstant(input: UpdateConstantInput) {
-  const { constantID, actionId, value } = UpdateConstantSchema.parse(input);
+  const { constantId, actionId, value } = UpdateConstantSchema.parse(input);
   return prisma.action.update({
     where: { id: actionId },
     data: {
       constants: {
         update: {
-          where: { id: constantID },
+          where: { id: constantId },
           data: {
             value
           }
@@ -71,21 +71,21 @@ export async function updateConstant(input: UpdateConstantInput) {
   });
 }
 
-export const DeleteConstantSchema = z.object({
+export const RemoveConstantSchema = z.object({
   actionId: z.string().cuid(),
-  constantID: z.string().cuid()
+  constantId: z.string().cuid()
 });
 
-export type DeleteConstantInput = z.infer<typeof DeleteConstantSchema>;
+export type RemoveConstantInput = z.infer<typeof RemoveConstantSchema>;
 
-export async function deleteConstant(input: DeleteConstantInput) {
-  const { constantID, actionId } = DeleteConstantSchema.parse(input);
+export async function removeConstant(input: RemoveConstantInput) {
+  const { constantId, actionId } = RemoveConstantSchema.parse(input);
   return prisma.action.update({
     where: { id: actionId },
     data: {
       constants: {
         delete: {
-          id: constantID
+          id: constantId
         }
       }
     }
@@ -137,7 +137,8 @@ export const AddActionToRunSchema = ActionInputSchema.extend({
 
 export type AddActionToRunInput = z.infer<typeof AddActionToRunSchema>;
 
-export async function addActionToRun(req: AddActionToRunInput) {
+
+export async function addActionToRun(req: AddActionToRunInput): Promise<ActionDetails> {
   const { deviceId, input, output, runId, eventID, constants } = AddActionToRunSchema.parse(req);
   return prisma.action.create({
     data: {
@@ -161,21 +162,34 @@ export async function addActionToRun(req: AddActionToRunInput) {
           id: eventID
         }
       }
+    },
+    include: {
+      constants: true,
+      event: {
+        include: {
+          fields: true
+        }
+      },
+      device: {
+        include: {
+          instances: true
+        }
+      }
     }
   });
 }
 
 export const RemoveActionFromRunInputSchema = z.object({
-  runEventId: z.string().cuid(),
+  runID: z.string().cuid(),
   actionId: z.string().cuid()
 });
 
 export type RemoveActionFromRun = z.infer<typeof RemoveActionFromRunInputSchema>;
 
 export async function removeActionFromRun(input: RemoveActionFromRun) {
-  const { runEventId, actionId } = RemoveActionFromRunInputSchema.parse(input);
+  const { runID, actionId } = RemoveActionFromRunInputSchema.parse(input);
   return prisma.run.update({
-    where: { id: runEventId },
+    where: { id: runID },
     data: {
       actions: {
         delete: {
@@ -188,33 +202,6 @@ export async function removeActionFromRun(input: RemoveActionFromRun) {
 
 // Run event CRUD operations
 
-export const ConstantUpdateInputSchema = z.object({
-  id: z.string().cuid(),
-  value: z.string()
-});
-
-
-export const UpdateActionInputSchema = z.object({
-  id: z.string().cuid(),
-  constants: z.array(ConstantUpdateInputSchema)
-});
-
-export type UpdateActionInput = z.infer<typeof UpdateActionInputSchema>;
-
-export async function updateAction(input: UpdateActionInput) {
-  const { id, constants } = UpdateActionInputSchema.parse(input);
-  return prisma.action.update({
-    where: { id },
-    data: {
-      constants: {
-        updateMany: constants.map(({ id, value }) => ({
-          where: { id },
-          data: { value }
-        }))
-      }
-    }
-  });
-}
 
 // Run CRUD operations
 

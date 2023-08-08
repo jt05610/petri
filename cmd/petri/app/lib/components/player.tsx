@@ -1,46 +1,44 @@
-import type { ReactNode } from "react";
-import { PetriNetContext, RecordRunContext, RunActionType, SocketContext } from "~/context";
+import {
+  PetriNetContext,
+  RunSessionContext,
+  SessionActionType,
+  SocketContext
+} from "~/context";
 import { useContextSelector } from "use-context-selector";
-import type {
-  ConstantInputDisplay,
-  ActionInputDisplay,
-  RunInputDisplay
-} from "~/models/net.run.server";
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import type { Marking } from "~/util/petrinet";
+import { RunContext } from "~/lib/context/run";
+import RunGridView from "~/lib/components/displayGrid";
+import type { RunDetails } from "~/models/net.run.server";
+
+type RunViewProps = {
+  minCols: number
+  minRows: number
+  activeStep: number
+  deviceNames: string[]
+  sequence: RunDetails
+}
+
+export function RunView({ minCols, minRows, deviceNames, sequence, activeStep }: RunViewProps) {
+  return (
+    <div className="mt-4 -mb-3">
+      <RunGridView nCols={minCols} nRows={minRows} deviceNames={deviceNames} sequence={sequence} activeStep={activeStep}/>
+    </div>
+  );
+}
 
 export default function Player() {
   const socket = useContextSelector(SocketContext, (context) => context);
   const petriNet = useContextSelector(PetriNetContext, (context) => context?.petriNet);
-  const petriNetRef = useRef<typeof petriNet>();
-  const dispatch = useContextSelector(RecordRunContext, (context) => context?.dispatch);
-  const dispatchRef = useRef<typeof dispatch>();
-  const sequence = useContextSelector(RecordRunContext, (context) => context?.run);
-  const seqRef = useRef<typeof sequence>();
+  const session = useContextSelector(RunSessionContext, (context) => context?.session);
+  const dispatch = useContextSelector(RunSessionContext, (context) => context?.dispatch);
+  const sequence = useContextSelector(RunContext, (context) => context?.run);
 
   useEffect(() => {
-    console.log("rendering timeline");
-  }, []);
-  useEffect(() => {
-    if (!dispatch) return;
-    dispatchRef.current = dispatch;
-  }, [dispatch]);
-
-  useEffect(() => {
-    if (!sequence) return;
-    seqRef.current = sequence;
-  }, [sequence]);
-
-  useEffect(() => {
-    if (!petriNet) return;
-    petriNetRef.current = petriNet;
-  }, [petriNet]);
-
-  useEffect(() => {
-    if (!socket) return;
+    if (!socket || !petriNet || !session || !sequence) return;
     socket.on("command", (data: {
       deviceID: string,
-      event: string,
+      command: string,
       input: Marking,
       output: Marking,
       message: {
@@ -50,39 +48,41 @@ export default function Player() {
       console.log("command", data);
       // replace whitespace in event name with underscores and make lowercase
       const transformedEventName = (event: string) => event.replace(/\s/g, "_").toLowerCase();
-      const event = petriNetRef.current!.events.find((e) => data.event === transformedEventName(e.name));
+      const event = petriNet!.events.find((e) => data.command === transformedEventName(e.name));
       // make human-readable timestamp in format DD MMM YYYY HH:MM:SS
       if (!event) {
         console.log("event not found");
         return;
       }
-      // map the message fieldNames to the event's field ids
-      const constants: ConstantInputDisplay[] = event.fields.map((field) => {
-        return {
-          fieldID: field.id,
-          fieldName: field.name,
-          constant: false,
-          value: data.message[field.name]
-        };
-      });
-
-      // any data with the message is assumed to be a constant for this event
-      const actionInput: ActionInputDisplay = {
-        eventName: event.name,
-        eventID: event.id,
-        deviceId: petriNetRef.current!.instanceOf(data.deviceID),
-        input: data.input,
-        output: data.output,
-        constants
-      };
-      console.log("dispatching", actionInput);
-
-      dispatchRef.current!({
-        type: RunActionType.ActionAdded,
-        payload: actionInput
+      dispatch!({
+        type: SessionActionType.ActionStarted,
+        payload: {}
       });
     });
-  }, [socket]);
+    socket.on("event", (data: {
+      deviceID: string,
+      event: string,
+      input: Marking,
+      output: Marking,
+      message: {
+        [fieldNme: string]: string
+      }
+    }) => {
+      console.log("event", data);
+      // replace whitespace in event name with underscores and make lowercase
+      const transformedEventName = (event: string) => event.replace(/\s/g, "_").toLowerCase();
+      const event = petriNet!.events.find((e) => data.event === transformedEventName(e.name));
+      // make human-readable timestamp in format DD MMM YYYY HH:MM:SS
+      if (!event) {
+        console.log("event not found");
+        return;
+      }
+      dispatch!({
+        type: SessionActionType.ActionCompleted,
+        payload: {}
+      });
+    });
+  }, [dispatch, petriNet, sequence, session, socket]);
 
   return (
     <div className={"w-full h-3/10 bottom-0 space-x-2"}>
@@ -112,6 +112,7 @@ export default function Player() {
           minRows={2}
           deviceNames={petriNet?.devices.map((d) => d.name) ?? []}
           sequence={sequence}
+          activeStep={session?.activeAction ?? 0}
         />
       }
     </div>

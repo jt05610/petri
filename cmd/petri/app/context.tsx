@@ -151,7 +151,7 @@ function runReducer(state: RunInputDisplay, action: RunAction): RunInputDisplay 
   }
 }
 
-enum SessionActionType {
+export enum SessionActionType {
   ActionStarted = "actionStarted",
   ActionCompleted = "actionCompleted",
 }
@@ -169,7 +169,7 @@ type SessionAction = {
 
 type LiveSession = RunSessionDetails & {
   remainingActions: RunSessionDetails["run"]["actions"];
-  activeAction: string | null;
+  activeAction: number;
   data: DataListItem[];
 }
 
@@ -189,7 +189,7 @@ function createLiveSession(session: RunSessionDetails): LiveSession {
   return {
     ...session,
     remainingActions: [...session.run.actions],
-    activeAction: null,
+    activeAction: 0,
     data: [] as DataListItem[]
   };
 }

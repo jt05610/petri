@@ -182,12 +182,12 @@ model Device {
 }
 
 model Constant {
-  id        String @id @default(cuid())
-  command   Action @relation(fields: [commandId], references: [id])
-  commandId String
-  field     Field  @relation(fields: [fieldID], references: [id])
-  fieldID   String
-  value     String
+  id       String @id @default(cuid())
+  action   Action @relation(fields: [actionID], references: [id])
+  actionID String
+  field    Field  @relation(fields: [fieldID], references: [id])
+  fieldID  String
+  value    String
 }
 
 model Action {

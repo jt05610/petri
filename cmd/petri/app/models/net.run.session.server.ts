@@ -35,14 +35,18 @@ export const GetRunSessionInputSchema = z.object({
 
 export type GetRunSessionInput = z.infer<typeof GetRunSessionInputSchema>;
 
-export type RunSessionDetails = Pick<Session, "id" | "createdAt" | "updatedAt"> & {
+export type RunSessionDetails = Pick<Session, "id"> & {
+  createdAt: Date | string,
+  updatedAt: Date | string,
   user: Pick<User, "email">,
   run: Pick<Run, "name"> & {
     actions: (Pick<Action, "id" | "input" | "output"> & {
       event: Pick<Event, "id" | "name" | "description">
     })[]
   }
-  data: Pick<Datum, "instanceID" | "value" | "createdAt"> [];
+  data: (Pick<Datum, "instanceID" | "value"> & {
+    createdAt: Date | string
+  }) [];
 }
 
 export async function getRunSession(input: GetRunSessionInput): Promise<RunSessionDetails> {

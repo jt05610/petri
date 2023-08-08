@@ -1,6 +1,13 @@
 import type { ReactNode } from "react";
 import { PencilIcon, PlayIcon } from "@heroicons/react/24/solid";
-import { NavLink, Outlet } from "@remix-run/react";
+import { NavLink, Outlet, useLoaderData } from "@remix-run/react";
+import { RunProvider } from "~/lib/context/run";
+import type { LoaderArgs } from "@remix-run/node";
+import { json } from "@remix-run/node";
+import invariant from "tiny-invariant";
+import { requireUser } from "~/session.server";
+import { getRunDetails } from "~/models/net.run.server";
+import { Suspense } from "react";
 
 type NavLinkBoxItem = {
   to: string;
@@ -33,7 +40,17 @@ export function NavLinkBox(props: NavLinkBoxProps) {
   );
 }
 
+export const loader = async ({ params, request }: LoaderArgs) => {
+  const { sequenceID } = params;
+  invariant(sequenceID, "sequenceID is required");
+  await requireUser(request);
+  const details = await getRunDetails({ runID: sequenceID });
+  return json({ run: details });
+};
+
 export default function SequencePage() {
+  const { run } = useLoaderData<typeof loader>();
+
   return (
     <div className="flex flex-row items-center justify-start">
       <div className="flex flex-row items-center">
@@ -51,8 +68,13 @@ export default function SequencePage() {
           }
         ]} />
       </div>
-      <Outlet />
-
+      <Suspense fallback={<div>Loading...</div>}>
+        {run &&
+          <RunProvider runDetails={run}>
+            <Outlet />
+          </RunProvider>
+        }
+      </Suspense>
     </div>
   );
 }

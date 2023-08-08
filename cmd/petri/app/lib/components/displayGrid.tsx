@@ -55,7 +55,7 @@ type ActionConstantViewProps = {
   constants: ConstantInput[]
 }
 
-function DeviceParameterView({ actionIndex, constants, fields, }: ActionConstantViewProps) {
+function DeviceParameterView({ actionIndex, constants, fields }: ActionConstantViewProps) {
   const dispatch = useContextSelector(RecordRunContext, v => v?.dispatch);
   return (
     <table className="table-auto">
@@ -81,10 +81,10 @@ function DeviceParameterView({ actionIndex, constants, fields, }: ActionConstant
                         fieldID: constant.fieldID,
                         actionIndex: actionIndex
                       }
-                    })
+                    });
                   }
                 }
-              }
+                }
               ><BackspaceIcon className={"h-4 w-4 text-rose-400/50"} /></button>
             </td>
           </tr>
@@ -126,7 +126,7 @@ function ActionDetails({ index, color, name, constants, fields }: ActionDetailsP
     <div className={`m-1 p-2 text-sm rounded-lg flex flex-col ${deviceEventColors[color]}`}>
       <span className="text-sm font-medium">{name}</span>
       {constants.length > 0 && (
-        <DeviceParameterView constants={constants} fields={fields} actionIndex={index}/>
+        <DeviceParameterView constants={constants} fields={fields} actionIndex={index} />
       )}
     </div>
   );
@@ -138,12 +138,14 @@ type RunGridViewProps = {
   nRows: number
   sequence: RunDetails
   deviceNames: string[]
+  activeStep: number
 }
 
-export default function RunGridView({ nCols, nRows, deviceNames, sequence }: RunGridViewProps) {
+export default function RunGridView({ nCols, nRows, deviceNames, sequence, activeStep }: RunGridViewProps) {
   const petriNet = useContextSelector(PetriNetContext, (context) => context!.petriNet);
   return (
     <div className="not-prose relative bg-slate-50 rounded-xl overflow-hidden dark:bg-slate-800/25">
+      <h2>Progress: {`${activeStep} of ${sequence.actions.length}`}</h2>
       <div
         className="absolute inset-0 bg-grid-slate-100 [mask-image:linear-gradient(0deg,#fff,rgba(255,255,255,0.6))] dark:bg-grid-slate-700/25 dark:[mask-image:linear-gradient(0deg,rgba(255,255,255,0.1),rgba(255,255,255,0.5))]"></div>
       <div className="relative rounded-xl overflow-auto">

@@ -201,19 +201,28 @@ model Action {
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
   constants Constant[]
-  runs      Run[]
+  steps     Step[]
+}
+
+model Step {
+  id       String @id @default(cuid())
+  order    Int
+  run      Run    @relation(fields: [runID], references: [id])
+  runID    String
+  action   Action @relation(fields: [actionID], references: [id])
+  actionID String
 }
 
 model Run {
   id          String    @id @default(cuid())
   name        String
   description String
-  actions     Action[]
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   net         Net       @relation(fields: [netID], references: [id])
   netID       String
   sessions    Session[]
+  steps       Step[]
 }
 
 model Datum {

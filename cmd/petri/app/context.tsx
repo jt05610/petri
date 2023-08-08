@@ -152,6 +152,8 @@ function runReducer(state: RunInputDisplay, action: RunAction): RunInputDisplay 
 }
 
 export enum SessionActionType {
+  StartSession = "startSession",
+  StopSession = "stopSession",
   ActionStarted = "actionStarted",
   ActionCompleted = "actionCompleted",
 }
@@ -168,8 +170,9 @@ type SessionAction = {
 }
 
 type LiveSession = RunSessionDetails & {
-  remainingActions: RunSessionDetails["run"]["actions"];
-  activeAction: number;
+  remainingActions: RunSessionDetails["run"]["steps"];
+  activeIndex: number;
+  activeAction: RunSessionDetails["run"]["steps"][number] | undefined;
   data: DataListItem[];
 }
 
@@ -188,8 +191,9 @@ type SessionProviderProps = {
 function createLiveSession(session: RunSessionDetails): LiveSession {
   return {
     ...session,
-    remainingActions: [...session.run.actions],
-    activeAction: 0,
+    remainingActions: session.run.steps,
+    activeAction: session.run.steps[0],
+    activeIndex: 0,
     data: [] as DataListItem[]
   };
 }
@@ -206,13 +210,20 @@ export function SessionProvider({ sessionDetails, children }: SessionProviderPro
 
 function sessionReducer(state: LiveSession, action: SessionAction): LiveSession {
   switch (action.type) {
+    case SessionActionType.StartSession: {
+      const newState = state;
+      newState.activeAction = state.remainingActions[0];
+      newState.activeIndex = 0;
+      return newState;
+    }
     case SessionActionType.ActionStarted: {
       const remainingActions = [...state.remainingActions];
       const activeAction = remainingActions.shift();
       return {
         ...state,
         remainingActions,
-        activeAction: activeAction?.id || null
+        activeAction: activeAction,
+        activeIndex: state.activeIndex + 1
       };
     }
     case SessionActionType.ActionCompleted: {
@@ -222,9 +233,14 @@ function sessionReducer(state: LiveSession, action: SessionAction): LiveSession 
       return {
         ...state,
         data,
-        activeAction: null
+        activeAction: undefined
       };
     }
+    case SessionActionType.StopSession: {
+      return createLiveSession(state);
+    }
+    default:
+      throw Error("Invalid action type");
   }
 }
 

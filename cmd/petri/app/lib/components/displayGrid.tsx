@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import type { ConstantInput, RunDetails, RunInputDisplay } from "~/models/net.run.server";
 import { useContextSelector } from "use-context-selector";
-import { PetriNetContext, RecordRunContext, RunActionType } from "~/context";
+import { PetriNetContext, RecordRunContext, RunActionType, RunSessionContext } from "~/context";
 import { BackspaceIcon } from "@heroicons/react/24/outline";
 
 type GridHeaderItemProps = {
@@ -138,14 +138,16 @@ type RunGridViewProps = {
   nRows: number
   sequence: RunDetails
   deviceNames: string[]
-  activeStep: number
 }
 
-export default function RunGridView({ nCols, nRows, deviceNames, sequence, activeStep }: RunGridViewProps) {
+export default function RunGridView({ nCols, nRows, deviceNames, sequence }: RunGridViewProps) {
+
+  const session = useContextSelector(RunSessionContext, (context) => context!.session);
+
   const petriNet = useContextSelector(PetriNetContext, (context) => context!.petriNet);
   return (
     <div className="not-prose relative bg-slate-50 rounded-xl overflow-hidden dark:bg-slate-800/25">
-      <h2>Progress: {`${activeStep} of ${sequence.actions.length}`}</h2>
+      <h2>Progress: {`${session.activeIndex} of ${sequence.steps.length}`}</h2>
       <div
         className="absolute inset-0 bg-grid-slate-100 [mask-image:linear-gradient(0deg,#fff,rgba(255,255,255,0.6))] dark:bg-grid-slate-700/25 dark:[mask-image:linear-gradient(0deg,rgba(255,255,255,0.1),rgba(255,255,255,0.5))]"></div>
       <div className="relative rounded-xl overflow-auto">
@@ -162,22 +164,24 @@ export default function RunGridView({ nCols, nRows, deviceNames, sequence, activ
                   if (col === 0) {
                     return <GridHeaderCell key={`${row}.${col}`} title={deviceNames[row - 1]} row={row + 1} />;
                   }
-                  if (sequence.actions[col - 1] !== undefined) {
-                    const event = sequence.actions[col - 1];
-                    const intendedRow = petriNet!.deviceIndexFromID(event.device.id) + 1;
+                  if (sequence.steps[col - 1] !== undefined) {
+                    const { action } = sequence.steps[col - 1];
+                    const intendedRow = petriNet!.deviceIndexFromID(action.device.id) + 1;
                     if (row === intendedRow) {
-                      const color = colorFromIndex(petriNet!.deviceIndexFromID(event.device.id));
+                      const color = colorFromIndex(petriNet!.deviceIndexFromID(action.device.id));
                       return (
                         <GridCell key={`${row}.${col}`}>
                           <ActionDetails
                             index={col - 1}
                             color={color}
-                            name={event.event.name}
-                            constants={event.constants}
-                            fields={event.event.fields.map((field) => field.id).reduce((acc, id, i) => {
-                                acc[id] = event.event.fields[i].name;
+                            name={action.event.name}
+                            constants={action.constants}
+                            fields={action.event.fields.map((field) => field.id).reduce((acc, id, i) => {
+                                acc[id] = action.event.fields[i].name;
                                 return acc;
-                              }, {} as { [key: string]: string }
+                              }, {} as {
+                                [key: string]: string
+                              }
                             )}
                           />
                         </GridCell>
@@ -240,7 +244,9 @@ export function RecordRunGridView({ nCols, nRows, deviceNames, sequence }: Recor
                                 acc[id] = event.eventFields[i].name;
                                 return acc;
                               }
-                              , {} as { [key: string]: string }
+                              , {} as {
+                                [key: string]: string
+                              }
                             )
                             }
                           />

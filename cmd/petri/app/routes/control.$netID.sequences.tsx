@@ -24,7 +24,7 @@ export default function RunsPage() {
   return (
     <div className="flex h-full min-h-screen flex-col">
       <Header />
-      <main className="flex h-full bg-white">
+      <main className="flex h-full">
         <div className="h-full w-80 border-r bg-gray-50">
           <Link to="admin" className="block p-4 text-xl text-blue-500">
             Admin
@@ -50,8 +50,7 @@ export default function RunsPage() {
             </ol>
           )}
         </div>
-
-        <div className="flex-1 p-6">
+        <div className="flex flex-col min-h-full w-full">
           <Outlet />
         </div>
       </main>

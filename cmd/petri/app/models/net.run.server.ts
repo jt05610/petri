@@ -1,4 +1,4 @@
-import type { Prisma, Run, Constant, Action, Field } from "@prisma/client";
+import type { Step, Prisma, Run, Constant, Action, Field } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "~/db.server";
 
@@ -138,44 +138,62 @@ export const AddActionToRunSchema = ActionInputSchema.extend({
 export type AddActionToRunInput = z.infer<typeof AddActionToRunSchema>;
 
 
-export async function addActionToRun(req: AddActionToRunInput): Promise<ActionDetails> {
+export async function addActionToRun(req: AddActionToRunInput) {
   const { deviceId, input, output, runId, eventID, constants } = AddActionToRunSchema.parse(req);
-  return prisma.action.create({
+  const actions = await prisma.step.findMany({
+    where: {
+      run: {
+        id: runId
+      }
+    }
+  });
+
+  const order = actions.length;
+
+  return prisma.run.update({
+    where: { id: runId },
     data: {
-      runs: {
-        connect: {
-          id: runId
-        }
-      },
-      device: {
-        connect: {
-          id: deviceId
-        }
-      },
-      input: input as InputJsonValue,
-      output: output as InputJsonValue,
-      constants: {
-        create: constants
-      },
-      event: {
-        connect: {
-          id: eventID
+      steps: {
+        create: {
+          order: order,
+          action: {
+            create: {
+              input,
+              output,
+              device: {
+                connect: {
+                  id: deviceId
+                }
+              },
+              event: {
+                connect: {
+                  id: eventID
+                }
+              },
+              constants: {
+                create: constants
+              }
+            }
+          }
         }
       }
     },
-    include: {
-      constants: true,
-      event: {
-        include: {
-          fields: true
-        }
-      },
-      device: {
-        include: {
-          instances: true
+    select: {
+      steps: {
+        where: {
+          order: order
+        },
+        select: {
+          action: {
+            select: {
+              id: true
+            }
+          }
         }
       }
     }
+  }).then((run) => {
+    return run.steps[0].action;
   });
 }
 
@@ -186,19 +204,6 @@ export const RemoveActionFromRunInputSchema = z.object({
 
 export type RemoveActionFromRun = z.infer<typeof RemoveActionFromRunInputSchema>;
 
-export async function removeActionFromRun(input: RemoveActionFromRun) {
-  const { runID, actionId } = RemoveActionFromRunInputSchema.parse(input);
-  return prisma.run.update({
-    where: { id: runID },
-    data: {
-      actions: {
-        delete: {
-          id: actionId
-        }
-      }
-    }
-  });
-}
 
 // Run event CRUD operations
 
@@ -235,21 +240,26 @@ export async function addRun(input: RunInput) {
           id: netID
         }
       },
-      actions: {
-        create: actions.map((action) => ({
-          device: {
-            connect: {
-              id: action.deviceId
-            }
-          },
-          input: action.input as InputJsonValue,
-          output: action.output as InputJsonValue,
-          constants: {
-            create: action.constants
-          },
-          event: {
-            connect: {
-              id: action.eventID
+      steps: {
+        create: actions.map((action, i) => ({
+          order: i,
+          action: {
+            create: {
+              device: {
+                connect: {
+                  id: action.deviceId
+                }
+              },
+              input: action.input as InputJsonValue,
+              output: action.output as InputJsonValue,
+              constants: {
+                create: action.constants
+              },
+              event: {
+                connect: {
+                  id: action.eventID
+                }
+              }
             }
           }
         }))
@@ -315,7 +325,7 @@ export type ActionDetails = Pick<Action, "id"> & {
   constants: ConstantDetails[]
 }
 export type RunDetails = Pick<Run, "id" | "name" | "description"> & {
-  actions: ActionDetails[]
+  steps: (Pick<Step, "id" | "order"> & { action: ActionDetails })[]
 }
 
 export async function getRunDetails(input: GetRunInput): Promise<RunDetails> {
@@ -326,41 +336,50 @@ export async function getRunDetails(input: GetRunInput): Promise<RunDetails> {
       id: true,
       name: true,
       description: true,
-      actions: {
+      steps: {
         select: {
           id: true,
-          device: {
+          order: true,
+          action: {
             select: {
               id: true,
-              name: true,
-              instances: {
-                select: {
-                  name: true,
-                  addr: true
-                }
-              }
-            }
-          },
-          event: {
-            select: {
-              id: true,
-              name: true,
-              fields: {
+              device: {
                 select: {
                   id: true,
                   name: true,
-                  type: true
+                  instances: {
+                    select: {
+                      name: true,
+                      addr: true
+                    }
+                  }
+                }
+              },
+              event: {
+                select: {
+                  id: true,
+                  name: true,
+                  fields: {
+                    select: {
+                      id: true,
+                      name: true,
+                      type: true
+                    }
+                  }
+                }
+              },
+              constants: {
+                select: {
+                  id: true,
+                  fieldID: true,
+                  value: true
                 }
               }
             }
-          },
-          constants: {
-            select: {
-              id: true,
-              fieldID: true,
-              value: true
-            }
           }
+        },
+        orderBy: {
+          order: "asc"
         }
       }
     }

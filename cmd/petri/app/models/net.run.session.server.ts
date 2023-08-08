@@ -40,9 +40,12 @@ export type RunSessionDetails = Pick<Session, "id"> & {
   updatedAt: Date | string,
   user: Pick<User, "email">,
   run: Pick<Run, "name"> & {
-    actions: (Pick<Action, "id" | "input" | "output"> & {
-      event: Pick<Event, "id" | "name" | "description">
-    })[]
+    steps: {
+      order: number,
+      action: (Pick<Action, "id" | "input" | "output" | "deviceId"> & {
+        event: Pick<Event, "id" | "name" | "description">
+      })
+    }[]
   }
   data: (Pick<Datum, "instanceID" | "value"> & {
     createdAt: Date | string
@@ -65,16 +68,22 @@ export async function getRunSession(input: GetRunSessionInput): Promise<RunSessi
       run: {
         select: {
           name: true,
-          actions: {
+          steps: {
             select: {
-              id: true,
-              input: true,
-              output: true,
-              event: {
+              order: true,
+              action: {
                 select: {
                   id: true,
-                  name: true,
-                  description: true
+                  input: true,
+                  output: true,
+                  deviceId: true,
+                  event: {
+                    select: {
+                      id: true,
+                      name: true,
+                      description: true
+                    }
+                  }
                 }
               }
             }

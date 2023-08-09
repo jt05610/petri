@@ -1,0 +1,117 @@
+syntax = "proto3";
+
+package modbus;
+
+option go_package = "modbus/v1/modbus";
+
+// Function Code 1 (Read Coils)
+message ReadCoilsRequest {
+  uint32 unitId = 1;
+  uint32 startAddress = 2;
+  uint32 quantity = 3;
+}
+
+message ReadCoilsResponse {
+  repeated bool data = 1;
+}
+
+// Function Code 2 (Read Discrete Inputs)
+message ReadDiscreteInputsRequest {
+  uint32 unitId = 1;
+  uint32 startAddress = 2;
+  uint32 quantity = 3;
+}
+
+message ReadDiscreteInputsResponse {
+  repeated bool data = 1;
+}
+
+// Function Code 3 (Read Holding Registers)
+message ReadHoldingRegistersRequest {
+  uint32 unitId = 1;
+  uint32 startAddress = 2;
+  uint32 quantity = 3;
+}
+
+message ReadHoldingRegistersResponse {
+  bytes data = 1;
+}
+
+// Function Code 4 (Read Input Registers)
+message ReadInputRegistersRequest {
+  uint32 unitId = 1;
+  uint32 startAddress = 2;
+  uint32 quantity = 3;
+}
+
+message ReadInputRegistersResponse {
+  bytes data = 1;
+}
+
+// Function Code 5 (Write Single Coil)
+message WriteSingleCoilRequest {
+  uint32 unitId = 1;
+  uint32 address = 2;
+  bool value = 3;
+}
+
+message WriteSingleCoilResponse {
+  uint32 address = 1;
+  bool value = 2;
+}
+
+// Function Code 6 (Write Single Register)
+message WriteSingleRegisterRequest {
+  uint32 unitId = 1;
+  uint32 address = 2;
+  uint32 value = 3;
+}
+
+message WriteSingleRegisterResponse {
+  uint32 address = 1;
+  uint32 value = 2;
+}
+
+message InputRegister {
+  string register_map_id = 1;
+  string name = 2;
+  uint32 address = 3;
+  uint32 size = 4;
+}
+
+message HoldingRegister {
+  string register_map_id = 1;
+  string name = 2;
+  uint32 address = 3;
+  uint32 size = 4;
+}
+
+message Coil {
+  string register_map_id = 1;
+  string name = 2;
+  uint32 address = 3;
+}
+
+message DiscreteInput {
+  string register_map_id = 1;
+  string name = 2;
+  uint32 address = 3;
+}
+
+message RegisterMap {
+  string id = 1;
+  repeated InputRegister input_registers = 2;
+  repeated HoldingRegister holding_registers = 3;
+  repeated Coil coils = 4;
+  repeated DiscreteInput discrete_inputs = 5;
+}
+
+// Service definition
+service Modbus {
+  rpc ReadCoils (ReadCoilsRequest) returns (ReadCoilsResponse) {}
+  rpc ReadDiscreteInputs (ReadDiscreteInputsRequest) returns (ReadDiscreteInputsResponse) {}
+  rpc ReadHoldingRegisters (ReadHoldingRegistersRequest) returns (ReadHoldingRegistersResponse) {}
+  rpc ReadInputRegisters (ReadInputRegistersRequest) returns (ReadInputRegistersResponse) {}
+  rpc WriteSingleCoil (WriteSingleCoilRequest) returns (WriteSingleCoilResponse) {}
+  rpc WriteSingleRegister (WriteSingleRegisterRequest) returns (WriteSingleRegisterResponse) {}
+}

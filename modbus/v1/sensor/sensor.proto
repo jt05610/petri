@@ -1,0 +1,95 @@
+syntax = "proto3";
+
+import "v1/modbus/modbus.proto";
+import "sensor/v1/sensor/common.proto";
+
+package modbus_sensor;
+
+option go_package = "sensor/v1/sensor";
+
+message ModbusSensor {
+  sensor.Sensor sensor = 1;
+  string sensor_id = 2;
+  modbus.RegisterMap register_map = 3;
+  string register_map_id = 4;
+  string kind = 5;
+}
+
+message GetSensorRequest {
+  string id = 1;
+}
+
+message GetSensorResponse {
+  optional ModbusSensor device = 1;
+}
+
+message ListSensorResponse {
+  repeated ModbusSensor devices = 1;
+}
+
+message AddSensorRequest {
+  string name = 1;
+  sensor.Calibration calibration = 2;
+  modbus.RegisterMap register_map = 3;
+}
+
+message AddSensorResponse {
+  optional ModbusSensor device = 1;
+}
+
+message RemoveSensorRequest {
+  string id = 1;
+}
+
+message RemoveSensorResponse {
+  optional ModbusSensor device = 1;
+}
+
+message UpdateSensorRequest {
+  string id = 1;
+  string name = 2;
+  sensor.Calibration calibration = 3;
+  modbus.RegisterMap register_map = 4;
+}
+
+message UpdateSensorResponse {
+  optional ModbusSensor device = 1;
+}
+
+message UpdateNameRequest {
+  string id = 1;
+  string name = 2;
+}
+
+message UpdateNameResponse {
+  optional ModbusSensor device = 1;
+}
+
+message UpdateCalibrationRequest {
+  string id = 1;
+  sensor.Calibration calibration = 2;
+}
+
+message UpdateCalibrationResponse {
+  optional ModbusSensor device = 1;
+}
+
+message UpdateRegMapRequest {
+  string id = 1;
+  modbus.RegisterMap register_map = 2;
+}
+
+message UpdateRegMapResponse {
+  optional ModbusSensor device = 1;
+}
+
+service Store {
+  rpc GetSensor(GetSensorRequest) returns (GetSensorResponse);
+  rpc ListSensor(sensor.Empty) returns (ListSensorResponse);
+  rpc AddSensor(AddSensorRequest) returns (AddSensorResponse);
+  rpc RemoveSensor(RemoveSensorRequest) returns (RemoveSensorResponse);
+  rpc UpdateSensor(UpdateSensorRequest) returns (UpdateSensorResponse);
+  rpc UpdateName(UpdateNameRequest) returns (UpdateNameResponse);
+  rpc UpdateCalibration(UpdateCalibrationRequest) returns (UpdateCalibrationResponse);
+  rpc UpdateRegMap(UpdateRegMapRequest) returns (UpdateRegMapResponse);
+}

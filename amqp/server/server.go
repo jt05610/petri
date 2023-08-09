@@ -2,13 +2,13 @@ package server
 
 import (
 	"context"
-	"encoding/json"
-	"github.com/joho/godotenv"
+	"fmt"
+	amqp2 "github.com/jt05610/petri/amqp"
+	"github.com/jt05610/petri/control"
+	"github.com/jt05610/petri/labeled"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"log"
-	"os"
 	"strings"
-	"time"
 )
 
 func failOnError(err error, msg string) {
@@ -17,84 +17,31 @@ func failOnError(err error, msg string) {
 	}
 }
 
-type Command struct {
-	command string
-	data    interface{}
-}
-
-func (c *Command) routingKey(devID string) string {
-	return devID + ".commands." + c.command
-}
-
-type Event struct {
-	Name string
-	Data interface{}
-}
-
-func (e *Event) WithData(data interface{}) *Event {
-	e.Data = data
-	return e
-}
-
-func (e *Event) routingKey(devID string) string {
-	return devID + ".events." + e.Name
-}
-
-type Handler struct {
+type Server struct {
 	ch       *amqp.Channel
 	q        *amqp.Queue
-	handlers Handlers
+	cmd      *amqp2.CommandService
+	event    *amqp2.EventService
+	handlers control.Handlers
 	exchange string
 	deviceID string
 }
 
-func (a *Handler) AddHandler(route string, f HandlerFunc) {
-	a.handlers[route] = f
+func (s *Server) AddHandler(route string, f labeled.Handler) {
+	s.handlers[route] = f
 }
 
-func (a *Handler) commandName(routingKey string) string {
+func (s *Server) commandName(routingKey string) string {
 	return strings.Split(routingKey, ".")[2]
 }
 
-func (a *Handler) Load(_ context.Context, data amqp.Delivery) (*Command, error) {
-	command := a.commandName(data.RoutingKey)
-	res := &Command{
-		command: command,
-	}
-	return res, json.Unmarshal(data.Body, &res.data)
+func (s *Server) route(data *control.Command) (*control.Event, error) {
+	return s.handlers.Handle(context.Background(), data)
 }
 
-func (a *Handler) Flush(_ context.Context, event *Event) (amqp.Publishing, error) {
-	bytes, err := json.Marshal(event.Data)
-	if err != nil {
-		var zero amqp.Publishing
-		return zero, err
-	}
+func New(ch *amqp.Channel, exchange string, deviceID string, handlers control.Handlers) *Server {
 
-	return amqp.Publishing{
-		Body:         bytes,
-		ContentType:  "application/json",
-		DeliveryMode: amqp.Persistent,
-		Headers: amqp.Table{
-			"x-event-name": event.Name,
-		},
-	}, nil
-}
-
-type HandlerFunc func(ctx context.Context, data *Command) (*Event, error)
-
-type Handlers map[string]HandlerFunc
-
-func (h Handlers) Handle(ctx context.Context, data *Command) (*Event, error) {
-	return (h)[data.command](ctx, data)
-}
-
-func (a *Handler) route(data *Command) (*Event, error) {
-	return a.handlers.Handle(context.Background(), data)
-}
-
-func NewHandler(ch *amqp.Channel, exchange string, deviceID string, handlers Handlers) *Handler {
-	queues := make([]string, 0, len(handlers))
+	queues := make([]string, 0, len(handlers)+1)
 	err := ch.ExchangeDeclare(
 		exchange, // name
 		"topic",  // type
@@ -117,7 +64,9 @@ func NewHandler(ch *amqp.Channel, exchange string, deviceID string, handlers Han
 		nil,   // arguments
 	)
 	failOnError(err, "Failed to declare a queue")
+	queues = append(queues, deviceID+".state.get")
 	for _, key := range queues {
+		fmt.Println("Binding queue", q.Name, "to exchange", exchange, "with routing key", key, "...")
 		err := ch.QueueBind(
 			q.Name,   // queue name
 			key,      // routing key
@@ -126,18 +75,20 @@ func NewHandler(ch *amqp.Channel, exchange string, deviceID string, handlers Han
 			nil)
 		failOnError(err, "Failed to bind a queue")
 	}
-	return &Handler{
+	return &Server{
 		ch:       ch,
 		q:        &q,
 		exchange: exchange,
 		handlers: handlers,
 		deviceID: deviceID,
+		event:    &amqp2.EventService{},
+		cmd:      &amqp2.CommandService{},
 	}
 }
 
-func (a *Handler) Listen(ctx context.Context) {
-	msgs, err := a.ch.Consume(
-		a.q.Name, // queue
+func (s *Server) Listen(ctx context.Context) {
+	msgs, err := s.ch.Consume(
+		s.q.Name, // queue
 		"",       // consumer
 		true,     // auto-ack
 		false,    // exclusive
@@ -146,71 +97,38 @@ func (a *Handler) Listen(ctx context.Context) {
 		nil,      // args
 	)
 	failOnError(err, "Failed to register a consumer")
-
 	go func() {
 		for {
 			select {
 			case <-ctx.Done():
+				fmt.Println("Closing connection")
 				return
 			case d := <-msgs:
-				data, err := a.Load(context.Background(), d)
-				failOnError(err, "Failed to load data")
-				log.Printf("Received a message: %s", data)
-				event, err := a.handlers.Handle(context.Background(), data)
-				failOnError(err, "Failed to handle data")
-				log.Printf("Handled message %s and got %s", data, event)
-				resp, err := a.Flush(context.Background(), event)
-				err = a.ch.PublishWithContext(context.Background(),
-					a.exchange,
-					event.routingKey(a.deviceID),
-					false,
-					false,
-					resp,
-				)
-				failOnError(err, "Failed to publish a message")
+				log.Printf("Received a message: %s", d.Body)
+				data, err := s.cmd.Load(context.Background(), d)
+				failOnError(err, "Failed to load command")
+				switch data.Topic {
+				case "state":
+					resp, err := s.cmd.Flush(context.Background(), data.Event)
+					failOnError(err, "Failed to flush command")
+					err = s.ch.PublishWithContext(ctx, s.exchange, s.deviceID+".state.current", false, false, resp)
+				case "commands":
+					log.Printf("Received command: %s", data)
+					event, err := s.handlers.Handle(ctx, data)
+					failOnError(err, "Failed to handle data")
+					log.Printf("Handled message %s and got %s", data, event)
+					resp, err := s.cmd.Flush(ctx, event.Event)
+					err = s.ch.PublishWithContext(ctx,
+						s.exchange,
+						event.RoutingKey(),
+						false,
+						false,
+						resp,
+					)
+					failOnError(err, "Failed to publish event response")
+				}
 			}
 		}
-	}()
-}
-
-func main() {
-	err := godotenv.Load()
-
-	failOnError(err, "Error loading .env file")
-	uri := os.Getenv("RABBITMQ_URI")
-	devID := os.Getenv("DEVICE_ID")
-	exchange := "topic_devices"
-	conn, err := amqp.Dial(uri)
-	failOnError(err, "Failed to connect to RabbitMQ")
-	defer func() {
-		err := conn.Close()
-		failOnError(err, "Failed to close connection to RabbitMQ")
-	}()
-	ch, err := conn.Channel()
-	failOnError(err, "Failed to open a channel")
-	defer func() {
-		err := ch.Close()
-		failOnError(err, "Failed to close channel")
-	}()
-
-	failOnError(err, "Failed to declare an exchange")
-
-	handlers := Handlers{
-		"open_a": func(ctx context.Context, data *Command) (*Event, error) {
-			return &Event{Name: data.command, Data: data.data}, nil
-		},
-		"open_b": func(ctx context.Context, data *Command) (*Event, error) {
-			return &Event{Name: data.command, Data: data.data}, nil
-		},
-	}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	handler := NewHandler(ch, exchange, devID, handlers)
-	handler.Listen(ctx)
-	log.Printf(" [*] Waiting for messages. To exit press CTRL+C")
-	go func() {
-		time.Sleep(10 * time.Second)
-		cancel()
 	}()
 	<-ctx.Done()
 }

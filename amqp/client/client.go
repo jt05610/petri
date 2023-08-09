@@ -2,12 +2,13 @@ package client
 
 import (
 	"context"
-	"encoding/json"
+	"fmt"
+	"github.com/jt05610/petri/amqp"
+	"github.com/jt05610/petri/control"
 	"github.com/jt05610/petri/labeled"
 	"github.com/jt05610/petri/prisma/db"
-	amqp "github.com/rabbitmq/amqp091-go"
+	amqpGo "github.com/rabbitmq/amqp091-go"
 	"log"
-	"strings"
 	"time"
 )
 
@@ -17,63 +18,17 @@ func failOnError(err error, msg string) {
 	}
 }
 
-type Command struct {
-	To string
-	*labeled.Event
-}
-
-func (c *Command) snakeCaseName() string {
-	return strings.Replace(strings.ToLower(c.Name), " ", "_", -1)
-}
-
-func (c *Command) routingKey() string {
-	return c.To + ".commands." + c.snakeCaseName()
-}
-
-type Event struct {
-	From string
-	*labeled.Event
-}
-
 type Controller struct {
-	ch       *amqp.Channel
-	dataCh   chan *Event
-	q        *amqp.Queue
-	routes   map[string]string
+	ch       *amqpGo.Channel
+	cmd      *amqp.CommandService
+	event    *amqp.EventService
+	dataCh   chan *control.Event
+	q        *amqpGo.Queue
+	Routes   map[string]string
 	exchange string
 }
 
-func (a *Controller) Load(_ context.Context, data amqp.Delivery) (*Event, error) {
-	sk := strings.Split(data.RoutingKey, ".")
-	from := sk[0]
-	command := sk[2]
-	res := &Event{
-		From: from,
-		Event: &labeled.Event{
-			Name: command,
-		},
-	}
-	return res, json.Unmarshal(data.Body, &res.Event.Data)
-}
-
-func (a *Controller) Flush(_ context.Context, event *labeled.Event) (amqp.Publishing, error) {
-	bytes, err := json.Marshal(event.Data)
-	if err != nil {
-		var zero amqp.Publishing
-		return zero, err
-	}
-
-	return amqp.Publishing{
-		Body:         bytes,
-		ContentType:  "application/json",
-		DeliveryMode: amqp.Persistent,
-		Headers: amqp.Table{
-			"x-event-name": event.Name,
-		},
-	}, nil
-}
-
-func NewController(ch *amqp.Channel, exchange string, routes map[string]string) *Controller {
+func NewController(ch *amqpGo.Channel, exchange string, routes map[string]string) *Controller {
 	err := ch.Confirm(false)
 	failOnError(err, "Failed to set confirm mode")
 	err = ch.ExchangeDeclare(
@@ -95,50 +50,92 @@ func NewController(ch *amqp.Channel, exchange string, routes map[string]string) 
 		nil,   // arguments
 	)
 	failOnError(err, "Failed to declare a queue")
-	err = ch.QueueBind(
-		q.Name,       // queue name
-		"*.events.*", // routing key
-		exchange,     // exchange
-		false,
-		nil)
-	failOnError(err, "Failed to bind a queue")
+	topics := []string{"*.events.*", "*.state.current"}
+	for _, t := range topics {
+		err = ch.QueueBind(
+			q.Name,   // queue name
+			t,        // routing key
+			exchange, // exchange
+			false,
+			nil)
+		failOnError(err, "Failed to bind queue")
+	}
+
 	return &Controller{
 		ch:       ch,
 		q:        &q,
+		cmd:      &amqp.CommandService{},
+		event:    &amqp.EventService{},
 		exchange: exchange,
-		routes:   routes,
+		Routes:   routes,
 	}
 }
 
-func (a *Controller) Send(ctx context.Context, cmd *Command) error {
-	p, err := a.Flush(ctx, cmd.Event)
+func (a *Controller) sendPing(ctx context.Context, deviceID string) error {
+	return a.ch.PublishWithContext(
+		ctx,
+		a.exchange,            // exchange
+		deviceID+".state.get", // routing key
+		false,                 // mandatory
+		false,                 // immediate
+		amqpGo.Publishing{
+			ContentType:  "application/json",
+			DeliveryMode: amqpGo.Persistent,
+			Body:         []byte{},
+		},
+	)
+}
+
+func (a *Controller) Ping(ctx context.Context, deviceID string) (bool, error) {
+	retries := 3
+	for i := 0; i < retries; i++ {
+		err := a.sendPing(ctx, deviceID)
+		if err != nil {
+			return false, err
+		}
+		select {
+		case <-ctx.Done():
+			return false, ctx.Err()
+		case <-time.After(time.Duration(1) * time.Second):
+			continue
+		case recv := <-a.dataCh:
+			if recv.From != deviceID {
+				continue
+			}
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func (a *Controller) Send(ctx context.Context, cmd *control.Command) error {
+	p, err := a.cmd.Flush(ctx, cmd.Event)
 	if err != nil {
 		return err
 	}
+	fmt.Printf("sending %v to %s\n", cmd, cmd.RoutingKey())
 	return a.ch.PublishWithContext(
 		ctx,
 		a.exchange,       // exchange
-		cmd.routingKey(), // routing key
+		cmd.RoutingKey(), // routing key
 		false,            // mandatory
 		false,            // immediate
 		p,
 	)
 }
 
-func (a *Controller) Start(ctx context.Context, step *db.StepModel) error {
-	to, found := a.routes[step.Action().Device().ID]
+func (a *Controller) Start(ctx context.Context, step *db.StepModel, data interface{}) error {
+	to, found := a.Routes[step.Action().Device().ID]
 	if !found {
 		return nil
 	}
-	cmd := &Command{
+	cmd := &control.Command{
 		To: to,
 		Event: &labeled.Event{
 			Name: step.Action().Event().Name,
-			Data: step.Action().Constants(),
+			Data: data,
 		},
 	}
-	ctx, timeout := context.WithTimeout(ctx, time.Duration(1)*time.Second)
-	defer timeout()
 
 	log.Printf("Sending %s to %s", cmd.Name, cmd.To)
 	done := make(chan struct{})
@@ -161,12 +158,12 @@ func (a *Controller) Start(ctx context.Context, step *db.StepModel) error {
 	}
 }
 
-func (a *Controller) Data() <-chan *Event {
+func (a *Controller) Data() <-chan *control.Event {
 	return a.dataCh
 }
 
 func (a *Controller) Listen(ctx context.Context) {
-	a.dataCh = make(chan *Event)
+	a.dataCh = make(chan *control.Event)
 	msgs, err := a.ch.Consume(
 		a.q.Name, // queue
 		"",       // consumer
@@ -184,7 +181,7 @@ func (a *Controller) Listen(ctx context.Context) {
 			case <-ctx.Done():
 				return
 			case d := <-msgs:
-				data, err := a.Load(ctx, d)
+				data, err := a.event.Load(ctx, d)
 				if err != nil {
 					log.Println(err)
 					continue

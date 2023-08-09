@@ -96,3 +96,50 @@ func TestValidSequence(t *testing.T) {
 		t.Error("expected valid sequence")
 	}
 }
+
+type EventData struct {
+	Rate   float64 `json:"rate"`
+	Volume float64 `json:"volume"`
+}
+
+func TestEvent_IsValid(t *testing.T) {
+	fields := []*labeled.Field{
+		{Name: "rate", Type: "number"},
+		{Name: "volume", Type: "number"},
+	}
+
+	e := labeled.Event{
+		Name:   "pump",
+		Other:  "",
+		Fields: fields,
+		Data: &EventData{
+			Rate:   1.0,
+			Volume: 2.0,
+		},
+	}
+	if !e.IsValid() {
+		t.Error("expected valid event")
+	}
+
+	e = labeled.Event{
+		Name:   "pump",
+		Other:  "",
+		Fields: fields,
+		Data:   map[string]interface{}{"rate": 1.0, "volume": 2.0},
+	}
+	if !e.IsValid() {
+		t.Error("expected valid event")
+	}
+
+	e = labeled.Event{
+		Name:   "pump",
+		Other:  "",
+		Fields: fields,
+		Data: struct {
+			ValveNumber int `json:"valve_number"`
+		}{},
+	}
+	if e.IsValid() {
+		t.Error("expected invalid event")
+	}
+}

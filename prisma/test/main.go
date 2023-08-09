@@ -5,11 +5,14 @@ import (
 	"fmt"
 	"github.com/joho/godotenv"
 	"github.com/jt05610/petri/amqp/client"
+	"github.com/jt05610/petri/amqp/server"
+	"github.com/jt05610/petri/control"
 	"github.com/jt05610/petri/labeled"
 	"github.com/jt05610/petri/prisma"
 	"github.com/jt05610/petri/prisma/db"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -31,6 +34,14 @@ type Controller struct {
 	*client.Controller
 	net *labeled.Net
 	run *db.RunModel
+}
+
+func echoHandlers(n *labeled.Net) control.Handlers {
+	handlers := make(control.Handlers)
+	for _, e := range n.Events {
+		handlers[snakeCase(e.Name)] = makeHandler(e.Name)
+	}
+	return handlers
 }
 
 func NewController(ch *amqp.Channel, exchange string, net *labeled.Net, model *db.RunModel, routes map[string]string) *Controller {
@@ -108,6 +119,10 @@ func load(dbClient *db.PrismaClient, ch *amqp.Channel, exchange string, routes .
 	return NewController(ch, exchange, ln, run, rm)
 }
 
+func snakeCase(s string) string {
+	return strings.ToLower(strings.ReplaceAll(s, " ", "_"))
+}
+
 func main() {
 	err := godotenv.Load()
 	if err != nil {
@@ -134,13 +149,47 @@ func main() {
 		panic(err)
 	}
 	c := load(dbClient, ch, exchange)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := context.Background()
 	go c.Listen(ctx)
 	fmt.Println()
+	done := make(chan struct{})
+	defer close(done)
+	for devID, instanceID := range c.Routes {
+		go func(devID, instanceID string) {
+			fmt.Printf("Starting mock instance %s for device %s\n", instanceID, devID)
+			srvConn, err := amqp.Dial(uri)
+			if err != nil {
+				panic(err)
+			}
+			srvCh, err := srvConn.Channel()
+			if err != nil {
+				panic(err)
+			}
+			h := make(map[string]labeled.Handler)
+			for _, s := range c.run.Steps() {
+				if s.Action().Device().ID == devID && s.Action().Device().Instances()[0].ID == instanceID {
+					h[snakeCase(s.Action().Event().Name)] = makeHandler(s.Action().Event().Name)
+				}
+			}
+			srv := server.New(srvCh, exchange, instanceID, h)
+			srv.Listen(ctx)
+			<-done
+		}(devID, instanceID)
+	}
+	// make sure devices are ready
+	for _, dev := range c.Routes {
+		fmt.Printf("Pinging device %s\n", dev)
+		ok, err := c.Ping(ctx, dev)
+		if err != nil {
+			panic(err)
+		}
+		if !ok {
+			panic("Device not ready")
+		}
+	}
 	for _, step := range c.run.Steps() {
 		startTime := time.Now()
-		err := c.Start(ctx, &step)
+		err := c.Start(ctx, &step, nil)
 		if err != nil {
 			panic(err)
 		}

@@ -7,7 +7,6 @@ import (
 	"github.com/jt05610/petri/marked"
 	"reflect"
 	"strings"
-	"sync"
 )
 
 type FieldType string
@@ -114,7 +113,6 @@ type Net struct {
 	notifications map[string][]*Notification
 	Events        []*Event
 	events        chan *Event
-	mu            sync.Mutex
 }
 
 func (n *Net) Hot() []*petri.Transition {
@@ -148,8 +146,6 @@ func (n *Net) Channel() <-chan *Event {
 type Handler func(ctx context.Context, data *Event) (*Event, error)
 
 func (n *Net) route(event string) (Handler, error) {
-	n.mu.Lock()
-	defer n.mu.Unlock()
 	if t, ok := n.handlers[event]; ok {
 		err := n.Fire(t.Transition)
 		if err != nil {
@@ -161,8 +157,6 @@ func (n *Net) route(event string) (Handler, error) {
 }
 
 func (n *Net) AddHandler(event string, transition *petri.Transition, handler Handler) error {
-	n.mu.Lock()
-	defer n.mu.Unlock()
 	n.handlers[event] = &ColdTransition{
 		Transition: transition,
 		Handler:    handler,
@@ -182,8 +176,6 @@ type Notification struct {
 }
 
 func (n *Net) AddNotification(name string, transition *petri.Transition, Getter func(ctx context.Context) (interface{}, error)) error {
-	n.mu.Lock()
-	defer n.mu.Unlock()
 	if _, ok := n.notifications[transition.Name]; !ok {
 		n.notifications[transition.Name] = make([]*Notification, 0)
 	}

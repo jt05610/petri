@@ -4,10 +4,12 @@ import (
 	"context"
 	"fmt"
 	"github.com/joho/godotenv"
+	"github.com/jt05610/petri"
 	"github.com/jt05610/petri/amqp/client"
 	"github.com/jt05610/petri/amqp/server"
 	"github.com/jt05610/petri/control"
 	"github.com/jt05610/petri/labeled"
+	"github.com/jt05610/petri/marked"
 	"github.com/jt05610/petri/prisma"
 	"github.com/jt05610/petri/prisma/db"
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -32,8 +34,9 @@ func makeHandler(eN string) labeled.Handler {
 
 type Controller struct {
 	*client.Controller
-	net *labeled.Net
-	run *db.RunModel
+	nets map[string]*labeled.Net
+	net  *labeled.Net
+	run  *db.RunModel
 }
 
 func echoHandlers(n *labeled.Net) control.Handlers {
@@ -44,12 +47,16 @@ func echoHandlers(n *labeled.Net) control.Handlers {
 	return handlers
 }
 
-func NewController(ch *amqp.Channel, exchange string, net *labeled.Net, model *db.RunModel, routes map[string]string) *Controller {
+func NewController(ch *amqp.Channel, exchange string, nets map[string]*labeled.Net, net *labeled.Net, model *db.RunModel, routes map[string]string) *Controller {
 	return &Controller{
 		Controller: client.NewController(ch, exchange, routes),
 		net:        net,
+		nets:       nets,
 		run:        model,
 	}
+}
+
+type Parameter struct {
 }
 
 func load(dbClient *db.PrismaClient, ch *amqp.Channel, exchange string, routes ...map[string]string) *Controller {
@@ -85,14 +92,26 @@ func load(dbClient *db.PrismaClient, ch *amqp.Channel, exchange string, routes .
 
 	for i, step := range run.Steps() {
 		events[i] = event(step.Action().Event())
+
 		step.Action().Event().Transitions()
 		fmt.Println(events[i])
 		if len(routes) == 0 {
 			rm[step.Action().Device().ID] = step.Action().Device().Instances()[0].ID
 		}
 		for _, t := range step.Action().Event().Transitions() {
+			idxConstants := make(map[string]interface{})
+			for _, c := range step.Action().Constants() {
+				idxConstants[c.FieldID] = c.Value
+			}
 			for _, nt := range net.Transitions {
 				if nt.ID == t.ID {
+					if len(events[i].Fields) > 0 {
+						fmt.Println("Adding fieldData")
+						fieldData := make(map[string]interface{})
+						for _, f := range step.Action().Event().Fields() {
+							fieldData[f.Name] = idxConstants[f.ID]
+						}
+					}
 					err := ln.AddHandler(events[i].Name, nt, makeHandler(events[i].Name))
 					if err != nil {
 						panic(err)
@@ -116,7 +135,12 @@ func load(dbClient *db.PrismaClient, ch *amqp.Channel, exchange string, routes .
 		fmt.Printf("  Device: %s\n", s.Action().Device().Name)
 		fmt.Printf("  Addr: %s\n", s.Action().Device().Instances()[0].Addr)
 	}
-	return NewController(ch, exchange, ln, run, rm)
+	lnm := make(map[string]*labeled.Net)
+	for _, n := range netClient.Nets {
+		mn := marked.NewFromMap(n, netClient.InitialMarking)
+		lnm[n.ID] = labeled.New(mn)
+	}
+	return NewController(ch, exchange, lnm, ln, run, rm)
 }
 
 func snakeCase(s string) string {
@@ -128,6 +152,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
 	exchange := os.Getenv("AMQP_EXCHANGE")
 	dbClient := db.NewClient()
 	if err := dbClient.Connect(); err != nil {
@@ -154,6 +179,15 @@ func main() {
 	fmt.Println()
 	done := make(chan struct{})
 	defer close(done)
+	deviceNetIndex := make(map[string]*labeled.Net)
+	for _, step := range c.run.Steps() {
+		for _, n := range step.Action().Device().Nets() {
+			if n, ok := c.nets[n.ID]; ok {
+				deviceNetIndex[step.Action().Device().ID] = n
+			}
+		}
+	}
+
 	for devID, instanceID := range c.Routes {
 		go func(devID, instanceID string) {
 			fmt.Printf("Starting mock instance %s for device %s\n", instanceID, devID)
@@ -171,7 +205,27 @@ func main() {
 					h[snakeCase(s.Action().Event().Name)] = makeHandler(s.Action().Event().Name)
 				}
 			}
-			srv := server.New(srvCh, exchange, instanceID, h)
+			// maps event names to transitions
+			eventMap := make(map[string]*petri.Transition)
+			for _, s := range c.run.Steps() {
+				if s.Action().Device().ID == devID && s.Action().Device().Instances()[0].ID == instanceID {
+					for _, t := range s.Action().Event().Transitions() {
+						devNet, found := deviceNetIndex[devID]
+						if !found {
+							panic("Device net not found")
+						}
+						if devNet.Transitions == nil {
+							continue
+						}
+						for _, nt := range deviceNetIndex[devID].Transitions {
+							if nt.ID == t.ID {
+								eventMap[snakeCase(s.Action().Event().Name)] = nt
+							}
+						}
+					}
+				}
+			}
+			srv := server.New(deviceNetIndex[devID], srvCh, exchange, instanceID, eventMap, h)
 			srv.Listen(ctx)
 			<-done
 		}(devID, instanceID)

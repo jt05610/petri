@@ -110,7 +110,6 @@ func TestEvent_IsValid(t *testing.T) {
 
 	e := labeled.Event{
 		Name:   "pump",
-		Other:  "",
 		Fields: fields,
 		Data: &EventData{
 			Rate:   1.0,
@@ -123,7 +122,6 @@ func TestEvent_IsValid(t *testing.T) {
 
 	e = labeled.Event{
 		Name:   "pump",
-		Other:  "",
 		Fields: fields,
 		Data:   map[string]interface{}{"rate": 1.0, "volume": 2.0},
 	}
@@ -133,7 +131,6 @@ func TestEvent_IsValid(t *testing.T) {
 
 	e = labeled.Event{
 		Name:   "pump",
-		Other:  "",
 		Fields: fields,
 		Data: struct {
 			ValveNumber int `json:"valve_number"`

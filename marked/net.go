@@ -14,30 +14,38 @@ type Net struct {
 	index   map[string]int
 }
 
-func (net *Net) Copy() *Net {
+func (n *Net) Copy() *Net {
 	ret := &Net{
-		Net:     net.Net,
-		marking: make(Marking, len(net.marking)),
+		Net:     n.Net,
+		marking: make(Marking, len(n.marking)),
 		index:   make(map[string]int),
 	}
-	for k, v := range net.index {
+	for k, v := range n.index {
 		ret.index[k] = v
 	}
-	for i, v := range net.marking {
+	for i, v := range n.marking {
 		ret.marking[i] = v
 	}
 	return ret
 }
 
-func (net *Net) Marking() Marking {
-	return net.marking
+func (n *Net) MarkingMap() map[string]int {
+	ret := make(map[string]int)
+	for k, v := range n.index {
+		ret[k] = n.marking[v]
+	}
+	return ret
+}
+
+func (n *Net) Marking() Marking {
+	return n.marking
 }
 
 // Enabled returns true if the transition is enabled
-func (net *Net) Enabled(t *petri.Transition) bool {
-	for _, arc := range net.Inputs(t) {
+func (n *Net) Enabled(t *petri.Transition) bool {
+	for _, arc := range n.Inputs(t) {
 		if pt, ok := arc.Src.(*petri.Place); ok {
-			if net.marking[net.index[pt.Name]] == 0 {
+			if n.marking[n.index[pt.Name]] == 0 {
 				return false
 			}
 		} else {
@@ -47,8 +55,8 @@ func (net *Net) Enabled(t *petri.Transition) bool {
 	return true
 }
 
-func (net *Net) Mark(p *petri.Place) int {
-	return net.marking[net.index[p.Name]]
+func (n *Net) Mark(p *petri.Place) int {
+	return n.marking[n.index[p.Name]]
 }
 
 var (
@@ -57,26 +65,26 @@ var (
 	}
 )
 
-func (net *Net) Fire(t *petri.Transition) error {
-	for _, arc := range net.Inputs(t) {
+func (n *Net) Fire(t *petri.Transition) error {
+	for _, arc := range n.Inputs(t) {
 		if pt, ok := arc.Src.(*petri.Place); ok {
-			net.marking[net.index[pt.Name]]--
+			n.marking[n.index[pt.Name]]--
 		} else {
 			head := arc.Src.(*petri.Transition)
 			return TwoTransitionArc(head.Name, t.Name)
 		}
 	}
-	for _, arc := range net.Outputs(t) {
+	for _, arc := range n.Outputs(t) {
 		if pt, ok := arc.Dest.(*petri.Place); ok {
-			mark := net.marking[net.index[pt.Name]]
+			mark := n.marking[n.index[pt.Name]]
 			if mark >= pt.Bound {
 				return errors.New(fmt.Sprintf("place %s is full", pt.Name))
 			}
-			net.marking[net.index[pt.Name]]++
+			n.marking[n.index[pt.Name]]++
 		} else {
-			for _, arc := range net.Inputs(t) {
+			for _, arc := range n.Inputs(t) {
 				if pt, ok := arc.Src.(*petri.Place); ok {
-					net.marking[net.index[pt.Name]]++
+					n.marking[n.index[pt.Name]]++
 				}
 			}
 			tail := arc.Dest.(*petri.Transition)
@@ -86,10 +94,10 @@ func (net *Net) Fire(t *petri.Transition) error {
 	return nil
 }
 
-func (net *Net) Available() []*petri.Transition {
+func (n *Net) Available() []*petri.Transition {
 	transitions := make([]*petri.Transition, 0)
-	for _, t := range net.Transitions {
-		if net.Enabled(t) {
+	for _, t := range n.Transitions {
+		if n.Enabled(t) {
 			transitions = append(transitions, t)
 		}
 	}

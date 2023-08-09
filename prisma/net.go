@@ -10,12 +10,12 @@ import (
 
 type NetClient struct {
 	*db.PrismaClient
-	seen                 map[string]*petri.Net
+	Nets                 map[string]*petri.Net
 	composite            *petri.Net
 	nodeIndex            map[string]petri.Node
 	placeInterfaces      map[string]db.PlaceInterfaceModel
 	transitionInterfaces map[string]db.TransitionInterfaceModel
-	initialMarking       map[string]int
+	InitialMarking       map[string]int
 }
 
 func (c *NetClient) replaceInterfacePlaces(model db.PlaceInterfaceModel) error {
@@ -80,7 +80,7 @@ func (c *NetClient) replaceInterfaceTransitions(model db.TransitionInterfaceMode
 }
 
 func (c *NetClient) loadNet(ctx context.Context, id string) (*petri.Net, []string, error) {
-	if c.seen[id] != nil {
+	if c.Nets[id] != nil {
 		return nil, nil, nil
 	}
 	net, err := c.Net.FindUnique(db.Net.ID.Equals(id)).With(db.Net.Places.Fetch()).With(db.Net.Transitions.Fetch()).With(db.Net.Arcs.Fetch()).With(db.Net.Children.Fetch()).With(db.Net.PlaceInterfaces.Fetch().With(db.PlaceInterface.Places.Fetch())).With(db.Net.TransitionInterfaces.Fetch().With(db.TransitionInterface.Transitions.Fetch())).Exec(ctx)
@@ -102,7 +102,7 @@ func (c *NetClient) loadNet(ctx context.Context, id string) (*petri.Net, []strin
 			Name:  place.Name,
 			Bound: place.Bound,
 		}
-		c.initialMarking[place.ID] = mark
+		c.InitialMarking[place.ID] = mark
 		c.nodeIndex[place.ID] = places[i]
 	}
 	for i, transition := range net.Transitions() {
@@ -133,24 +133,22 @@ func (c *NetClient) loadNet(ctx context.Context, id string) (*petri.Net, []strin
 			}
 		}
 	}
-	pNet := petri.New(places, transitions, arcs)
-	c.seen[id] = pNet
 	childIDs := make([]string, len(net.Children()))
 	for i, child := range net.Children() {
 		childIDs[i] = child.ID
 	}
-	return c.seen[id], childIDs, nil
+	return petri.New(places, transitions, arcs, id), childIDs, nil
 }
 
 func (c *NetClient) visitChild(ctx context.Context, composite *petri.Net, id string) (*petri.Net, error) {
-	if c.seen[id] != nil {
-		return nil, errors.New("already seen")
+	if c.Nets[id] != nil {
+		return nil, errors.New("already Nets")
 	}
 	net, childIDs, err := c.loadNet(ctx, id)
 	if err != nil {
 		return nil, err
 	}
-	c.seen[id] = net
+	c.Nets[id] = net
 	composite = petri.Add(composite, net)
 	if childIDs == nil {
 		return composite, nil
@@ -166,8 +164,8 @@ func (c *NetClient) visitChild(ctx context.Context, composite *petri.Net, id str
 
 func (c *NetClient) Load(ctx context.Context, id string) (*marked.Net, error) {
 	c.nodeIndex = make(map[string]petri.Node)
-	c.seen = make(map[string]*petri.Net)
-	c.initialMarking = make(map[string]int)
+	c.Nets = make(map[string]*petri.Net)
+	c.InitialMarking = make(map[string]int)
 	c.composite = new(petri.Net)
 	c.placeInterfaces = make(map[string]db.PlaceInterfaceModel, 0)
 	c.transitionInterfaces = make(map[string]db.TransitionInterfaceModel, 0)
@@ -189,5 +187,5 @@ func (c *NetClient) Load(ctx context.Context, id string) (*marked.Net, error) {
 			return nil, err
 		}
 	}
-	return marked.NewFromMap(c.composite, c.initialMarking), nil
+	return marked.NewFromMap(c.composite, c.InitialMarking), nil
 }

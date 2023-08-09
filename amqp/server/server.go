@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"github.com/jt05610/petri"
 	amqp2 "github.com/jt05610/petri/amqp"
 	"github.com/jt05610/petri/control"
 	"github.com/jt05610/petri/labeled"
@@ -18,13 +19,15 @@ func failOnError(err error, msg string) {
 }
 
 type Server struct {
-	ch       *amqp.Channel
-	q        *amqp.Queue
-	cmd      *amqp2.CommandService
-	event    *amqp2.EventService
-	handlers control.Handlers
-	exchange string
-	deviceID string
+	*labeled.Net
+	ch        *amqp.Channel
+	q         *amqp.Queue
+	devEvents <-chan *labeled.Event
+	cmd       *amqp2.CommandService
+	event     *amqp2.EventService
+	handlers  control.Handlers
+	exchange  string
+	deviceID  string
 }
 
 func (s *Server) AddHandler(route string, f labeled.Handler) {
@@ -36,10 +39,36 @@ func (s *Server) commandName(routingKey string) string {
 }
 
 func (s *Server) route(data *control.Command) (*control.Event, error) {
-	return s.handlers.Handle(context.Background(), data)
+	var res *control.Event
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		ev := <-s.devEvents
+		res = &control.Event{
+			Event:   ev,
+			Topic:   "event",
+			From:    "",
+			Marking: s.MarkingMap(),
+		}
+	}()
+	if err := s.Handle(context.Background(), data.Event); err != nil {
+		return &control.Event{
+			Event:   data.Event,
+			Topic:   "error",
+			From:    "",
+			Marking: s.MarkingMap(),
+		}, err
+	}
+	<-done
+	fmt.Printf("Handled %s with new marking %v", data.Event.Name, s.MarkingMap())
+	return res, nil
 }
 
-func New(ch *amqp.Channel, exchange string, deviceID string, handlers control.Handlers) *Server {
+func New(net *labeled.Net, ch *amqp.Channel, exchange string, deviceID string, eventMap map[string]*petri.Transition, handlers control.Handlers) *Server {
+	for ev, h := range handlers {
+		err := net.AddHandler(ev, eventMap[ev], h)
+		failOnError(err, "Failed to add handler")
+	}
 
 	queues := make([]string, 0, len(handlers)+1)
 	err := ch.ExchangeDeclare(
@@ -76,13 +105,15 @@ func New(ch *amqp.Channel, exchange string, deviceID string, handlers control.Ha
 		failOnError(err, "Failed to bind a queue")
 	}
 	return &Server{
-		ch:       ch,
-		q:        &q,
-		exchange: exchange,
-		handlers: handlers,
-		deviceID: deviceID,
-		event:    &amqp2.EventService{},
-		cmd:      &amqp2.CommandService{},
+		Net:       net,
+		ch:        ch,
+		q:         &q,
+		devEvents: net.Channel(),
+		exchange:  exchange,
+		handlers:  handlers,
+		deviceID:  deviceID,
+		event:     &amqp2.EventService{},
+		cmd:       &amqp2.CommandService{},
 	}
 }
 
@@ -114,7 +145,7 @@ func (s *Server) Listen(ctx context.Context) {
 					err = s.ch.PublishWithContext(ctx, s.exchange, s.deviceID+".state.current", false, false, resp)
 				case "commands":
 					log.Printf("Received command: %s", data)
-					event, err := s.handlers.Handle(ctx, data)
+					event, err := s.route(data)
 					failOnError(err, "Failed to handle data")
 					log.Printf("Handled message %s and got %s", data, event)
 					resp, err := s.cmd.Flush(ctx, event.Event)

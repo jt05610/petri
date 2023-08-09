@@ -6,10 +6,13 @@ import (
 	"strings"
 )
 
+type Marking map[string]int
+
 type Event struct {
 	*labeled.Event
-	Topic string
-	From  string
+	Topic   string
+	From    string
+	Marking Marking
 }
 
 func NewEvent(from string, fields []db.FieldModel, event *db.EventModel) *Event {

@@ -8,7 +8,7 @@ import (
 	"io"
 )
 
-var _ petri.Flusher[petri.Net] = (*Writer)(nil)
+var _ petri.Flusher[*petri.Net] = (*Writer)(nil)
 
 type Writer struct {
 	*Config

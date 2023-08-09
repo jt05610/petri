@@ -7,6 +7,10 @@ generator client {
   provider = "prisma-client-js"
 }
 
+generator db {
+  provider = "go run github.com/steebchen/prisma-client-go"
+}
+
 enum UserRole {
   NONE
   ADMIN

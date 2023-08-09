@@ -19,6 +19,7 @@ type ColdTransition struct {
 	*petri.Transition
 	Handler
 }
+
 type Net struct {
 	*marked.Net
 	// Handlers are called when a transition is fired
@@ -144,4 +145,33 @@ func (n *Net) Handle(ctx context.Context, event *Event) error {
 		return err
 	}
 	return nil
+}
+
+func ValidSequence(net *Net, seq []*Event) bool {
+	for _, e := range seq {
+		if net.handlers[e.Name].Transition == nil {
+			return false
+		}
+	}
+	testNet := &Net{
+		Net:           net.Net.Copy(),
+		handlers:      make(map[string]*ColdTransition),
+		notifications: make(map[string][]*Notification),
+		hot:           make(map[string]bool),
+		events:        make(chan *Event),
+	}
+	for _, t := range testNet.Transitions {
+		testNet.hot[t.Name] = true
+	}
+	for n, h := range net.handlers {
+		testNet.handlers[n] = h
+	}
+
+	for _, event := range seq {
+		err := testNet.Fire(net.handlers[event.Name].Transition)
+		if err != nil {
+			return false
+		}
+	}
+	return true
 }

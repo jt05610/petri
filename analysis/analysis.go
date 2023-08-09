@@ -143,7 +143,7 @@ func (net *Net) buildTree(seen map[string]bool, node *TreeNode) {
 	curMark := net.MappedState(node.State)
 	for _, t := range net.Transitions {
 		for _, pl := range net.Inputs(t) {
-			if !curMark[pl.Src.String()] {
+			if !curMark[pl.Src.Identifier()] {
 				continue
 			}
 		}

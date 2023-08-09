@@ -35,14 +35,14 @@ func (p *printer) HandleEnqueue(_ context.Context, data *labeled.Event) (*labele
 
 func queue() *printer {
 	pp := []*petri.Place{
-		{Name: "Q", Bound: 5},
-		{Name: "I"},
-		{Name: "B"},
+		{ID: "p1", Name: "Q", Bound: 5},
+		{Name: "I", ID: "p2"},
+		{Name: "B", ID: "p3"},
 	}
 	tt := []*petri.Transition{
-		{Name: "enqueue"},
-		{Name: "start"},
-		{Name: "finish"},
+		{Name: "enqueue", ID: "t1"},
+		{Name: "start", ID: "t2"},
+		{Name: "finish", ID: "t3"},
 	}
 	pNet := petri.New(pp, tt, []*petri.Arc{
 		{Src: tt[0], Dest: pp[0]},
@@ -85,5 +85,14 @@ func TestNet_Handle(t *testing.T) {
 	err := q.Handle(ctx, q.enqueue("foo"))
 	if err != nil {
 		t.Error(err)
+	}
+}
+
+func TestValidSequence(t *testing.T) {
+	q := queue()
+	seq := []*labeled.Event{q.enqueue("foo"), q.enqueue("bar"), q.enqueue("baz"), q.enqueue("foo"), q.enqueue("foo")}
+	ok := labeled.ValidSequence(q.Net, seq)
+	if !ok {
+		t.Error("expected valid sequence")
 	}
 }

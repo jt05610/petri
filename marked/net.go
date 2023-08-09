@@ -14,6 +14,21 @@ type Net struct {
 	index   map[string]int
 }
 
+func (net *Net) Copy() *Net {
+	ret := &Net{
+		Net:     net.Net,
+		marking: make(Marking, len(net.marking)),
+		index:   make(map[string]int),
+	}
+	for k, v := range net.index {
+		ret.index[k] = v
+	}
+	for i, v := range net.marking {
+		ret.marking[i] = v
+	}
+	return ret
+}
+
 func (net *Net) Marking() Marking {
 	return net.marking
 }
@@ -91,4 +106,12 @@ func New(n *petri.Net, initial Marking) *Net {
 		net.index[p.Name] = i
 	}
 	return net
+}
+
+func NewFromMap(n *petri.Net, initial map[string]int) *Net {
+	marking := make(Marking, len(n.Places))
+	for i, p := range n.Places {
+		marking[i] = initial[p.Identifier()]
+	}
+	return New(n, marking)
 }

@@ -1,9 +1,7 @@
 package handlers
 
 import (
-	"github.com/gorilla/websocket"
 	"io"
-	"log"
 	"net/http"
 	"sort"
 	"strings"
@@ -38,31 +36,18 @@ func (m Methods) allowedMethods() string {
 	return strings.Join(methods, ", ")
 }
 
-func CommandsHandler(u websocket.Upgrader) Methods {
+func NetSVG() Methods {
 	return Methods{
-		http.MethodGet: http.HandlerFunc(
-			func(w http.ResponseWriter, r *http.Request) {
-				c, err := u.Upgrade(w, r, nil)
-				if err != nil {
-					http.Error(w, err.Error(), http.StatusInternalServerError)
-					return
-				}
-				defer func() {
-					_ = c.Close()
-				}()
-				for {
-					mt, message, err := c.ReadMessage()
-					if err != nil {
-						log.Println("read:", err)
-						break
-					}
-					log.Printf("recv: %s", message)
-					err = c.WriteMessage(mt, message)
-					if err != nil {
-						log.Println("write:", err)
-						break
-					}
-				}
-			}),
+		http.MethodGet: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.Error(w, "Not Found", http.StatusNotFound)
+		}),
+	}
+}
+
+func MarkedNetSVG() Methods {
+	return Methods{
+		http.MethodGet: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.Error(w, "Not Found", http.StatusNotFound)
+		}),
 	}
 }

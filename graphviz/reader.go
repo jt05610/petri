@@ -6,7 +6,7 @@ import (
 	"io"
 )
 
-var _ petri.Loader[petri.Net] = (*Reader)(nil)
+var _ petri.Loader[*petri.Net] = (*Reader)(nil)
 
 type Reader struct {
 	*Config

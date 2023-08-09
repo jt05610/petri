@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/joho/godotenv"
 	"github.com/jt05610/petri"
@@ -220,11 +221,59 @@ func main() {
 	fmt.Println()
 	done := make(chan struct{})
 	defer close(done)
+
 	deviceNetIndex := make(map[string]*labeled.Net)
+	seen := make(map[string]bool)
 	for _, step := range c.run.Steps() {
 		for _, n := range step.Action().Device().Nets() {
 			if n, ok := c.nets[n.ID]; ok {
+				if _, ok := seen[n.ID]; ok {
+					continue
+				}
 				net, err := netClient.Load(ctx, n.ID)
+				rawNet, err := netClient.Raw(ctx, n.ID)
+				if err != nil {
+					panic(err)
+				}
+				err = os.MkdirAll(snakeCase(step.Action().Device().Name), 0755)
+				netFname := fmt.Sprintf("%s/net.json", snakeCase(step.Action().Device().Name))
+				df, err := os.Create(netFname)
+				if err != nil {
+					panic(err)
+				}
+				enc := json.NewEncoder(df)
+				err = enc.Encode(rawNet)
+				if err != nil {
+					panic(err)
+				}
+				err = df.Close()
+				if err != nil {
+					panic(err)
+				}
+				if err != nil {
+					panic(err)
+				}
+				if err != nil {
+					panic(err)
+				}
+				eventMapFname := fmt.Sprintf("%s/eventMap.json", snakeCase(snakeCase(step.Action().Device().Name)))
+				for _, t := range net.Transitions {
+					for _, e := range step.Action().Device().Events() {
+						if t.ID == e.ID {
+							eventMap[e.Event().Name] = t
+						}
+					}
+				}
+				df, err = os.Create(eventMapFname)
+				if err != nil {
+					panic(err)
+				}
+				enc = json.NewEncoder(df)
+				err = enc.Encode(eventMap)
+				if err != nil {
+					panic(err)
+				}
+				err = df.Close()
 				if err != nil {
 					panic(err)
 				}
@@ -233,6 +282,7 @@ func main() {
 		}
 	}
 
+	devNameFromID := make(map[string]string)
 	for devID, instanceID := range c.Routes {
 		go func(devID, instanceID string) {
 			fmt.Printf("Starting mock instance %s for device %s\n", instanceID, devID)
@@ -253,6 +303,7 @@ func main() {
 			// maps event names to transitions
 			for _, s := range c.run.Steps() {
 				if s.Action().Device().ID == devID && s.Action().Device().Instances()[0].ID == instanceID {
+					devNameFromID[devID] = s.Action().Device().Name
 					for _, t := range s.Action().Event().Transitions() {
 						devNet, found := deviceNetIndex[devID]
 						if !found {
@@ -269,6 +320,7 @@ func main() {
 					}
 				}
 			}
+
 			srv := server.New(deviceNetIndex[devID], srvCh, exchange, instanceID, eventMap, h)
 			srv.Listen(ctx)
 			<-done

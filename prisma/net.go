@@ -13,6 +13,7 @@ type NetClient struct {
 	Nets                 map[string]*petri.Net
 	composite            *petri.Net
 	nodeIndex            map[string]petri.Node
+	rawIndex             map[string]*db.NetModel
 	placeInterfaces      map[string]db.PlaceInterfaceModel
 	transitionInterfaces map[string]db.TransitionInterfaceModel
 	InitialMarking       map[string]int
@@ -99,6 +100,7 @@ func (c *NetClient) loadNet(ctx context.Context, id string) (*petri.Net, []strin
 	if err != nil {
 		return nil, nil, err
 	}
+	c.rawIndex[net.ID] = net
 	places := make([]*petri.Place, len(net.Places()))
 	transitions := make([]*petri.Transition, len(net.Transitions()))
 	arcs := make([]*petri.Arc, len(net.Arcs()))
@@ -174,10 +176,18 @@ func (c *NetClient) visitChild(ctx context.Context, composite *petri.Net, id str
 	return composite, nil
 }
 
+func (c *NetClient) Raw(_ context.Context, id string) (*db.NetModel, error) {
+	if c.rawIndex[id] != nil {
+		return c.rawIndex[id], nil
+	}
+	return nil, errors.New("not found")
+}
+
 func (c *NetClient) Load(ctx context.Context, id string) (*marked.Net, error) {
 	c.compositeNetRoutes = make(map[string]string)
 	c.nodeIndex = make(map[string]petri.Node)
 	c.Nets = make(map[string]*petri.Net)
+	c.rawIndex = make(map[string]*db.NetModel)
 	c.InitialMarking = make(map[string]int)
 	c.composite = new(petri.Net)
 	c.placeInterfaces = make(map[string]db.PlaceInterfaceModel, 0)

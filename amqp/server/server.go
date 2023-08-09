@@ -140,7 +140,7 @@ func (s *Server) Listen(ctx context.Context) {
 				failOnError(err, "Failed to load command")
 				switch data.Topic {
 				case "state":
-					resp, err := s.cmd.Flush(context.Background(), data.Event)
+					resp, err := s.cmd.Flush(context.Background(), data.Event, s.MarkingMap())
 					failOnError(err, "Failed to flush command")
 					err = s.ch.PublishWithContext(ctx, s.exchange, s.deviceID+".state.current", false, false, resp)
 				case "commands":
@@ -148,7 +148,7 @@ func (s *Server) Listen(ctx context.Context) {
 					event, err := s.route(data)
 					failOnError(err, "Failed to handle data")
 					log.Printf("Handled message %s and got %s", data, event)
-					resp, err := s.cmd.Flush(ctx, event.Event)
+					resp, err := s.cmd.Flush(ctx, event.Event, s.MarkingMap())
 					err = s.ch.PublishWithContext(ctx,
 						s.exchange,
 						event.RoutingKey(),

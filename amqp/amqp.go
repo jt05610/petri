@@ -29,20 +29,29 @@ func (a *CommandService) Load(_ context.Context, data amqp.Delivery) (*control.C
 	return res, json.Unmarshal(data.Body, &res.Event.Data)
 }
 
-func (a *CommandService) Flush(_ context.Context, event *labeled.Event) (amqp.Publishing, error) {
+func (a *CommandService) Flush(_ context.Context, event *labeled.Event, mark ...control.Marking) (amqp.Publishing, error) {
 	bytes, err := json.Marshal(&event.Data)
 	if err != nil {
 		var zero amqp.Publishing
 		return zero, err
+	}
+	headers := amqp.Table{
+		"x-event-name": event.Name,
+	}
+	if len(mark) > 0 {
+		m := mark[0]
+		mbytes, err := json.Marshal(&m)
+		if err != nil {
+			return amqp.Publishing{}, err
+		}
+		headers["x-marking"] = mbytes
 	}
 
 	return amqp.Publishing{
 		Body:         bytes,
 		ContentType:  "application/json",
 		DeliveryMode: amqp.Persistent,
-		Headers: amqp.Table{
-			"x-event-name": event.Name,
-		},
+		Headers:      headers,
 	}, nil
 }
 
@@ -53,6 +62,21 @@ func (a *EventService) Load(_ context.Context, data amqp.Delivery) (*control.Eve
 	from := sk[0]
 	topic := sk[1]
 	event := sk[2]
+	if data.Headers != nil {
+		if data.Headers["x-marking"] != nil {
+			var m control.Marking
+			if err := json.Unmarshal(data.Headers["x-marking"].([]byte), &m); err != nil {
+				return nil, err
+			}
+			ret := &control.Event{
+				From:    from,
+				Topic:   topic,
+				Event:   &labeled.Event{Name: event},
+				Marking: m,
+			}
+			return ret, json.Unmarshal(data.Body, &ret.Data)
+		}
+	}
 	res := &control.Event{
 		From:  from,
 		Topic: topic,

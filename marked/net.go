@@ -10,8 +10,9 @@ type Marking []int
 
 type Net struct {
 	*petri.Net
-	marking Marking
-	index   map[string]int
+	marking      Marking
+	index        map[string]int
+	joinedPlaces map[string]string
 }
 
 func (n *Net) Copy() *Net {
@@ -34,6 +35,9 @@ func (n *Net) MarkingMap() map[string]int {
 	for k, v := range n.index {
 		ret[k] = n.marking[v]
 	}
+	for ind, joined := range n.joinedPlaces {
+		ret[ind] = n.marking[n.index[joined]]
+	}
 	return ret
 }
 
@@ -45,7 +49,7 @@ func (n *Net) Marking() Marking {
 func (n *Net) Enabled(t *petri.Transition) bool {
 	for _, arc := range n.Inputs(t) {
 		if pt, ok := arc.Src.(*petri.Place); ok {
-			if n.marking[n.index[pt.Name]] == 0 {
+			if n.marking[n.index[pt.ID]] == 0 {
 				return false
 			}
 		} else {
@@ -68,7 +72,7 @@ var (
 func (n *Net) Fire(t *petri.Transition) error {
 	for _, arc := range n.Inputs(t) {
 		if pt, ok := arc.Src.(*petri.Place); ok {
-			n.marking[n.index[pt.Name]]--
+			n.marking[n.index[pt.ID]]--
 		} else {
 			head := arc.Src.(*petri.Transition)
 			return TwoTransitionArc(head.Name, t.Name)
@@ -76,15 +80,15 @@ func (n *Net) Fire(t *petri.Transition) error {
 	}
 	for _, arc := range n.Outputs(t) {
 		if pt, ok := arc.Dest.(*petri.Place); ok {
-			mark := n.marking[n.index[pt.Name]]
+			mark := n.marking[n.index[pt.ID]]
 			if mark >= pt.Bound {
-				return errors.New(fmt.Sprintf("place %s is full", pt.Name))
+				return errors.New(fmt.Sprintf("place %s is full", pt.ID))
 			}
-			n.marking[n.index[pt.Name]]++
+			n.marking[n.index[pt.ID]]++
 		} else {
 			for _, arc := range n.Inputs(t) {
 				if pt, ok := arc.Src.(*petri.Place); ok {
-					n.marking[n.index[pt.Name]]++
+					n.marking[n.index[pt.ID]]++
 				}
 			}
 			tail := arc.Dest.(*petri.Transition)
@@ -104,22 +108,28 @@ func (n *Net) Available() []*petri.Transition {
 	return transitions
 }
 
-func New(n *petri.Net, initial Marking) *Net {
+func New(n *petri.Net, initial Marking, joinedIDs ...map[string]string) *Net {
 	net := &Net{
 		Net:     n,
 		marking: initial,
 	}
 	net.index = make(map[string]int)
 	for i, p := range n.Places {
-		net.index[p.Name] = i
+		net.index[p.ID] = i
+	}
+	net.joinedPlaces = make(map[string]string)
+	for _, joined := range joinedIDs {
+		for k, v := range joined {
+			net.joinedPlaces[k] = v
+		}
 	}
 	return net
 }
 
-func NewFromMap(n *petri.Net, initial map[string]int) *Net {
+func NewFromMap(n *petri.Net, initial map[string]int, joinedIDs ...map[string]string) *Net {
 	marking := make(Marking, len(n.Places))
 	for i, p := range n.Places {
-		marking[i] = initial[p.Identifier()]
+		marking[i] = initial[p.ID]
 	}
-	return New(n, marking)
+	return New(n, marking, joinedIDs...)
 }

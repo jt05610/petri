@@ -16,6 +16,8 @@ type NetClient struct {
 	placeInterfaces      map[string]db.PlaceInterfaceModel
 	transitionInterfaces map[string]db.TransitionInterfaceModel
 	InitialMarking       map[string]int
+	// the re-routes for the interfaced places/transitions
+	compositeNetRoutes map[string]string
 }
 
 func (c *NetClient) replaceInterfacePlaces(model db.PlaceInterfaceModel) error {
@@ -32,17 +34,26 @@ func (c *NetClient) replaceInterfacePlaces(model db.PlaceInterfaceModel) error {
 		c.nodeIndex[place.ID] = newPlace
 		for i, p := range c.composite.Places {
 			if p.ID == place.ID {
+				c.compositeNetRoutes[place.ID] = model.ID
 				c.composite.Places = append(c.composite.Places[:i], c.composite.Places[i+1:]...)
 				break
 			}
 		}
-		// 3. switch any arcs from this place to the interface place
-		for _, arc := range c.composite.Arcs {
+		// 3. remove any associated arcs from the composite net and create new ones
+		for i, arc := range c.composite.Arcs {
 			if arc.Src.Identifier() == place.ID {
-				arc.Src = newPlace
+				c.composite.Arcs = append(c.composite.Arcs[:i], c.composite.Arcs[i+1:]...)
+				_, err := c.composite.AddArc(newPlace, arc.Dest)
+				if err != nil {
+					return err
+				}
 			}
 			if arc.Dest.Identifier() == place.ID {
-				arc.Dest = newPlace
+				c.composite.Arcs = append(c.composite.Arcs[:i], c.composite.Arcs[i+1:]...)
+				_, err := c.composite.AddArc(arc.Src, newPlace)
+				if err != nil {
+					return err
+				}
 			}
 		}
 	}
@@ -62,11 +73,12 @@ func (c *NetClient) replaceInterfaceTransitions(model db.TransitionInterfaceMode
 		c.nodeIndex[transition.ID] = newTransition
 		for i, t := range c.composite.Transitions {
 			if t.ID == transition.ID {
+				c.compositeNetRoutes[transition.ID] = model.ID
 				c.composite.Transitions = append(c.composite.Transitions[:i], c.composite.Transitions[i+1:]...)
 				break
 			}
 		}
-		// 3. switch any arcs from this transition to the interface transition
+		// 3. remove any associated arcs from the composite net and create new ones
 		for _, arc := range c.composite.Arcs {
 			if arc.Src.Identifier() == transition.ID {
 				arc.Src = newTransition
@@ -163,6 +175,7 @@ func (c *NetClient) visitChild(ctx context.Context, composite *petri.Net, id str
 }
 
 func (c *NetClient) Load(ctx context.Context, id string) (*marked.Net, error) {
+	c.compositeNetRoutes = make(map[string]string)
 	c.nodeIndex = make(map[string]petri.Node)
 	c.Nets = make(map[string]*petri.Net)
 	c.InitialMarking = make(map[string]int)
@@ -187,5 +200,5 @@ func (c *NetClient) Load(ctx context.Context, id string) (*marked.Net, error) {
 			return nil, err
 		}
 	}
-	return marked.NewFromMap(c.composite, c.InitialMarking), nil
+	return marked.NewFromMap(c.composite, c.InitialMarking, c.compositeNetRoutes), nil
 }

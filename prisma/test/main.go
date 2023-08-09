@@ -13,15 +13,24 @@ import (
 	"github.com/jt05610/petri/prisma"
 	"github.com/jt05610/petri/prisma/db"
 	amqp "github.com/rabbitmq/amqp091-go"
+	"log"
 	"os"
 	"strings"
 	"time"
 )
 
 func event(model *db.EventModel) *labeled.Event {
+	fields := make([]*labeled.Field, len(model.Fields()))
+	for i, f := range model.Fields() {
+		fields[i] = &labeled.Field{
+			Name: f.Name,
+			Type: labeled.FieldType(f.Type),
+		}
+	}
 	return &labeled.Event{
-		Name: model.Name,
-		Data: model.Data,
+		Name:   model.Name,
+		Data:   model.Data,
+		Fields: fields,
 	}
 }
 
@@ -56,13 +65,10 @@ func NewController(ch *amqp.Channel, exchange string, nets map[string]*labeled.N
 	}
 }
 
-type Parameter struct {
-}
-
-func load(dbClient *db.PrismaClient, ch *amqp.Channel, exchange string, routes ...map[string]string) *Controller {
+func load(netClient *prisma.NetClient, runClient *prisma.RunClient, ch *amqp.Channel, exchange string, routes ...map[string]string) *Controller {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	srv := &prisma.RunClient{PrismaClient: dbClient}
+	srv := runClient
 
 	res, err := srv.List(ctx)
 	if err != nil {
@@ -74,8 +80,6 @@ func load(dbClient *db.PrismaClient, ch *amqp.Channel, exchange string, routes .
 	if err != nil {
 		panic(err)
 	}
-
-	netClient := &prisma.NetClient{PrismaClient: dbClient}
 
 	net, err := netClient.Load(ctx, run.NetID)
 
@@ -103,15 +107,21 @@ func load(dbClient *db.PrismaClient, ch *amqp.Channel, exchange string, routes .
 			for _, c := range step.Action().Constants() {
 				idxConstants[c.FieldID] = c.Value
 			}
+			if len(events[i].Fields) > 0 {
+				fmt.Println("Adding fieldData")
+				fieldData := make(map[string]interface{})
+				for _, f := range step.Action().Event().Fields() {
+					if val, ok := idxConstants[f.ID]; ok {
+						fieldData[f.Name] = val
+						continue
+					}
+					log.Fatalf("Missing fieldData for field %s", f.Name)
+				}
+				events[i].Data = fieldData
+			}
 			for _, nt := range net.Transitions {
 				if nt.ID == t.ID {
-					if len(events[i].Fields) > 0 {
-						fmt.Println("Adding fieldData")
-						fieldData := make(map[string]interface{})
-						for _, f := range step.Action().Event().Fields() {
-							fieldData[f.Name] = idxConstants[f.ID]
-						}
-					}
+
 					err := ln.AddHandler(events[i].Name, nt, makeHandler(events[i].Name))
 					if err != nil {
 						panic(err)
@@ -153,6 +163,7 @@ func main() {
 		panic(err)
 	}
 
+	eventMap := make(map[string]*petri.Transition)
 	exchange := os.Getenv("AMQP_EXCHANGE")
 	dbClient := db.NewClient()
 	if err := dbClient.Connect(); err != nil {
@@ -173,7 +184,10 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	c := load(dbClient, ch, exchange)
+	netClient := &prisma.NetClient{PrismaClient: dbClient}
+	runClient := &prisma.RunClient{PrismaClient: dbClient}
+
+	c := load(netClient, runClient, ch, exchange)
 	ctx := context.Background()
 	go c.Listen(ctx)
 	fmt.Println()
@@ -183,7 +197,11 @@ func main() {
 	for _, step := range c.run.Steps() {
 		for _, n := range step.Action().Device().Nets() {
 			if n, ok := c.nets[n.ID]; ok {
-				deviceNetIndex[step.Action().Device().ID] = n
+				net, err := netClient.Load(ctx, n.ID)
+				if err != nil {
+					panic(err)
+				}
+				deviceNetIndex[step.Action().Device().ID] = labeled.New(net)
 			}
 		}
 	}
@@ -206,7 +224,6 @@ func main() {
 				}
 			}
 			// maps event names to transitions
-			eventMap := make(map[string]*petri.Transition)
 			for _, s := range c.run.Steps() {
 				if s.Action().Device().ID == devID && s.Action().Device().Instances()[0].ID == instanceID {
 					for _, t := range s.Action().Event().Transitions() {
@@ -248,6 +265,31 @@ func main() {
 			panic(err)
 		}
 		done := <-c.Data()
+		ev := eventMap[done.Name]
+		if ev == nil {
+			log.Fatalf("Event %s not found", done.Name)
+		}
+		err = c.net.Fire(ev)
+		if err != nil {
+			panic(err)
+		}
+		mainMarking := c.net.MarkingMap()
+		for id, v := range done.Marking {
+			fmt.Printf("%s: %d\n", id, v)
+			mm, found := mainMarking[id]
+			if !found {
+				log.Fatalf("Marking for place with id %s not found", id)
+			}
+			if mm != v {
+				placeName := ""
+				for _, p := range c.net.Places {
+					if p.ID == id {
+						placeName = p.Name
+					}
+				}
+				log.Fatalf("Marking for place %s (id: %s) is %d, expected %d", placeName, id, mainMarking[id], v)
+			}
+		}
 		end := time.Now()
 		fmt.Printf("Done: %s\n", done.Name)
 		fmt.Printf("  From: %s\n", done.From)

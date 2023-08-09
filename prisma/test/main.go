@@ -15,21 +15,26 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
+
+func fLower(s string) string {
+	return strings.ToLower(s[:1]) + s[1:]
+}
 
 func event(model *db.EventModel) *labeled.Event {
 	fields := make([]*labeled.Field, len(model.Fields()))
 	for i, f := range model.Fields() {
 		fields[i] = &labeled.Field{
-			Name: f.Name,
+			Name: fLower(f.Name),
 			Type: labeled.FieldType(f.Type),
 		}
 	}
 	return &labeled.Event{
 		Name:   model.Name,
-		Data:   model.Data,
+		Data:   nil,
 		Fields: fields,
 	}
 }
@@ -43,9 +48,10 @@ func makeHandler(eN string) labeled.Handler {
 
 type Controller struct {
 	*client.Controller
-	nets map[string]*labeled.Net
-	net  *labeled.Net
-	run  *db.RunModel
+	nets   map[string]*labeled.Net
+	net    *labeled.Net
+	run    *db.RunModel
+	events []*labeled.Event
 }
 
 func echoHandlers(n *labeled.Net) control.Handlers {
@@ -56,12 +62,13 @@ func echoHandlers(n *labeled.Net) control.Handlers {
 	return handlers
 }
 
-func NewController(ch *amqp.Channel, exchange string, nets map[string]*labeled.Net, net *labeled.Net, model *db.RunModel, routes map[string]string) *Controller {
+func NewController(events []*labeled.Event, ch *amqp.Channel, exchange string, nets map[string]*labeled.Net, net *labeled.Net, model *db.RunModel, routes map[string]string) *Controller {
 	return &Controller{
 		Controller: client.NewController(ch, exchange, routes),
 		net:        net,
 		nets:       nets,
 		run:        model,
+		events:     events,
 	}
 }
 
@@ -112,12 +119,32 @@ func load(netClient *prisma.NetClient, runClient *prisma.RunClient, ch *amqp.Cha
 				fieldData := make(map[string]interface{})
 				for _, f := range step.Action().Event().Fields() {
 					if val, ok := idxConstants[f.ID]; ok {
-						fieldData[f.Name] = val
+						if f.Type == "string" {
+							fieldData[fLower(f.Name)] = val
+						}
+						if f.Type == "number" {
+							floatVal, err := strconv.ParseFloat(val.(string), 64)
+							if err != nil {
+								panic(err)
+							}
+							fieldData[fLower(f.Name)] = floatVal
+						}
+						if f.Type == "boolean" {
+							boolVal, err := strconv.ParseBool(val.(string))
+							if err != nil {
+								panic(err)
+							}
+							fieldData[fLower(f.Name)] = boolVal
+						}
 						continue
 					}
 					log.Fatalf("Missing fieldData for field %s", f.Name)
 				}
 				events[i].Data = fieldData
+				if !events[i].IsValid() {
+					panic("Invalid event")
+				}
+
 			}
 			for _, nt := range net.Transitions {
 				if nt.ID == t.ID {
@@ -150,7 +177,7 @@ func load(netClient *prisma.NetClient, runClient *prisma.RunClient, ch *amqp.Cha
 		mn := marked.NewFromMap(n, netClient.InitialMarking)
 		lnm[n.ID] = labeled.New(mn)
 	}
-	return NewController(ch, exchange, lnm, ln, run, rm)
+	return NewController(events, ch, exchange, lnm, ln, run, rm)
 }
 
 func snakeCase(s string) string {
@@ -247,6 +274,7 @@ func main() {
 			<-done
 		}(devID, instanceID)
 	}
+	expectedInitial := c.net.MarkingMap()
 	// make sure devices are ready
 	for _, dev := range c.Routes {
 		fmt.Printf("Pinging device %s\n", dev)
@@ -254,13 +282,15 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		if !ok {
-			panic("Device not ready")
+		for k, v := range ok {
+			if expectedInitial[k] != v {
+				log.Fatalf("Device %s not in correct initial state", dev)
+			}
 		}
 	}
-	for _, step := range c.run.Steps() {
+	for i, step := range c.run.Steps() {
 		startTime := time.Now()
-		err := c.Start(ctx, &step, nil)
+		err := c.Start(ctx, &step, c.events[i].Data)
 		if err != nil {
 			panic(err)
 		}
@@ -275,7 +305,6 @@ func main() {
 		}
 		mainMarking := c.net.MarkingMap()
 		for id, v := range done.Marking {
-			fmt.Printf("%s: %d\n", id, v)
 			mm, found := mainMarking[id]
 			if !found {
 				log.Fatalf("Marking for place with id %s not found", id)

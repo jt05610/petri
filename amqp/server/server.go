@@ -95,7 +95,6 @@ func New(net *labeled.Net, ch *amqp.Channel, exchange string, deviceID string, e
 	failOnError(err, "Failed to declare a queue")
 	queues = append(queues, deviceID+".state.get")
 	for _, key := range queues {
-		fmt.Println("Binding queue", q.Name, "to exchange", exchange, "with routing key", key, "...")
 		err := ch.QueueBind(
 			q.Name,   // queue name
 			key,      // routing key
@@ -144,10 +143,8 @@ func (s *Server) Listen(ctx context.Context) {
 					failOnError(err, "Failed to flush command")
 					err = s.ch.PublishWithContext(ctx, s.exchange, s.deviceID+".state.current", false, false, resp)
 				case "commands":
-					log.Printf("Received command: %s", data)
 					event, err := s.route(data)
 					failOnError(err, "Failed to handle data")
-					log.Printf("Handled message %s and got %s", data, event)
 					resp, err := s.cmd.Flush(ctx, event.Event, s.MarkingMap())
 					err = s.ch.PublishWithContext(ctx,
 						s.exchange,

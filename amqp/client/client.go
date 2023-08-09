@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/jt05610/petri/amqp"
 	"github.com/jt05610/petri/control"
@@ -86,26 +87,26 @@ func (a *Controller) sendPing(ctx context.Context, deviceID string) error {
 	)
 }
 
-func (a *Controller) Ping(ctx context.Context, deviceID string) (bool, error) {
+func (a *Controller) Ping(ctx context.Context, deviceID string) (control.Marking, error) {
 	retries := 3
 	for i := 0; i < retries; i++ {
 		err := a.sendPing(ctx, deviceID)
 		if err != nil {
-			return false, err
+			return nil, err
 		}
 		select {
 		case <-ctx.Done():
-			return false, ctx.Err()
+			return nil, ctx.Err()
 		case <-time.After(time.Duration(1) * time.Second):
 			continue
 		case recv := <-a.dataCh:
 			if recv.From != deviceID {
 				continue
 			}
-			return true, nil
+			return recv.Marking, nil
 		}
 	}
-	return false, nil
+	return nil, errors.New("ping timed out")
 }
 
 func (a *Controller) Send(ctx context.Context, cmd *control.Command) error {
@@ -137,7 +138,6 @@ func (a *Controller) Start(ctx context.Context, step *db.StepModel, data interfa
 		},
 	}
 
-	log.Printf("Sending %s to %s", cmd.Name, cmd.To)
 	done := make(chan struct{})
 	var sendErr error
 	go func() {
@@ -145,7 +145,6 @@ func (a *Controller) Start(ctx context.Context, step *db.StepModel, data interfa
 		if err != nil {
 			sendErr = err
 		}
-		log.Printf("Sent %s to %s", cmd.Name, cmd.To)
 		close(done)
 	}()
 

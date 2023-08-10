@@ -25,6 +25,7 @@ type Server struct {
 	devEvents <-chan *labeled.Event
 	cmd       *amqp2.CommandService
 	event     *amqp2.EventService
+	netCh     <-chan *labeled.Event
 	handlers  control.Handlers
 	exchange  string
 	deviceID  string
@@ -40,6 +41,7 @@ func (s *Server) commandName(routingKey string) string {
 
 func (s *Server) route(data *control.Command) (*control.Event, error) {
 	var res *control.Event
+	fmt.Printf("Handling %s with current marking %v", data.Event.Name, s.MarkingMap())
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
@@ -47,11 +49,12 @@ func (s *Server) route(data *control.Command) (*control.Event, error) {
 		res = &control.Event{
 			Event:   ev,
 			Topic:   "event",
+			Marking: make(map[string]int),
 			From:    "",
-			Marking: s.MarkingMap(),
 		}
 	}()
 	if err := s.Handle(context.Background(), data.Event); err != nil {
+		log.Printf("Failed to handle event: %v", err)
 		return &control.Event{
 			Event:   data.Event,
 			Topic:   "error",
@@ -60,7 +63,10 @@ func (s *Server) route(data *control.Command) (*control.Event, error) {
 		}, err
 	}
 	<-done
-	fmt.Printf("Handled %s with new marking %v", data.Event.Name, s.MarkingMap())
+	fmt.Printf("Handled %s with current marking %v", data.Event.Name, s.MarkingMap())
+	for k, v := range s.MarkingMap() {
+		res.Marking[k] = v
+	}
 	return res, nil
 }
 
@@ -127,12 +133,15 @@ func (s *Server) Listen(ctx context.Context) {
 		nil,      // args
 	)
 	failOnError(err, "Failed to register a consumer")
+	s.netCh = s.Net.Channel()
 	go func() {
 		for {
 			select {
 			case <-ctx.Done():
 				fmt.Println("Closing connection")
 				return
+			case <-s.netCh:
+				fmt.Println("Received a message from the net")
 			case d := <-msgs:
 				log.Printf("Received a message: %s", d.Body)
 				data, err := s.cmd.Load(context.Background(), d)

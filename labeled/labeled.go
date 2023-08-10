@@ -3,8 +3,10 @@ package labeled
 import (
 	"context"
 	"errors"
+	"fmt"
 	"github.com/jt05610/petri"
 	"github.com/jt05610/petri/marked"
+	"log"
 	"reflect"
 	"strings"
 )
@@ -147,10 +149,6 @@ type Handler func(ctx context.Context, data *Event) (*Event, error)
 
 func (n *Net) route(event string) (Handler, error) {
 	if t, ok := n.handlers[event]; ok {
-		err := n.Fire(t.Transition)
-		if err != nil {
-			return nil, err
-		}
 		return t.Handler, nil
 	}
 	return nil, errors.New("no handler")
@@ -248,13 +246,29 @@ func ValidSequence(net *Net, seq []*Event) bool {
 	}
 	for n, h := range net.handlers {
 		testNet.handlers[n] = h
+		testNet.hot[h.Transition.Name] = false
 	}
 
+	lnCh := testNet.Channel()
+	done := make(chan bool)
+	go func() {
+		for {
+			select {
+			case <-done:
+				return
+			case ev := <-lnCh:
+				fmt.Printf("Received event %s\n", ev.Name)
+			}
+		}
+	}()
+
 	for _, event := range seq {
-		err := testNet.Fire(net.handlers[event.Name].Transition)
+		err := testNet.Handle(context.Background(), event)
 		if err != nil {
+			log.Fatal(err)
 			return false
 		}
 	}
+	defer close(done)
 	return true
 }

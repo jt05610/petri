@@ -18,6 +18,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -283,6 +284,7 @@ func main() {
 	}
 
 	devNameFromID := make(map[string]string)
+	var mu sync.Mutex
 	for devID, instanceID := range c.Routes {
 		go func(devID, instanceID string) {
 			fmt.Printf("Starting mock instance %s for device %s\n", instanceID, devID)
@@ -303,7 +305,9 @@ func main() {
 			// maps event names to transitions
 			for _, s := range c.run.Steps() {
 				if s.Action().Device().ID == devID && s.Action().Device().Instances()[0].ID == instanceID {
+					mu.Lock()
 					devNameFromID[devID] = s.Action().Device().Name
+					mu.Unlock()
 					for _, t := range s.Action().Event().Transitions() {
 						devNet, found := deviceNetIndex[devID]
 						if !found {
@@ -340,6 +344,18 @@ func main() {
 			}
 		}
 	}
+
+	netCh := c.net.Channel()
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case e := <-netCh:
+				fmt.Println("  Client net event: ", e)
+			}
+		}
+	}()
 	for i, step := range c.run.Steps() {
 		startTime := time.Now()
 		err := c.Start(ctx, &step, c.events[i].Data)
@@ -351,7 +367,7 @@ func main() {
 		if ev == nil {
 			log.Fatalf("Event %s not found", done.Name)
 		}
-		err = c.net.Fire(ev)
+		err = c.net.Handle(ctx, c.events[i])
 		if err != nil {
 			panic(err)
 		}

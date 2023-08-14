@@ -1,0 +1,81 @@
+package main
+
+import (
+	"context"
+	"fmt"
+	"github.com/jt05610/petri/control"
+	"github.com/jt05610/petri/device"
+	"github.com/jt05610/petri/labeled"
+	"github.com/jt05610/petri/yaml"
+	"log"
+)
+
+func New{{pascal .Device.Name}}() *{{pascal .Device.Name}}{
+    d := &{{pascal .Device.Name}}{}
+    return d
+}
+
+func (d *{{pascal .Device.Name}}) load() *device.Device {
+	srv := yaml.Service{}
+	df, err := deviceYaml.Open("device.yaml")
+	if err != nil {
+		log.Fatal(err)
+	}
+	dev, err := srv.Load(df)
+	if err != nil {
+		log.Fatal(err)
+	}
+	ret, err := srv.ToNet(dev, d.Handlers())
+	if err != nil {
+		log.Fatal(err)
+	}
+	return ret
+}
+
+{{range .Device.Events}}
+func (r *{{pascalFromSnake .Name}}Request) Event() *labeled.Event {
+	return &labeled.Event{
+		Name: "{{snake .Name}}",
+	}
+}
+
+func (r *{{pascalFromSnake .Name}}Request) FromEvent(event *labeled.Event) error {
+	if event.Name != "{{snake .Name}}" {
+		return fmt.Errorf("expected event name {{snake .Name}}, got %s", event.Name)
+	}
+	return nil
+}
+
+func (r *{{pascalFromSnake .Name}}Response) Event() *labeled.Event {
+	return &labeled.Event{
+		Name: "{{snake .Name}}",
+	}
+}
+
+func (r *{{pascalFromSnake .Name}}Response) FromEvent(event *labeled.Event) error {
+	if event.Name != "{{snake .Name}}" {
+		return fmt.Errorf("expected event name {{snake .Name}}, got %s", event.Name)
+	}
+	return nil
+}
+{{end}}
+
+{{$devName := pascal .Device.Name}}
+func (d *{{$devName}}) Handlers() control.Handlers {
+    return control.Handlers{
+        {{range .Device.Events}}
+        "{{snake .Name}}": func(ctx context.Context, data *labeled.Event) (*labeled.Event, error) {
+            req := new({{pascalFromSnake .Name}}Request)
+            err := req.FromEvent(data)
+            if err != nil {
+                return nil, err
+            }
+            resp, err := d.{{pascalFromSnake .Name}}(ctx, req)
+            if err != nil {
+                return nil, err
+            }
+            return resp.Event(), nil
+        },
+        {{end}}
+    }
+}

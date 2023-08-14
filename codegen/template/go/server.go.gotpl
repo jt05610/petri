@@ -2,34 +2,18 @@ package main
 
 import (
 	"context"
+	"embed"
 	"github.com/joho/godotenv"
 	"github.com/jt05610/petri/amqp/server"
-	"github.com/jt05610/petri/control"
-	"github.com/jt05610/petri/labeled"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"go.uber.org/zap"
 	"log"
 	"os"
+	"os/signal"
 )
 
-type Valve struct {
-	*server.Server
-}
-
-func (v *Valve) OpenA(ctx context.Context, event *labeled.Event) (*labeled.Event, error) {
-	return event, nil
-}
-
-func (v *Valve) OpenB(ctx context.Context, event *labeled.Event) (*labeled.Event, error) {
-	return event, nil
-}
-
-func (v *Valve) Handlers() control.Handlers {
-	return control.Handlers{
-		"open_a": v.OpenA,
-		"open_b": v.OpenB,
-	}
-}
+//go:embed device.yaml
+var deviceYaml embed.FS
 
 func main() {
 	logger, err := zap.NewProduction()
@@ -39,13 +23,17 @@ func main() {
 
 	logger.Info("Starting 🐰 server")
 	// Setup rabbitmq channel
-	uri := os.Getenv("AMQP_URI")
-	if uri == "" {
-		logger.Fatal("AMQP_URI not set")
+	uri, ok := os.LookupEnv("RABBITMQ_URI")
+	if !ok {
+		logger.Fatal("RABBITMQ_URI not set")
 	}
 	exchange, ok := os.LookupEnv("AMQP_EXCHANGE")
 	if !ok {
 		logger.Fatal("AMQP_EXCHANGE not set")
+	}
+	deviceID, ok := os.LookupEnv("DEVICE_ID")
+	if !ok {
+		logger.Fatal("DEVICE_ID not set")
 	}
 	conn, err := amqp.Dial(uri)
 	failOnError(err, "Failed to connect to RabbitMQ")
@@ -61,7 +49,21 @@ func main() {
 		err := ch.Close()
 		failOnError(err, "Failed to close channel")
 	}()
-
+	d := New{{pascal .Device.Name}}()
+	dev := d.load()
+	srv := server.New(dev.Nets[0], ch, exchange, deviceID, dev.EventMap(), d.Handlers())
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+	go func() {
+		<-c // Wait for SIGINT
+		cancel()
+	}()
+	logger.Info("Started 🐰 server")
+	srv.Listen(ctx)
+	<-ctx.Done()
+	logger.Info("Shutting down 🐰 server")
 }
 
 func failOnError(err error, msg string) {

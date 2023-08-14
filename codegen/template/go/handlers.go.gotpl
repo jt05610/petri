@@ -1,0 +1,13 @@
+package main
+
+import (
+    "context"
+)
+
+{{$devName := pascal .Device.Name}}
+{{range .Device.Events}}
+func (d *{{$devName}}){{pascalFromSnake .Name}}(ctx context.Context, req *{{pascalFromSnake .Name}}Request) (*{{pascalFromSnake .Name}}Response, error) {
+    return &{{pascalFromSnake .Name}}Response{}, nil
+}
+{{end}}
+

@@ -258,10 +258,12 @@ func main() {
 					panic(err)
 				}
 				eventMapFname := fmt.Sprintf("%s/eventMap.json", snakeCase(snakeCase(step.Action().Device().Name)))
-				for _, t := range net.Transitions {
-					for _, e := range step.Action().Device().Events() {
-						if t.ID == e.ID {
-							eventMap[e.Event().Name] = t
+				for _, e := range step.Action().Device().Events() {
+					for _, t := range e.Event().Transitions() {
+						for _, nt := range net.Transitions {
+							if t.ID == nt.ID {
+								eventMap[e.Event().Name] = nt
+							}
 						}
 					}
 				}

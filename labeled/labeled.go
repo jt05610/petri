@@ -110,11 +110,11 @@ type ColdTransition struct {
 type Net struct {
 	*marked.Net
 	// Handlers are called when a transition is fired
-	handlers      map[string]*ColdTransition
+	EventMap      map[string]*ColdTransition
 	hot           map[string]bool
 	notifications map[string][]*Notification
 	Events        []*Event
-	events        chan *Event
+	eventCh       chan *Event
 }
 
 func (n *Net) Hot() []*petri.Transition {
@@ -130,10 +130,10 @@ func (n *Net) Hot() []*petri.Transition {
 func New(net *marked.Net) *Net {
 	n := &Net{
 		Net:           net,
-		handlers:      make(map[string]*ColdTransition),
+		EventMap:      make(map[string]*ColdTransition),
 		notifications: make(map[string][]*Notification),
 		hot:           make(map[string]bool),
-		events:        make(chan *Event),
+		eventCh:       make(chan *Event),
 	}
 	for _, t := range net.Transitions {
 		n.hot[t.Name] = true
@@ -142,22 +142,25 @@ func New(net *marked.Net) *Net {
 }
 
 func (n *Net) Channel() <-chan *Event {
-	return n.events
+	return n.eventCh
 }
 
 type Handler func(ctx context.Context, data *Event) (*Event, error)
 
 func (n *Net) route(event string) (Handler, error) {
-	if t, ok := n.handlers[event]; ok {
+	if t, ok := n.EventMap[event]; ok {
 		return t.Handler, nil
 	}
 	return nil, errors.New("no handler")
 }
 
 func (n *Net) AddHandler(event string, transition *petri.Transition, handler Handler) error {
-	n.handlers[event] = &ColdTransition{
+	n.EventMap[event] = &ColdTransition{
 		Transition: transition,
 		Handler:    handler,
+	}
+	if n.hot == nil {
+		n.hot = make(map[string]bool)
 	}
 	n.hot[transition.Name] = false
 	n.Events = append(n.Events, &Event{
@@ -190,7 +193,7 @@ func (n *Net) Handle(ctx context.Context, event *Event) error {
 		return err
 	}
 	ev, err := handler(ctx, event)
-	n.events <- ev
+	n.eventCh <- ev
 	av := n.Available()
 	nCold := 0
 	for _, hot := range n.hot {
@@ -210,7 +213,7 @@ func (n *Net) Handle(ctx context.Context, event *Event) error {
 					if err != nil {
 						return err
 					}
-					n.events <- &Event{
+					n.eventCh <- &Event{
 						Name: h.Name,
 						Data: d,
 					}
@@ -230,22 +233,22 @@ func (n *Net) Handle(ctx context.Context, event *Event) error {
 
 func ValidSequence(net *Net, seq []*Event) bool {
 	for _, e := range seq {
-		if net.handlers[e.Name].Transition == nil {
+		if net.EventMap[e.Name].Transition == nil {
 			return false
 		}
 	}
 	testNet := &Net{
 		Net:           net.Net.Copy(),
-		handlers:      make(map[string]*ColdTransition),
+		EventMap:      make(map[string]*ColdTransition),
 		notifications: make(map[string][]*Notification),
 		hot:           make(map[string]bool),
-		events:        make(chan *Event),
+		eventCh:       make(chan *Event),
 	}
 	for _, t := range testNet.Transitions {
 		testNet.hot[t.Name] = true
 	}
-	for n, h := range net.handlers {
-		testNet.handlers[n] = h
+	for n, h := range net.EventMap {
+		testNet.EventMap[n] = h
 		testNet.hot[h.Transition.Name] = false
 	}
 

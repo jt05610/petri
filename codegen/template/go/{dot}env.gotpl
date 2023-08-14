@@ -1,5 +1,4 @@
 PORT={{.Port}}
-DATABASE_URL={{.DatabaseURL}}
 RABBITMQ_URI={{.RabbitMQURI}}
-DEVICE_ID={{.InstanceID}}
+DEVICE_ID={{.Instance.ID}}
 AMQP_EXCHANGE={{.AMQPExchange}}

@@ -2,11 +2,18 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"embed"
+	"fmt"
 	"github.com/joho/godotenv"
 	"github.com/jt05610/petri/amqp/server"
+	modbus "github.com/jt05610/petri/proto/v1"
 	amqp "github.com/rabbitmq/amqp091-go"
+
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"log"
 	"os"
 	"os/signal"
@@ -14,6 +21,34 @@ import (
 
 //go:embed device.yaml
 var deviceYaml embed.FS
+
+//go:embed secrets/cert.pem
+var certFs embed.FS
+
+func connect(serverAddr string) *grpc.ClientConn {
+	certPool := x509.NewCertPool()
+	caCert, err := certFs.ReadFile("secrets/cert.pem")
+	if err != nil {
+		panic(err)
+	}
+	certPool.AppendCertsFromPEM(caCert)
+	conn, err := grpc.Dial(
+		serverAddr,
+		grpc.WithTransportCredentials(
+			credentials.NewTLS(
+				&tls.Config{
+					CurvePreferences: []tls.CurveID{tls.CurveP256},
+					MinVersion:       tls.VersionTLS12,
+					RootCAs:          certPool,
+				},
+			),
+		),
+	)
+	if err != nil {
+		panic(err)
+	}
+	return conn
+}
 
 func main() {
 	logger, err := zap.NewProduction()
@@ -27,13 +62,17 @@ func main() {
 	if !ok {
 		logger.Fatal("RABBITMQ_URI not set")
 	}
+	deviceID, ok := os.LookupEnv("DEVICE_ID")
+	if !ok {
+		logger.Fatal("DEVICE_ID not set")
+	}
 	exchange, ok := os.LookupEnv("AMQP_EXCHANGE")
 	if !ok {
 		logger.Fatal("AMQP_EXCHANGE not set")
 	}
-	deviceID, ok := os.LookupEnv("DEVICE_ID")
+	serverAddr, ok := os.LookupEnv("SERVER_ADDR")
 	if !ok {
-		logger.Fatal("DEVICE_ID not set")
+		logger.Fatal("SERVER_ADDR not set")
 	}
 	conn, err := amqp.Dial(uri)
 	failOnError(err, "Failed to connect to RabbitMQ")
@@ -49,7 +88,13 @@ func main() {
 		err := ch.Close()
 		failOnError(err, "Failed to close channel")
 	}()
-	d := NewSyringePump()
+	rpcConn := connect(serverAddr)
+	defer func() {
+		err := rpcConn.Close()
+		failOnError(err, "Failed to close connection")
+	}()
+	spClient := modbus.NewModbusClient(rpcConn)
+	d := NewSyringePump(spClient)
 	dev := d.load()
 	srv := server.New(dev.Nets[0], ch, exchange, deviceID, dev.EventMap(), d.Handlers())
 	ctx, cancel := context.WithCancel(context.Background())
@@ -60,7 +105,7 @@ func main() {
 		<-c // Wait for SIGINT
 		cancel()
 	}()
-	logger.Info("Started 🐰 server")
+	logger.Info(fmt.Sprintf("🐰 server listening for commands at %s.commands.#", deviceID))
 	srv.Listen(ctx)
 	<-ctx.Done()
 	logger.Info("Shutting down 🐰 server")

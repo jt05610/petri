@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package modbus;
 
-option go_package = "modbus/v1/modbus";
+option go_package = "proto/v1/modbus";
 
 // Function Code 1 (Read Coils)
 message ReadCoilsRequest {

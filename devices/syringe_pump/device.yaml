@@ -1,0 +1,265 @@
+innerdevice:
+    id: cll29i9p5002g0g5m2cw2jk6c
+    authorid: cll29i9mn00000g5m1h9zou76
+    name: syringe pump
+    description: A syringe pump.
+    createdat: 2023-08-08T12:12:56.346Z
+    updatedat: 2023-08-08T12:12:56.346Z
+relationsdevice:
+    author: null
+    instances: []
+    nets:
+        - innernet:
+            id: cll29i9o800170g5md38u8h7r
+            name: syringe pump
+            description: A syringe pump.
+            initialmarking:
+                - 1
+                - 0
+                - 0
+                - 0
+            createdat: 2023-08-08T12:12:56.313Z
+            updatedat: 2023-08-08T12:12:56.346Z
+            authorid: cll29i9mn00000g5m1h9zou76
+            parentid: cll29i9n300020g5mw6exspj7
+            deviceid: cll29i9p5002g0g5m2cw2jk6c
+          relationsnet:
+            author: null
+            arcs:
+                - innerarc:
+                    id: cll29i9oh001l0g5mxdd11l3d
+                    netid: cll29i9o800170g5md38u8h7r
+                    fromplace: true
+                    placeid: cll29i9o800180g5mrx6lw4go
+                    transitionid: cll29i9o8001c0g5mq47ooiv9
+                    createdat: 2023-08-08T12:12:56.322Z
+                    updatedat: 2023-08-08T12:12:56.322Z
+                  relationsarc:
+                    net: null
+                    place: null
+                    transition: null
+                - innerarc:
+                    id: cll29i9oi001n0g5mmm3m03e5
+                    netid: cll29i9o800170g5md38u8h7r
+                    fromplace: false
+                    placeid: cll29i9o800190g5m4y9f0pvx
+                    transitionid: cll29i9o8001c0g5mq47ooiv9
+                    createdat: 2023-08-08T12:12:56.322Z
+                    updatedat: 2023-08-08T12:12:56.322Z
+                  relationsarc:
+                    net: null
+                    place: null
+                    transition: null
+                - innerarc:
+                    id: cll29i9oi001p0g5mh0n6dx0r
+                    netid: cll29i9o800170g5md38u8h7r
+                    fromplace: true
+                    placeid: cll29i9o800190g5m4y9f0pvx
+                    transitionid: cll29i9o8001e0g5ml8cjarw1
+                    createdat: 2023-08-08T12:12:56.323Z
+                    updatedat: 2023-08-08T12:12:56.323Z
+                  relationsarc:
+                    net: null
+                    place: null
+                    transition: null
+                - innerarc:
+                    id: cll29i9oj001r0g5mr5erkrpw
+                    netid: cll29i9o800170g5md38u8h7r
+                    fromplace: false
+                    placeid: cll29i9o8001a0g5mojur15e9
+                    transitionid: cll29i9o8001e0g5ml8cjarw1
+                    createdat: 2023-08-08T12:12:56.323Z
+                    updatedat: 2023-08-08T12:12:56.323Z
+                  relationsarc:
+                    net: null
+                    place: null
+                    transition: null
+                - innerarc:
+                    id: cll29i9oj001t0g5mnglsebuz
+                    netid: cll29i9o800170g5md38u8h7r
+                    fromplace: true
+                    placeid: cll29i9o8001a0g5mojur15e9
+                    transitionid: cll29i9o8001i0g5m8p0uxo25
+                    createdat: 2023-08-08T12:12:56.324Z
+                    updatedat: 2023-08-08T12:12:56.324Z
+                  relationsarc:
+                    net: null
+                    place: null
+                    transition: null
+                - innerarc:
+                    id: cll29i9ok001v0g5m0rvaaf31
+                    netid: cll29i9o800170g5md38u8h7r
+                    fromplace: false
+                    placeid: cll29i9o800190g5m4y9f0pvx
+                    transitionid: cll29i9o8001i0g5m8p0uxo25
+                    createdat: 2023-08-08T12:12:56.324Z
+                    updatedat: 2023-08-08T12:12:56.324Z
+                  relationsarc:
+                    net: null
+                    place: null
+                    transition: null
+                - innerarc:
+                    id: cll29i9ok001x0g5mdkbf9vbc
+                    netid: cll29i9o800170g5md38u8h7r
+                    fromplace: false
+                    placeid: cll29i9o8001b0g5ms5y6mmjr
+                    transitionid: cll29i9o8001i0g5m8p0uxo25
+                    createdat: 2023-08-08T12:12:56.325Z
+                    updatedat: 2023-08-08T12:12:56.325Z
+                  relationsarc:
+                    net: null
+                    place: null
+                    transition: null
+            places:
+                - innerplace:
+                    id: cll29i9o800180g5mrx6lw4go
+                    name: Unknown
+                    description: The pump is on but the position is unknown.
+                    createdat: 2023-08-08T12:12:56.313Z
+                    updatedat: 2023-08-08T12:12:56.313Z
+                    bound: 1
+                  relationsplace:
+                    arcs: []
+                    nets: []
+                    interfaces: []
+                - innerplace:
+                    id: cll29i9o800190g5m4y9f0pvx
+                    name: Idle
+                    description: The pump is idle.
+                    createdat: 2023-08-08T12:12:56.313Z
+                    updatedat: 2023-08-08T12:12:56.313Z
+                    bound: 1
+                  relationsplace:
+                    arcs: []
+                    nets: []
+                    interfaces: []
+                - innerplace:
+                    id: cll29i9o8001a0g5mojur15e9
+                    name: Pumping
+                    description: The pump is dispensing.
+                    createdat: 2023-08-08T12:12:56.313Z
+                    updatedat: 2023-08-08T12:12:56.313Z
+                    bound: 1
+                  relationsplace:
+                    arcs: []
+                    nets: []
+                    interfaces: []
+                - innerplace:
+                    id: cll29i9o8001b0g5ms5y6mmjr
+                    name: Flow syringe
+                    description: Fluid is flowing through the syringe.
+                    createdat: 2023-08-08T12:12:56.313Z
+                    updatedat: 2023-08-08T12:12:56.313Z
+                    bound: 1
+                  relationsplace:
+                    arcs: []
+                    nets: []
+                    interfaces: []
+            transitions:
+                - innertransition:
+                    id: cll29i9o8001c0g5mq47ooiv9
+                    condition: null
+                    description: The pump was initialized.
+                    name: Initialized
+                    createdat: 2023-08-08T12:12:56.313Z
+                    updatedat: 2023-08-08T12:12:56.313Z
+                  relationstransition:
+                    arcs: []
+                    events:
+                        - innerevent:
+                            id: cll29i9o8001d0g5mw873nfv7
+                            name: Initialize
+                            description: Initialize the pump.
+                            createdat: 2023-08-08T12:12:56.313Z
+                            updatedat: 2023-08-08T12:12:56.313Z
+                            placeinterfaceid: null
+                            transitioninterfaceid: null
+                          relationsevent:
+                            transitions: []
+                            fields: []
+                            commands: []
+                            data: []
+                            transitioninterface: null
+                    nets: []
+                    interfaces: []
+                - innertransition:
+                    id: cll29i9o8001e0g5ml8cjarw1
+                    condition: null
+                    description: Fluid was pumped.
+                    name: Pumped
+                    createdat: 2023-08-08T12:12:56.313Z
+                    updatedat: 2023-08-08T12:12:56.313Z
+                  relationstransition:
+                    arcs: []
+                    events:
+                        - innerevent:
+                            id: cll29i9o8001f0g5mjkha5mdp
+                            name: Pump
+                            description: Pump fluid.
+                            createdat: 2023-08-08T12:12:56.313Z
+                            updatedat: 2023-08-08T12:12:56.313Z
+                            placeinterfaceid: null
+                            transitioninterfaceid: null
+                          relationsevent:
+                            transitions: []
+                            fields:
+                                - innerfield:
+                                    id: cll29i9o8001g0g5mwugwb9s2
+                                    name: Volume
+                                    type: number
+                                    condition: null
+                                    eventid: cll29i9o8001f0g5mjkha5mdp
+                                    createdat: 2023-08-08T12:12:56.313Z
+                                    updatedat: 2023-08-08T12:12:56.313Z
+                                  relationsfield:
+                                    event: null
+                                    constants: []
+                                - innerfield:
+                                    id: cll29i9o8001h0g5m3m5utfr5
+                                    name: Rate
+                                    type: number
+                                    condition: null
+                                    eventid: cll29i9o8001f0g5mjkha5mdp
+                                    createdat: 2023-08-08T12:12:56.313Z
+                                    updatedat: 2023-08-08T12:12:56.313Z
+                                  relationsfield:
+                                    event: null
+                                    constants: []
+                            commands: []
+                            data: []
+                            transitioninterface: null
+                    nets: []
+                    interfaces: []
+                - innertransition:
+                    id: cll29i9o8001i0g5m8p0uxo25
+                    condition: null
+                    description: The pump was stopped.
+                    name: Stopped
+                    createdat: 2023-08-08T12:12:56.313Z
+                    updatedat: 2023-08-08T12:12:56.313Z
+                  relationstransition:
+                    arcs: []
+                    events:
+                        - innerevent:
+                            id: cll29i9o8001j0g5mwh1pkcw3
+                            name: Stop
+                            description: Stop the pump.
+                            createdat: 2023-08-08T12:12:56.313Z
+                            updatedat: 2023-08-08T12:12:56.313Z
+                            placeinterfaceid: null
+                            transitioninterfaceid: null
+                          relationsevent:
+                            transitions: []
+                            fields: []
+                            commands: []
+                            data: []
+                            transitioninterface: null
+                    nets: []
+                    interfaces: []
+            parent: null
+            children: []
+            device: null
+            placeinterfaces: []
+            transitioninterfaces: []
+            runs: []
+    events: []

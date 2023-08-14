@@ -154,6 +154,23 @@ func (n *Net) route(event string) (Handler, error) {
 	return nil, errors.New("no handler")
 }
 
+func sentenceCaseToSnakeCase(s string) string {
+	return strings.ToLower(strings.ReplaceAll(s, " ", "_"))
+}
+
+func (n *Net) AddEventHandler(event *Event, transition *petri.Transition, handler Handler) error {
+	n.EventMap[sentenceCaseToSnakeCase(event.Name)] = &ColdTransition{
+		Transition: transition,
+		Handler:    handler,
+	}
+	if n.hot == nil {
+		n.hot = make(map[string]bool)
+	}
+	n.hot[transition.Name] = false
+	n.Events = append(n.Events, event)
+	return nil
+}
+
 func (n *Net) AddHandler(event string, transition *petri.Transition, handler Handler) error {
 	n.EventMap[event] = &ColdTransition{
 		Transition: transition,

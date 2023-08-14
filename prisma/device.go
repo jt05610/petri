@@ -96,11 +96,11 @@ func makePetriNet(model *db.NetModel, handlers control.Handlers) *labeled.Net {
 	for _, event := range ee {
 		var err error
 		if handlers == nil {
-			err = lNet.AddHandler(toSnakeCase(event.Name), tt[eventIndex[event.Name]], func(ctx context.Context, data *labeled.Event) (*labeled.Event, error) {
+			err = lNet.AddEventHandler(event, tt[eventIndex[event.Name]], func(ctx context.Context, data *labeled.Event) (*labeled.Event, error) {
 				return data, nil
 			})
 		} else {
-			err = lNet.AddHandler(toSnakeCase(event.Name), tt[eventIndex[event.Name]], handlers[event.Name])
+			err = lNet.AddEventHandler(event, tt[eventIndex[event.Name]], handlers[event.Name])
 		}
 		if err != nil {
 			panic(err)

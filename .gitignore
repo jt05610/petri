@@ -2,3 +2,4 @@
 /prisma/db/query-engine-darwin-arm64_gen.go
 /.env
 /codegen/testData/go/.env
+/cmd/codegen/.env

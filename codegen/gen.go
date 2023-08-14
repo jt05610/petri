@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/jt05610/petri/device"
+	"github.com/jt05610/petri/labeled"
 	"github.com/jt05610/petri/prisma"
 	"github.com/jt05610/petri/yaml"
 	"io/fs"
@@ -39,6 +40,34 @@ type Generator struct {
 	dev *DevParams
 }
 
+type TypeMap map[string]string
+
+type LangTypeMap map[Language]TypeMap
+
+var langTypeMap = LangTypeMap{
+	"go": TypeMap{
+		"string":  "string",
+		"number":  "float64",
+		"boolean": "bool",
+	},
+	"python": TypeMap{
+		"string":  "str",
+		"number":  "float",
+		"boolean": "bool",
+	},
+	"ts": TypeMap{
+		"string":  "string",
+		"number":  "number",
+		"boolean": "boolean",
+	},
+}
+
+func langType(l Language) func(ft labeled.FieldType) string {
+	return func(ft labeled.FieldType) string {
+		return langTypeMap[l][strings.ToLower(string(ft))]
+	}
+}
+
 func (g *Generator) Generate(ctx context.Context) error {
 	if err := g.Connect(); err != nil {
 		return fmt.Errorf("error connecting to database: %v", err)
@@ -62,12 +91,12 @@ func (g *Generator) Generate(ctx context.Context) error {
 			f:    g.makeInstance,
 		},
 		{
-			Text: "Making directory tree",
-			f:    g.makeDirTree,
-		},
-		{
 			Text: "Saving device",
 			f:    g.saveDev,
+		},
+		{
+			Text: "Making directory tree",
+			f:    g.makeDirTree,
 		},
 	}
 
@@ -154,6 +183,7 @@ func (g *Generator) genFromTemplate(outPath, tPath string) error {
 		"snake":           sentenceToSnakeCase,
 		"camel":           sentenceToCamelCase,
 		"pascalFromSnake": toPascalFromSnake,
+		"langType":        langType(g.Language),
 	}).Parse(string(t)))
 	outFile := strings.Replace(strings.TrimSuffix(outPath, filepath.Ext(outPath)), "{dot}", ".", 1)
 	f, err := os.Create(outFile)
@@ -253,6 +283,10 @@ func (g *Generator) makeDirTree(ctx context.Context) error {
 
 func (g *Generator) saveDev(ctx context.Context) error {
 	srv := yaml.Service{}
+	err := os.MkdirAll(g.OutDir, 0755)
+	if err != nil {
+		return fmt.Errorf("error creating output directory: %v", err)
+	}
 	nf, err := os.Create(filepath.Join(g.OutDir, "device.yaml"))
 	if err != nil {
 		return fmt.Errorf("error opening file: %v", err)
@@ -274,7 +308,7 @@ func (g *Generator) saveDev(ctx context.Context) error {
 	if instanceID != g.dev.Instance.ID {
 		g.dev.Instance.ID = instanceID
 	}
-	fmt.Printf("Saved device: %s", g.dev.ID)
+	fmt.Printf("Saved device: %s\n", instanceID)
 	return nil
 }
 

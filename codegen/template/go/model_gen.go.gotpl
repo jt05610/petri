@@ -33,6 +33,13 @@ func (d *{{pascal .Device.Name}}) load() *device.Device {
 }
 
 {{range .Device.Events}}
+    {{- if .Fields}}
+type {{pascalFromSnake .Name}}Data struct {
+        {{range .Fields}}{{pascalFromSnake .Name}} {{langType .Type}} `json:"{{snake .Name}}"`
+        {{end}}
+}
+    {{- end}}
+
 func (r *{{pascalFromSnake .Name}}Request) Event() *labeled.Event {
 	return &labeled.Event{
 		Name: "{{snake .Name}}",
@@ -43,13 +50,37 @@ func (r *{{pascalFromSnake .Name}}Request) FromEvent(event *labeled.Event) error
 	if event.Name != "{{snake .Name}}" {
 		return fmt.Errorf("expected event name {{snake .Name}}, got %s", event.Name)
 	}
+    {{- if .Fields}}
+	data, ok := event.Data.(*{{pascalFromSnake .Name}}Data)
+	if !ok {
+	    return fmt.Errorf("expected data type {{pascalFromSnake .Name}}Data, got %T", event.Data)
+	}
+        {{- range .Fields}}
+	r.{{pascalFromSnake .Name}} = data.{{pascalFromSnake .Name}}
+        {{end -}}
+    {{end}}
 	return nil
 }
 
 func (r *{{pascalFromSnake .Name}}Response) Event() *labeled.Event {
-	return &labeled.Event{
-		Name: "{{snake .Name}}",
-	}
+    ret := &labeled.Event{
+        Name: "{{snake .Name}}",
+        {{if .Fields}}Fields: []*labeled.Field{
+        {{- range .Fields}}
+            {
+                Name: "{{snake .Name}}",
+                Type: "{{.Type}}",
+            },
+        {{end -}}
+        },
+        Data: &{{pascalFromSnake .Name}}Data{
+            {{range .Fields}}{{pascalFromSnake .Name}}: r.{{pascalFromSnake .Name}},
+            {{end -}}
+        },
+    {{end -}}
+    }
+
+    return ret
 }
 
 func (r *{{pascalFromSnake .Name}}Response) FromEvent(event *labeled.Event) error {

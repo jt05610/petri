@@ -5,12 +5,12 @@ type {{pascal .Name}} struct {
 
 {{range .Device.Events}}
 type {{pascalFromSnake .Name}}Request struct {
-    {{range .Fields}}{{pascalFromSnake .Name}} {{.Type}} `json:"{{camel .Name}}"`
+    {{range .Fields}}{{pascalFromSnake .Name}} {{langType .Type}} `json:"{{camel .Name}}"`
     {{end}}
 }
 
 type {{pascalFromSnake .Name}}Response struct {
-    {{range .Fields}}{{pascalFromSnake .Name}} {{.Type}} `json:"{{camel .Name}}"`
+    {{range .Fields}}{{pascalFromSnake .Name}} {{langType .Type}} `json:"{{camel .Name}}"`
     {{end}}
 }
 {{end}}

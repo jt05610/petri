@@ -3,5 +3,7 @@ go 1.20
 use (
 	.
 	cmd/petrid
-	devices/valve
+	devices/syringe_pump
+	devices/two_position_three_way_valve
+	cmd/codegen
 )

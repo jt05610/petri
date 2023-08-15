@@ -19,7 +19,7 @@ func main() {
 		Language:     "go",
 		Port:         8080,
 		OutDir:       "testResult",
-		DeviceID:     "cll29i9p5002g0g5m2cw2jk6c",
+		DeviceID:     "cll29i9oz002c0g5m8idsfw2n",
 		RabbitMQURI:  "amqp://guest:guest@localhost:5672/",
 		AMQPExchange: "topic_devices",
 	})

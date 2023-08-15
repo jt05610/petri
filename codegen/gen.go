@@ -182,7 +182,7 @@ func (g *Generator) genFromTemplate(outPath, tPath string) error {
 		"pascal":          sentenceToPascalCase,
 		"snake":           sentenceToSnakeCase,
 		"camel":           sentenceToCamelCase,
-		"pascalFromSnake": toPascalFromSnake,
+		"pascalFromSnake": sentenceToPascalCase,
 		"langType":        langType(g.Language),
 	}).Parse(string(t)))
 	outFile := strings.Replace(strings.TrimSuffix(outPath, filepath.Ext(outPath)), "{dot}", ".", 1)
@@ -240,14 +240,6 @@ func ToSnakeCaseFromSentence(s string) string {
 	s = strings.ToLower(s)
 	s = strings.ReplaceAll(s, " ", "_")
 	return s
-}
-
-func toPascalFromSnake(s string) string {
-	splitString := strings.Split(s, "_")
-	for i, word := range splitString {
-		splitString[i] = strings.ToUpper(word[0:1]) + word[1:]
-	}
-	return strings.Join(splitString, "")
 }
 
 func (g *Generator) makeDirTree(ctx context.Context) error {

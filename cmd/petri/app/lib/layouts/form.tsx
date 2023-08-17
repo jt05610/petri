@@ -119,7 +119,7 @@ export default function FormContent(props: FormProps) {
       {props.noButton ? null : (
         <button
           type="submit"
-          className={`rounded-full text-white py-2 px-4 bg-slate-700 ${(props.activeButton !== undefined && !props.activeButton) ? "disabled cursor-not-allowed" : ""}`}
+          className={`rounded-full text-white py-2 px-4 bg-teal-700 hover:bg-teal-600 ${(props.activeButton !== undefined && !props.activeButton) ? "disabled cursor-not-allowed" : ""}`}
         >Submit
         </button>
       )}

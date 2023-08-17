@@ -4,6 +4,10 @@ import { isRouteErrorResponse, NavLink, Outlet, useLoaderData, useRouteError } f
 import invariant from "tiny-invariant";
 import { getNet } from "~/models/net.server";
 import { requireUserId } from "~/session.server";
+import { useMemo, useState } from "react";
+import { PetriNet } from "~/util/petrinet";
+import { LabeledNet } from "~/lib/components/labeledNet";
+
 
 export const loader = async ({ params, request }: LoaderArgs) => {
   const authorID = await requireUserId(request);
@@ -27,7 +31,7 @@ type LinkListProps = {
 
 function LinkList(props: LinkListProps) {
   return (
-    <div className={"flex flex-row w-full items-center justify-center space-x-1"}>
+    <div className={"flex flex-row w-full items-start justify-right text-right space-x-1"}>
       {props.routes.map((route) => (
         <NavLink to={route.path} className={props.btnClass} key={route.name}>
           {route.name}
@@ -39,37 +43,35 @@ function LinkList(props: LinkListProps) {
 
 export default function NetDetailsPage() {
   const data = useLoaderData<typeof loader>();
-
+  const petriNet = useMemo(() => {
+    return new PetriNet(data.net);
+  }, [data.net]);
   return (
-    <div className={"flex flex-row w-full h-full space-y-2"}>
-      <div className={"flex flex-col w-1/4 bg-slate-100 space-y-1 p-2"}>
-        <h3 className="text-2xl font-bold">{data.net.name}</h3>
-        <p className="py-6">{data.net.description}</p>
-        <h3 className="text-2xl font-bold">Subsystems</h3>
-        <hr className="rounded-full border-2 border-slate-200" />
-        <div>
-          {data.net.children.map((child, i) => (
-            <div key={child.id}>
-              <NavLink to={`/design/${child.id}`}>{i + 1}. {child.name}</NavLink>
-            </div>
-          ))}
-        </div>
-        <h3 className="text-2xl font-bold">Actions</h3>
-        <hr className="rounded-full border-2 border-slate-200" />
-        <div>
-          <LinkList btnClass={"rounded bg-slate-600 text-white p-2"} routes={[
-            { name: "Places", path: "places" },
-            { name: "Transitions", path: "transitions" },
-            { name: "Arcs", path: "arcs" },
-          ]} />
-          <Outlet />
-        </div>
+    <div className={"flex flex-col w-full h-full space-y-2"}>
+      <div className="flex flex-col w-full h-5/6 items-center">
+        <LabeledNet net={petriNet} />
       </div>
-      <div className="flex flex-col w-full h-full items-center">
+      <div className={"flex flex-row w-full h-1/4 bg-slate-100 dark:bg-slate-700 space-y-1 p-2"}>
+        <div className={"flex flex-col w-1/3 h-full space-y-1"}>
+          <h3 className="text-lg font-bold">{data.net.name}</h3>
+          <p className="py-6 text-md">{data.net.description}</p>
+        </div>
+        <div className={"flex flex-col w-2/3 space-y-1"}>
+          <div>
+            <LinkList btnClass={"text-white p-2"} routes={[
+              { name: "Places", path: "places" },
+              { name: "Transitions", path: "transitions" },
+              { name: "Arcs", path: "arcs" },
+              { name: "Sequence", path: `/control/${data.net.id}/record` },
+            ]} />
+          </div>
+          <div className={"overflow-auto h-full"}>
+            <Outlet />
+          </div>
+        </div>
       </div>
     </div>
-  )
-    ;
+  );
 };
 
 

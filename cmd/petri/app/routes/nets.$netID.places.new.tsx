@@ -24,7 +24,7 @@ export const action = async ({ params, request }: LoaderArgs) => {
     return badRequest(submission);
   }
   const place = await addPlace(submission.value);
-  return redirect(`/design/${params.netID}/places/${place.id}`);
+  return redirect(`/nets/${params.netID}/places/${place.id}`);
 };
 
 export const loader = async ({ params, request }: LoaderArgs) => {
@@ -35,7 +35,7 @@ export const loader = async ({ params, request }: LoaderArgs) => {
     throw new Error("User not found");
   }
   return json({});
-}
+};
 
 export default function NewPlace() {
   const lastSubmission = useActionData<typeof action>();
@@ -47,34 +47,27 @@ export default function NewPlace() {
   });
 
   return (
-    <div className={"flex flex-col w-full justify-center space-y-2 p-2"}>
-      <h1 className={"text-2xl font-bold"}>Create place</h1>
-      <br />
-      <div className={"rounded-lg border-2 p-2 "}>
-        <h2 className={"text-lg font-semibold"}>Update</h2>
-        <Form method={"post"} {...form.props}>
-          <FormContent fields={[
-            {
-              type: "text",
-              name: "name",
-              content: name.form,
-              error: name.error
-            },
-            {
-              name: bound.name,
-              type: "text",
-              content: bound.form,
-              error: bound.error
-            },
-            {
-              name: description.name,
-              type: "textarea",
-              content: description.form,
-              error: description.error
-            }
-          ]} />
-        </Form>
-      </div>
-    </div>
+    <Form method={"post"} {...form.props}>
+      <FormContent fields={[
+        {
+          type: "text",
+          name: "name",
+          content: name.form,
+          error: name.error
+        },
+        {
+          name: bound.name,
+          type: "text",
+          content: bound.form,
+          error: bound.error
+        },
+        {
+          name: description.name,
+          type: "textarea",
+          content: description.form,
+          error: description.error
+        }
+      ]} />
+    </Form>
   );
 }

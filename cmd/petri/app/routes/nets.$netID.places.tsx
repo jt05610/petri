@@ -5,6 +5,7 @@ import invariant from "tiny-invariant";
 import { getUserById } from "~/models/user.server";
 import { listPlaces } from "~/models/net.place.server";
 import { NavLink, Outlet, useLoaderData } from "@remix-run/react";
+import { PlusIcon } from "@heroicons/react/24/outline";
 
 
 export const loader = async ({ params, request }: LoaderArgs) => {
@@ -21,9 +22,13 @@ export const loader = async ({ params, request }: LoaderArgs) => {
 export default function Places() {
   const data = useLoaderData<typeof loader>();
   return (
-    <div>
-      <div className={"flex flex-col items-center justify-start space-y-1 p-2"}>
-        <h3 className="text-2xl font-bold">Places</h3>
+    <div className={"flex w-full h-full flex-row"}>
+      <div className={"flex flex-col w-1/2 items-center justify-start text-start space-y-1 p-2"}>
+        <div className={"flex flex-row font-bold justify-start w-full hover:text-teal-500"}>
+          <NavLink to={"new"}>
+            New
+          </NavLink>
+        </div>
         {data.places.map((place) => (
           <div className={`flex flex-row justify-start w-full`} key={place.id}>
             <NavLink to={place.id}
@@ -33,7 +38,9 @@ export default function Places() {
           </div>
         ))}
       </div>
-      <Outlet />
+      <div className={"flex flex-col w-1/2 items-center justify-start text-start space-y-1 p-2"}>
+        <Outlet />
+      </div>
     </div>
   );
 };

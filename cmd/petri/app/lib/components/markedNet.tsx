@@ -1,13 +1,17 @@
 import { Graphviz } from "graphviz-react";
 import { Suspense, useEffect, useState } from "react";
 import colors from "tailwindcss/colors";
-import type { Marking, PetriNet } from "~/util/petrinet";
+import type { Marking } from "~/util/petrinet";
+import { useContextSelector } from "use-context-selector";
+import { PetriNetContext } from "~/context";
+import { PetriNet } from "~/util/petrinet";
 
 type MarkedNetProps = {
+  net: PetriNet
   colorProfile?: "default" | ColorProfile,
-  net: PetriNet,
   marking: Marking,
   placeSize?: number,
+  graph: string
 }
 
 export const colorProfiles: {
@@ -38,14 +42,14 @@ export type ColorProfile = {
 
 export function MarkedNet(props: MarkedNetProps) {
   const [graph, setGraph] = useState<string>("");
-
   useEffect(() => {
-    setGraph(props.net.toGraphVizWithMarking(
+    const graph = props.net.toGraphVizWithMarking(
       props.placeSize || 1,
       colorProfiles["default"],
-      props.marking
-    ) || "");
-  }, [props.net, props.marking, props.placeSize, props.colorProfile]);
+      props.marking!
+    );
+    setGraph(graph);
+  }, [props]);
 
   return (
     <div className="flex flex-col items-center border dark:border-slate-200 border-md rounded-lg m-2">

@@ -4,7 +4,7 @@
   "sideEffects": false,
   "scripts": {
     "build": "node_modules/.bin/remix build",
-    "dev": "node_modules/.bin/remix watch",
+    "dev": "node_modules/.bin/remix dev",
     "prod": "cross-env NODE_OPTIONS=--max_old_space_size=4096 NODE_ENV=production node_modules/.bin/remix watch",
     "dev:serve": "node_modules/.bin/binode --require ./mocks -- @remix-run/serve:remix-serve ./build",
     "format": "node_modules/.bin/prettier --write .",

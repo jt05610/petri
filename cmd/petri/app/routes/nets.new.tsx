@@ -29,10 +29,10 @@ export const action = async ({ request }: ActionArgs) => {
 
   const net = await createNet({ name, description, authorID });
 
-  return redirect(`/design/${net.id}`);
+  return redirect(`/nets/${net.id}`);
 };
 
-export default function NetNetPage() {
+export default function NewNetPage() {
   const actionData = useActionData<typeof action>();
   const titleRef = useRef<HTMLInputElement>(null);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
@@ -61,7 +61,7 @@ export default function NetNetPage() {
           <input
             ref={titleRef}
             name="title"
-            className="flex-1 rounded-md border-2 border-blue-500 px-3 text-lg leading-loose"
+            className="flex-1 rounded-full hover:border-2 focus:border-teal-400 hover:border-teal-500 px-3 text-lg leading-loose dark:bg-slate-800 dark:text-gray-200"
             aria-invalid={actionData?.errors?.title ? true : undefined}
             aria-errormessage={
               actionData?.errors?.title ? "title-error" : undefined
@@ -82,7 +82,7 @@ export default function NetNetPage() {
             ref={bodyRef}
             name="desc"
             rows={8}
-            className="w-full flex-1 rounded-md border-2 border-blue-500 px-3 py-2 text-lg leading-6"
+            className="w-full flex-1 rounded-xl hover:border-2 focus:border-teal-400 hover:border-teal-500 px-3 text-lg dark:bg-slate-800 dark:text-gray-200 leading-6"
             aria-invalid={actionData?.errors?.body ? true : undefined}
             aria-errormessage={
               actionData?.errors?.body ? "body-error" : undefined
@@ -99,7 +99,7 @@ export default function NetNetPage() {
       <div className="text-right">
         <button
           type="submit"
-          className="rounded bg-blue-500 px-4 py-2 text-white hover:bg-blue-600 focus:bg-blue-400"
+          className="rounded-full bg-teal-500 px-4 py-2 text-white hover:bg-teal-600 focus:bg-teal-400"
         >
           Save
         </button>

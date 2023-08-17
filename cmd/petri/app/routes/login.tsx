@@ -1,6 +1,7 @@
 import type { ActionArgs, LoaderArgs, V2_MetaFunction } from "@remix-run/node";
 import { json, redirect } from "@remix-run/node";
 import { Form, Link, useActionData, useSearchParams } from "@remix-run/react";
+import type { ReactNode, RefObject } from "react";
 import { useEffect, useRef } from "react";
 
 import { verifyLogin } from "~/models/user.server";
@@ -60,6 +61,80 @@ export const action = async ({ request }: ActionArgs) => {
 
 export const meta: V2_MetaFunction = () => [{ title: "Login" }];
 
+enum FormFieldType {
+  Email = "email",
+  Password = "password"
+}
+
+enum FormLayoutType {
+  Horizontal = "horizontal",
+  Vertical = "vertical"
+}
+
+type FormLayoutProps = {
+  children: ReactNode
+  type: FormLayoutType
+}
+
+function FormLayout({ children, type }: FormLayoutProps) {
+  switch (type) {
+    case FormLayoutType.Horizontal:
+      return (
+        <div className="flex items-center justify-between">
+          {children}
+        </div>
+      );
+    case FormLayoutType.Vertical:
+      return (
+        <div className="flex flex-col space-y-4">
+          {children}
+        </div>
+      );
+
+  }
+}
+
+type FormFieldProps = {
+  ref: RefObject<HTMLInputElement>
+  name: string
+  autofocus?: boolean
+  type: FormFieldType
+  error?: string | null
+  children?: ReactNode
+}
+
+export function FormField({ ref, name, error, type, children, autofocus }: FormFieldProps) {
+  return (
+    <div>
+      <label
+        htmlFor={name}
+        className="block text-sm font-medium text-gray-700 dark:text-gray-200"
+      >
+        {children}
+      </label>
+      <div className="mt-1">
+        <input
+          ref={ref}
+          id={name}
+          required
+          autoFocus={autofocus}
+          name={name}
+          type={type}
+          autoComplete={name}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? `${name}-error` : undefined}
+          className="w-full rounded-full border border-gray-500 px-2 py-1 text-lg dark:bg-slate-500 dark:text-gray-200"
+        />
+        {error ? (
+          <div className="pt-1 text-red-700" id="email-error">
+            {error}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 export default function LoginPage() {
   const [searchParams] = useSearchParams();
   const redirectTo = searchParams.get("redirectTo") || "/nets";
@@ -79,68 +154,21 @@ export default function LoginPage() {
     <div className="flex min-h-full flex-col justify-center">
       <div className="mx-auto w-full max-w-md px-8">
         <Form method="post" className="space-y-6">
-          <div>
-            <label
-              htmlFor="email"
-              className="block text-sm font-medium text-gray-700"
-            >
-              Email address
-            </label>
-            <div className="mt-1">
-              <input
-                ref={emailRef}
-                id="email"
-                required
-                autoFocus={true}
-                name="email"
-                type="email"
-                autoComplete="email"
-                aria-invalid={actionData?.errors?.email ? true : undefined}
-                aria-describedby="email-error"
-                className="w-full rounded border border-gray-500 px-2 py-1 text-lg"
-              />
-              {actionData?.errors?.email ? (
-                <div className="pt-1 text-red-700" id="email-error">
-                  {actionData.errors.email}
-                </div>
-              ) : null}
-            </div>
-          </div>
-
-          <div>
-            <label
-              htmlFor="password"
-              className="block text-sm font-medium text-gray-700"
-            >
-              Password
-            </label>
-            <div className="mt-1">
-              <input
-                id="password"
-                ref={passwordRef}
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                aria-invalid={actionData?.errors?.password ? true : undefined}
-                aria-describedby="password-error"
-                className="w-full rounded border border-gray-500 px-2 py-1 text-lg"
-              />
-              {actionData?.errors?.password ? (
-                <div className="pt-1 text-red-700" id="password-error">
-                  {actionData.errors.password}
-                </div>
-              ) : null}
-            </div>
-          </div>
-
           <input type="hidden" name="redirectTo" value={redirectTo} />
+          <FormField ref={emailRef} name={"email"} type={FormFieldType.Email} error={actionData?.errors?.email} autofocus={true}>
+            Email address
+          </FormField>
+          <FormField ref={passwordRef} name={"password"} type={FormFieldType.Password}
+                     error={actionData?.errors?.password}>
+            Password
+          </FormField>
           <button
             type="submit"
-            className="w-full rounded bg-blue-500 px-4 py-2 text-white hover:bg-blue-600 focus:bg-blue-400"
+            className="w-full rounded-full bg-blue-500 dark:bg-teal-700 px-4 py-2 text-white hover:bg-blue-600 focus:bg-blue-400"
           >
             Log in
           </button>
-          <div className="flex items-center justify-between">
+          <FormLayout type={FormLayoutType.Horizontal}>
             <div className="flex items-center">
               <input
                 id="remember"
@@ -150,12 +178,12 @@ export default function LoginPage() {
               />
               <label
                 htmlFor="remember"
-                className="ml-2 block text-sm text-gray-900"
+                className="ml-2 block text-sm text-gray-900 dark:text-gray-200"
               >
                 Remember me
               </label>
             </div>
-            <div className="text-center text-sm text-gray-500">
+            <div className="text-center text-sm text-gray-500 dark:text-gray-400">
               Don't have an account?{" "}
               <Link
                 className="text-blue-500 underline"
@@ -167,7 +195,7 @@ export default function LoginPage() {
                 Sign up
               </Link>
             </div>
-          </div>
+          </FormLayout>
         </Form>
       </div>
     </div>

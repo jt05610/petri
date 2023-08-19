@@ -1,17 +1,13 @@
 import { Graphviz } from "graphviz-react";
 import { Suspense, useEffect, useState } from "react";
 import colors from "tailwindcss/colors";
-import type { Marking } from "~/util/petrinet";
-import { useContextSelector } from "use-context-selector";
-import { PetriNetContext } from "~/context";
-import { PetriNet } from "~/util/petrinet";
+import type { PetriNet, Marking } from "~/util/petrinet";
 
 type MarkedNetProps = {
   net: PetriNet
   colorProfile?: "default" | ColorProfile,
   marking: Marking,
   placeSize?: number,
-  graph: string
 }
 
 export const colorProfiles: {
@@ -57,7 +53,7 @@ export function MarkedNet(props: MarkedNetProps) {
         {graph && (
           <Graphviz
             dot={graph}
-            options={{ zoom: false, height: 720, width: 1280 }} />
+            options={{ zoom: true, height: 720, width: 1280 }} />
         )}
       </Suspense>
     </div>

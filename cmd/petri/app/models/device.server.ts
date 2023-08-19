@@ -6,20 +6,20 @@ export const DeviceInputSchema = z.object({
   name: z.string(),
   authorID: z.string().cuid(),
   description: z.string(),
-  netID: z.string().cuid()
+  netIDs: z.array(z.string().cuid()).optional()
 });
 
 export type DeviceInput = z.infer<typeof DeviceInputSchema>;
 
 export async function createDevice(device: DeviceInput) {
-  const { authorID, name, description, netID } = DeviceInputSchema.parse(device);
+  const { authorID, name, description, netIDs } = DeviceInputSchema.parse(device);
   return prisma.device.create({
     data: {
       authorID,
       name,
       description,
       nets: {
-        connect: { id: netID }
+        connect: netIDs?.map((id) => ({ id })) ?? []
       }
     }
   });
@@ -38,6 +38,20 @@ export type DeviceDetails = Pick<Device, "id" | "name" | "description" | "create
     language: string;
     name: string;
   }[]
+  nets: {
+    id: string
+    name: string;
+    description: string | null
+    createdAt: Date;
+    updatedAt: Date;
+    transitions: {
+      id: string;
+      name: string;
+      description: string | null
+      createdAt: Date;
+      updatedAt: Date;
+    }[]
+  }[]
 }
 
 export async function getDevice(inputs: GetDeviceInput): Promise<DeviceDetails> {
@@ -53,7 +67,16 @@ export async function getDevice(inputs: GetDeviceInput): Promise<DeviceDetails> 
             description: true,
             createdAt: true,
             updatedAt: true,
-            transitions: {}
+            transitions: {
+              select: {
+                id: true,
+                name: true,
+                description: true,
+                createdAt: true,
+                updatedAt: true
+
+              }
+            }
           }
         },
         instances: {
@@ -95,21 +118,25 @@ export async function listDevices(input: ListDevicesInput): Promise<DeviceListIt
 }
 
 
-const UpdateDeviceInputSchema = z.object({
+export const UpdateDeviceInputSchema = z.object({
   id: z.string().cuid(),
   name: z.string().optional(),
-  description: z.string().optional()
+  description: z.string().optional(),
+  netIDs: z.array(z.string().cuid()).optional()
 });
 
 export type UpdateDeviceInput = z.infer<typeof UpdateDeviceInputSchema>;
 
 export async function updateDevice(input: UpdateDeviceInput) {
-  const { id, name, description } = UpdateDeviceInputSchema.parse(input);
+  const { id, name, description, netIDs } = UpdateDeviceInputSchema.parse(input);
   return prisma.device.update({
     where: { id },
     data: {
       name,
-      description
+      description,
+      nets: {
+        connect: netIDs?.map((id) => ({ id })) ?? []
+      }
     }
   });
 }

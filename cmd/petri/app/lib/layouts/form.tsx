@@ -3,8 +3,8 @@ type FormProps = {
   activeButton?: boolean;
   fields: {
     name: string;
-    content?: string;
-    type: "text" | "textarea" | "select" | "checkbox" | "radio" | "number";
+    content?: string | string[] | number | boolean;
+    type: "text" | "textarea" | "select" | "checkbox" | "radio" | "number" | "multiselect";
     options?: { value: string, display: string }[];
     error?: string;
   }[]
@@ -34,7 +34,7 @@ export default function FormContent(props: FormProps) {
           </div>
           {field.type === "textarea" ? (
             <textarea
-              defaultValue={field.content}
+              defaultValue={field.content as string}
               name={field.name}
               aria-invalid={Boolean(field.error)}
               aria-errormessage={
@@ -46,7 +46,7 @@ export default function FormContent(props: FormProps) {
             />
           ) : field.type === "select" ? (
             <select
-              defaultValue={field.content}
+              defaultValue={field.content as string}
               name={field.name}
               aria-invalid={Boolean(field.error)}
               aria-errormessage={
@@ -89,7 +89,7 @@ export default function FormContent(props: FormProps) {
             />
           ) : field.type === "number" ? (
             <input
-              defaultValue={field.content}
+              defaultValue={field.content as number}
               name={field.name}
               type={field.type}
               aria-invalid={Boolean(field.error)}
@@ -100,9 +100,28 @@ export default function FormContent(props: FormProps) {
               }
               className={`rounded-full px-2`}
             />
+          ) : field.type === "multiselect" ? (
+            <select
+              defaultValue={field.content as string[]}
+              name={field.name}
+              aria-invalid={Boolean(field.error)}
+              aria-errormessage={
+                field.error
+                  ? `${field.name}-error`
+                  : undefined
+              }
+              className={`rounded-xl px-2`}
+              multiple
+            >
+              {field.options?.map(({ value, display }, i) => (
+                <option key={i} value={value}>
+                  {display}
+                </option>
+              ))}
+            </select>
           ) : (
             <input
-              defaultValue={field.content}
+              defaultValue={field.content as string}
               name={field.name}
               type={field.type}
               aria-invalid={Boolean(field.error)}

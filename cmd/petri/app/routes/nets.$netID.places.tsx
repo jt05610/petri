@@ -5,7 +5,6 @@ import invariant from "tiny-invariant";
 import { getUserById } from "~/models/user.server";
 import { listPlaces } from "~/models/net.place.server";
 import { NavLink, Outlet, useLoaderData } from "@remix-run/react";
-import { PlusIcon } from "@heroicons/react/24/outline";
 
 
 export const loader = async ({ params, request }: LoaderArgs) => {

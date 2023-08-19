@@ -1,4 +1,4 @@
-import type { Place, Transition , Arc } from "@prisma/client";
+import type { Place, Transition, Arc } from "@prisma/client";
 import type {
   EventDetails,
   EventDetailsWithEnabled,
@@ -216,7 +216,7 @@ export class PetriNet {
 
   // handle the event and keep calling hot transitions until there are no more hot transitions
   handleEvent(marking: Marking, eventID: string): Marking {
-    let newMarking = marking
+    let newMarking = marking;
     if (!this.eventEnabled(newMarking, eventID)) {
       console.log("Event: " + eventID + " is not enabled");
       return newMarking;
@@ -229,18 +229,14 @@ export class PetriNet {
   }
 
   // return a graphviz dot string representing the petri net. places are represented by circles, and transitions are represented by rectangles.
-  toGraphViz(params: GraphVizParams = {}) {
-    const { rankdir = "TB" } = params;
-    const graph = [
-      "digraph {",
-      `    rankdir=${rankdir};`,
-      "    node [shape=circle];",
-      ...this.net.places.map(place => `    "p${place.id}" [label="${place.name}"];`),
-      ...this.net.transitions.map(transition => `    "t${transition.id}" [label="${transition.name}" shape=box];`),
-      ...this.net.arcs.map(arc => arc.fromPlace ? `    "p${arc.placeID}" -> "t${arc.transitionID}";` : `    "t${arc.transitionID}" -> "p${arc.placeID}";`),
-      "}"
-    ];
-    return graph.join("\n");
+  toGraphViz(placeSize: number, colorProfile: ColorProfile, params: GraphVizParams = {}) {
+    // make a marking where each place has a 0 marking
+    const marking: Marking = {};
+    this.net.places.forEach(place => {
+      marking[place.id] = 0;
+    });
+    // then return the graphviz string with the 0 marking
+    return this.toGraphVizWithMarking(placeSize, colorProfile, marking, params);
   }
 
   makePlaceNode(colorProfile: ColorProfile, place: Pick<Place, "id" | "name">, marking: Marking): string {

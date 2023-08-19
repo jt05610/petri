@@ -1,21 +1,6 @@
-import { NavLink, useLoaderData } from "@remix-run/react";
-import type { LoaderArgs } from "@remix-run/node";
-import { json } from "@remix-run/node";
-import { requireUserId } from "~/session.server";
-import { getUserById } from "~/models/user.server";
-import { getNetsWithDevice, getNetsWithEvents } from "~/models/net.server";
-
-export const loader = async ({ request }: LoaderArgs) => {
-  const userID = await requireUserId(request);
-  const user = await getUserById(userID);
-  if (!user) {
-    throw new Error("User not found");
-  }
-  const systemNets = await getNetsWithEvents({ authorID: userID });
-  const deviceNets = await getNetsWithDevice({ authorID: userID });
-  console.log(systemNets);
-  return json({ systemNets, deviceNets });
-};
+import { NavLink } from "@remix-run/react";
+import { useContextSelector } from "use-context-selector";
+import { ControlContext } from "~/routes/control";
 
 type NetCardProps = {
   net: {
@@ -23,7 +8,6 @@ type NetCardProps = {
     name: string;
     description: string;
   };
-
 }
 
 export function NetCard({ net }: NetCardProps) {
@@ -38,12 +22,20 @@ export function NetCard({ net }: NetCardProps) {
       </h4>
       <hr className={"rounded-full my-2"} />
       <p className={"overflow-auto"}>{net.description}</p>
-      <NavLink
-        to={net.id}
-        className={"rounded-full w-min bg-slate-600 px-4 py-2 text-blue-100 hover:bg-blue-500 active:bg-blue-600 mt-auto"}
-      >
-        Record
-      </NavLink>
+      <div className={"flex flex-row space-x-2 w-full justify-center"}>
+        <NavLink
+          to={`${net.id}/record`}
+          className={"rounded-full w-min bg-slate-600 px-4 py-2 text-blue-100 hover:bg-rose-500 active:bg-rose-600 mt-auto"}
+        >
+          Record
+        </NavLink>
+        <NavLink
+          to={`${net.id}/sequences`}
+          className={"rounded-full w-min bg-slate-600 px-4 py-2 text-blue-100 hover:bg-teal-500 active:bg-teal-600 mt-auto"}
+        >
+          Sequences
+        </NavLink>
+      </div>
     </div>
   );
 }
@@ -77,8 +69,8 @@ export function NetGroup({ title, nets }: NetGroupProps) {
   );
 }
 
-export default function RecordRoute() {
-  const { systemNets, deviceNets } = useLoaderData<typeof loader>();
+export default function ControlIndex() {
+  const { systemNets, deviceNets } = useContextSelector(ControlContext, (ctx) => ctx!);
   return (
     <div className={"flex flex-col p-2 w-full h-full"}>
       <div className={"p-2 space-y-2"}>

@@ -5,8 +5,16 @@ import { getNetListItems } from "~/models/net.server";
 import { requireUserId } from "~/session.server";
 import { getUserById } from "~/models/user.server";
 import Header from "~/lib/components/header";
-import { Bars3Icon, ChevronDoubleRightIcon, PlusIcon } from "@heroicons/react/24/outline";
-import { ReactNode, useState } from "react";
+import {
+  Bars3Icon,
+  ChevronDoubleRightIcon,
+  FilmIcon,
+  PlusIcon,
+  RectangleStackIcon,
+  ServerStackIcon
+} from "@heroicons/react/24/outline";
+import type { ReactNode } from "react";
+import { useState } from "react";
 
 export const loader = async ({ request }: LoaderArgs) => {
   const authorID = await requireUserId(request);
@@ -44,13 +52,33 @@ export default function NetsPage() {
   return (
     <div className="flex h-full min-h-screen flex-col">
       <Header>
-        <button
-          className={"flex flex-row justify-center items-center text-center dark:text-gray-200 hover:dark:text-teal-500 active:dark:text-teal-600 hover:text-blue-500 active:text-blue-600"}
-          onClick={toggleMenu}
-        >
-          <Bars3Icon className="w-6 h-6" />
-        </button>
+        <div className={"flex flex-row space-x-3 text-center dark:text-gray-200 "}>
+          <button
+            className={"flex flex-row justify-center items-center hover:dark:text-teal-500 active:dark:text-teal-600 hover:text-blue-500 active:text-blue-600"}
+            onClick={toggleMenu}
+          >
+            <Bars3Icon className="w-6 h-6" />
+          </button>
+          <NavLink
+            className={"hover:dark:text-teal-500 active:dark:text-teal-600 hover:text-blue-500 active:text-blue-600"}
+            to={"/nets"}
+          >
+            <RectangleStackIcon className="w-6 h-6" />
+          </NavLink>
+          <NavLink
+            className={"hover:dark:text-teal-500 active:dark:text-teal-600 hover:text-blue-500 active:text-blue-600"}
+            to={"/device"}>
+            <ServerStackIcon className="w-6 h-6" />
+          </NavLink>
+          <NavLink
+            className={"hover:dark:text-teal-500 active:dark:text-teal-600 hover:text-blue-500 active:text-blue-600"}
+            to={"/control"}>
+            <FilmIcon className="w-6 h-6" />
+          </NavLink>
+
+        </div>
       </Header>
+
       <main className="flex h-full">
         <Sidebar visible={menuVisible}>
           <h2 className="text-lg font-bold p-4">Actions</h2>

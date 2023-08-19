@@ -4,7 +4,7 @@ import { isRouteErrorResponse, NavLink, Outlet, useLoaderData, useRouteError } f
 import invariant from "tiny-invariant";
 import { getNet } from "~/models/net.server";
 import { requireUserId } from "~/session.server";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { PetriNet } from "~/util/petrinet";
 import { LabeledNet } from "~/lib/components/labeledNet";
 
@@ -63,6 +63,7 @@ export default function NetDetailsPage() {
               { name: "Transitions", path: "transitions" },
               { name: "Arcs", path: "arcs" },
               { name: "Sequence", path: `/control/${data.net.id}/record` },
+              { name: "Devices", path: "devices" }
             ]} />
           </div>
           <div className={"overflow-auto h-full"}>

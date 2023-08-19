@@ -55,8 +55,7 @@ model Net {
   parent               Net?                  @relation("NetChildren", fields: [parentID], references: [id])
   parentID             String?
   children             Net[]                 @relation("NetChildren")
-  device               Device?               @relation(fields: [deviceId], references: [id])
-  deviceId             String?
+  devices              Device[]
   placeInterfaces      PlaceInterface[]
   transitionInterfaces TransitionInterface[]
   runs                 Run[]
@@ -182,7 +181,7 @@ model Device {
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
   nets        Net[]
-  events      Action[]
+  actions     Action[]
 }
 
 model Constant {

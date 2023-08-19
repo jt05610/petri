@@ -72,7 +72,7 @@ export type NetDetails = Pick<Net, "id" | "name" | "description" | "initialMarki
     }[]
   })[]
   transitions: TransitionWithEvents[]
-  device: {
+  devices: {
     id: string
     name: string
     instances: {
@@ -80,7 +80,7 @@ export type NetDetails = Pick<Net, "id" | "name" | "description" | "initialMarki
       name: string
       addr: string
     }[] | null
-  } | null
+  }[] | null
   arcs: Pick<Arc, "placeID" | "fromPlace" | "transitionID">[]
 }
 
@@ -131,7 +131,7 @@ export async function getNet({
       createdAt: true,
       updatedAt: true,
       description: true,
-      device: {
+      devices: {
         select: {
           id: true,
           name: true,
@@ -250,8 +250,8 @@ export function getNetsWithDevice({ authorID }: {
   return prisma.net.findMany({
     where: {
       authorID,
-      device: {
-        isNot: null
+      devices: {
+        some: {}
       }
     },
     select: {

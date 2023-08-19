@@ -19,14 +19,13 @@ export const action = async ({ request }: LoaderArgs) => {
     throw new Error("User not found");
   }
   let formData = await request.formData();
-  formData.append("id", authorID);
   const submission = parse(formData, {
     schema: UpdateDeviceInputSchema
   });
+  console.log(submission.value)
   if (!submission.value || submission.intent !== "submit") {
     return badRequest(submission);
   }
-
   const device = await updateDevice(submission.value);
   return redirect(`/device/${device.id}`);
 };
@@ -86,5 +85,4 @@ export default function Transition() {
       </div>
     </div>
   );
-
 }

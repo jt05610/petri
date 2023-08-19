@@ -111,6 +111,7 @@ export default function FormContent(props: FormProps) {
                   : undefined
               }
               className={`rounded-xl px-2`}
+
               multiple
             >
               {field.options?.map(({ value, display }, i) => (

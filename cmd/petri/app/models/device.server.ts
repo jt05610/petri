@@ -122,7 +122,10 @@ export const UpdateDeviceInputSchema = z.object({
   id: z.string().cuid(),
   name: z.string().optional(),
   description: z.string().optional(),
-  netIDs: z.array(z.string().cuid()).optional()
+  netIDs: z.preprocess((netIDs) => {
+    if (typeof netIDs === "string") return [netIDs];
+    return netIDs;
+  }, z.array(z.string().cuid()).optional())
 });
 
 export type UpdateDeviceInput = z.infer<typeof UpdateDeviceInputSchema>;
@@ -135,7 +138,7 @@ export async function updateDevice(input: UpdateDeviceInput) {
       name,
       description,
       nets: {
-        connect: netIDs?.map((id) => ({ id })) ?? []
+        connect: [...netIDs!.map((netID) => ({ id: netID }))]
       }
     }
   });

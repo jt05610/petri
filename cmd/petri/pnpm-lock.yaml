@@ -101,6 +101,12 @@ dependencies:
   morgan:
     specifier: ^1.10.0
     version: 1.10.0
+  port-kill:
+    specifier: ^1.8.0
+    version: 1.8.0
+  prisma:
+    specifier: ^5.1.1
+    version: 5.1.1
   prisma-zod-generator:
     specifier: ^0.8.13
     version: 0.8.13(prisma@5.1.1)
@@ -125,6 +131,9 @@ dependencies:
   tiny-invariant:
     specifier: ^1.3.1
     version: 1.3.1
+  ts-node:
+    specifier: ^10.9.1
+    version: 10.9.1(@types/node@18.16.18)(typescript@5.1.3)
   use-context-selector:
     specifier: ^1.4.1
     version: 1.4.1(react-dom@18.2.0)(react@18.2.0)(scheduler@0.23.0)
@@ -235,18 +244,12 @@ devDependencies:
   prettier-plugin-tailwindcss:
     specifier: ^0.3.0
     version: 0.3.0(prettier@2.8.8)
-  prisma:
-    specifier: ^5.1.1
-    version: 5.1.1
   start-server-and-test:
     specifier: ^2.0.0
     version: 2.0.0
   tailwindcss:
     specifier: ^3.3.2
     version: 3.3.2(ts-node@10.9.1)
-  ts-node:
-    specifier: ^10.9.1
-    version: 10.9.1(@types/node@18.16.18)(typescript@5.1.3)
   tsconfig-paths:
     specifier: ^4.2.0
     version: 4.2.0
@@ -3817,6 +3820,7 @@ packages:
   /@prisma/engines@5.1.1:
     resolution: {integrity: sha512-NV/4nVNWFZSJCCIA3HIFJbbDKO/NARc9ej0tX5S9k2EVbkrFJC4Xt9b0u4rNZWL4V+F5LAjvta8vzEUw0rw+HA==}
     requiresBuild: true
+    dev: false
 
   /@prisma/fetch-engine@4.16.2:
     resolution: {integrity: sha512-lnCnHcOaNn0kw8qTJbVcNhyfIf5Lus2GFXbj3qpkdKEIB9xLgqkkuTP+35q1xFaqwQ0vy4HFpdRUpFP7njE15g==}
@@ -11170,6 +11174,11 @@ packages:
       tslib: 2.6.1
     dev: false
 
+  /port-kill@1.8.0:
+    resolution: {integrity: sha512-UPT0EKGYeIyhMJdsayJzTU1FIGLjRpHcPp6S23NDK9fRElLgw1kDcIv8QNsyscrIF77UJomg6NthJJ+LLZQ4WA==}
+    hasBin: true
+    dev: false
+
   /postcss-discard-duplicates@5.1.0(postcss@8.4.24):
     resolution: {integrity: sha512-zmX3IoSI2aoenxHV6C7plngHWWhUOV3sP1T8y2ifzxzbtnuhk1EdPwm0S1bIUNaJ2eNbWeGLEwzw8huPD67aQw==}
     engines: {node: ^10 || ^12 || >=14.0}
@@ -11429,6 +11438,7 @@ packages:
     requiresBuild: true
     dependencies:
       '@prisma/engines': 5.1.1
+    dev: false
 
   /process-nextick-args@2.0.1:
     resolution: {integrity: sha512-3ouUOpQhtgrbOa17J7+uxOTpITYWaGP7/AhoR3+A+/1e9skrzelGi/dXzEYyvbxubEF6Wn2ypscTKiKJFFn1ag==}

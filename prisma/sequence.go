@@ -33,7 +33,7 @@ func (c *RunClient) Load(ctx context.Context, id string) (*db.RunModel, error) {
 				db.Action.Device.Fetch().With(
 					db.Device.Nets.Fetch(),
 				).With(
-					db.Device.Events.Fetch().With(),
+					db.Device.Actions.Fetch().With(),
 				).With(
 					db.Device.Instances.Fetch(),
 				),

@@ -2,7 +2,6 @@ import { useContextSelector } from "use-context-selector";
 import { PetriNetContext, SocketContext } from "~/context";
 import { Suspense, useEffect, useState } from "react";
 import { MarkedNet } from "~/lib/components/markedNet";
-import type { PetriNet } from "~/util/petrinet";
 import type { Event } from "@prisma/client";
 
 type DeviceControlPanelProps = {
@@ -44,7 +43,13 @@ export function DeviceControlPanel(props: DeviceControlPanelProps) {
       return;
     }
     const newMarking = petriNet.handleEvent(marking, event.id);
-    socket?.emit("event", { data, deviceID: petriNet?.net.device!.instances![0].id, command: event.name });
+    if (!petriNet.net.devices) {
+      setMarking(newMarking);
+      return;
+    }
+    // TODO un-hardcode this
+    const dev = petriNet.net.devices[0]
+    socket?.emit("event", { data, deviceID: dev.instances![0].id, command: event.name });
     setMarking(newMarking);
     handleUpdateEvents(petriNet.allEvents(newMarking).reduce((acc, event) => ({
       ...acc,

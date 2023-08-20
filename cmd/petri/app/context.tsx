@@ -53,7 +53,8 @@ const netMarking = (places: Pick<Place, "id">[], initial: number[]) => {
 };
 
 export function PetriNetProvider({ net, children }: PetriNetProviderProps) {
-  const [petriNet] = useState<PetriNet>(net.device?.instances ? new PetriNet(net) : new PetriNet(net).combinedNet);
+
+  const [petriNet] = useState<PetriNet>(net.devices ? new PetriNet(net) : new PetriNet(net).combinedNet);
   const [marking, setMarking] = useState<{
     [key: string]: number
   }>(netMarking(petriNet.net.places, petriNet.net.initialMarking));

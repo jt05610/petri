@@ -16,7 +16,7 @@ import (
 	"text/template"
 )
 
-//go:embed template
+//go:embed template/*
 var templateDir embed.FS
 
 type Language string
@@ -207,8 +207,8 @@ func (g *Generator) crawlDir(ctx context.Context, outPath, tPath string, parDir 
 	if !parDir.IsDir() {
 		return nil
 	}
-	rPath := filepath.Join(outPath, parDir.Name())
-	dPath := filepath.Join(tPath, parDir.Name())
+	rPath := Join(outPath, parDir.Name())
+	dPath := Join(tPath, parDir.Name())
 	subDir, err := templateDir.ReadDir(dPath)
 	if err != nil {
 		return fmt.Errorf("error reading directory: %v", err)
@@ -222,8 +222,8 @@ func (g *Generator) crawlDir(ctx context.Context, outPath, tPath string, parDir 
 			continue
 		}
 		fName := strings.Replace(file.Name(), "{dot}", ".", 1)
-		fPath := filepath.Join(rPath, fName)
-		tfPath := filepath.Join(dPath, fName)
+		fPath := Join(rPath, fName)
+		tfPath := Join(dPath, fName)
 		err := g.genFromTemplate(fPath, tfPath)
 		if err != nil {
 			return err
@@ -242,6 +242,10 @@ func ToSnakeCaseFromSentence(s string) string {
 	return s
 }
 
+func Join(s ...string) string {
+	return strings.Join(s, "/")
+}
+
 func (g *Generator) makeDirTree(ctx context.Context) error {
 	if g.OutDir == "" || g.OutDir == "." {
 		g.OutDir = ToSnakeCaseFromSentence(g.dev.Name)
@@ -250,7 +254,14 @@ func (g *Generator) makeDirTree(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("error creating output directory: %v", err)
 	}
-	tplPath := filepath.Join("template", g.dev.Device.Language)
+	tt, err := templateDir.ReadDir("template")
+	if err != nil {
+		return fmt.Errorf("error reading directory: %v", err)
+	}
+	for _, file := range tt {
+		fmt.Printf("file: %v\n", file.Name())
+	}
+	tplPath := Join("template", strings.Trim(string(g.dev.Language), " \r\n"))
 	langDir, err := templateDir.ReadDir(tplPath)
 	if err != nil {
 		return fmt.Errorf("error reading directory: %v", err)
@@ -263,8 +274,8 @@ func (g *Generator) makeDirTree(ctx context.Context) error {
 			}
 			continue
 		}
-		fPath := filepath.Join(g.OutDir, file.Name())
-		tfPath := filepath.Join(tplPath, file.Name())
+		fPath := Join(g.OutDir, file.Name())
+		tfPath := Join(tplPath, file.Name())
 		err := g.genFromTemplate(fPath, tfPath)
 		if err != nil {
 			return err
@@ -279,7 +290,7 @@ func (g *Generator) saveDev(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("error creating output directory: %v", err)
 	}
-	nf, err := os.Create(filepath.Join(g.OutDir, "device.yaml"))
+	nf, err := os.Create(Join(g.OutDir, "device.yaml"))
 	if err != nil {
 		return fmt.Errorf("error opening file: %v", err)
 	}

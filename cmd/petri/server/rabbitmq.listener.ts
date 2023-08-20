@@ -1,7 +1,7 @@
 import * as dotenv from "dotenv";
 import amqp from "amqplib/callback_api";
 import invariant from "tiny-invariant";
-import { singleton } from "~/singleton.server";
+import { singleton } from "./singleton.server";
 
 dotenv.config();
 

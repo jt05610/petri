@@ -1,0 +1,33 @@
+version: "3"
+services:
+
+  db:
+    image: postgres
+    restart: always
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: petri
+
+  web:
+    build: .
+    ports:
+      - "3000:3000"
+    depends_on:
+      - db
+      - rabbitmq
+    environment:
+      DATABASE_URL: postgresql://user:password@db:5432/petri
+      RABBITMQ_EXCHANGE: topic_devices
+      RABBITMQ_URI: amqp://guest:guest@localhost:5672/
+      SESSION_SECRET: "super-duper-s3cret"
+      NODE_ENV: production
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    restart: always
+    ports:
+      - "15672:15672"
+      - "5672:5672"

@@ -43,7 +43,7 @@ export default function Transition() {
   const lastSubmission = useActionData<typeof action>();
   const { nets } = useLoaderData<typeof loader>();
   const [changed, setChanged] = useState(false);
-  const [form, { name, description, netID }] = useForm({
+  const [form, { name, description, netIDs }] = useForm({
     lastSubmission,
     onValidate({ formData }) {
       setChanged(false);
@@ -70,10 +70,10 @@ export default function Transition() {
               error: description.error
             },
             {
-              name: netID.name,
-              type: "select",
-              content: lastSubmission?.payload?.transitionID,
-              error: netID.error,
+              name: netIDs.name,
+              type: "multiselect",
+              content: lastSubmission?.payload?.netIDs || netIDs.form,
+              error: netIDs.error,
               options: nets.map((net) => ({ display: net.name, value: net.id }))
             }
           ]} />

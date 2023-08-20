@@ -57,43 +57,52 @@ export class PetriNet {
       }));
     });
     this.devices = [];
-    if (this.net.device) {
-      this.devices.push({
-        id: this.net.device.id,
-        name: this.net.device.name,
-        instances: this.net.device.instances || [],
-        events: this.events
-      });
+
+    this.deviceIDFromInstanceID = {};
+    if (this.net.devices) {
+      this.net.devices.forEach((device => {
+        this.devices.push({
+          id: device.id,
+          name: device.name,
+          instances: device.instances || [],
+          events: this.events
+        });
+        if (!device.instances) {
+          return
+        }
+        device.instances.forEach(instance => {
+          if (!this.net.devices || !instance.id) {
+            return;
+          }
+          this.deviceIDFromInstanceID[instance.id] = device.id;
+        });
+      }));
+
     }
     if (this.net.children) {
       this.net.children.forEach(child => {
-        if (child.device) {
-          this.devices.push({
-            id: child.device.id,
-            name: child.device.name,
-            instances: child.device.instances || [],
-            events: this.events
-          });
+        if (child.devices) {
+          child.devices.forEach(device => {
+            this.devices.push({
+              id: device.id,
+              name: device.name,
+              instances: device.instances || [],
+              events: this.events
+            });
+            if (!device.instances) {
+              return
+            }
+            device.instances.forEach(instance => {
+              if (!child.devices || !instance.id) {
+                return;
+              }
+              this.deviceIDFromInstanceID[instance.id] = device.id;
+            })
+          })
         }
       });
     }
-    this.deviceIDFromInstanceID = {};
-    this.net.device?.instances?.forEach(instance => {
-      if (!this.net.device || !instance.id) {
-        return;
-      }
-      this.deviceIDFromInstanceID[instance.id] = this.net.device.id;
-    });
-    if (this.net.children) {
-      this.net.children.forEach(child => {
-        child.device?.instances?.forEach(instance => {
-          if (!child.device || !instance.id) {
-            return;
-          }
-          this.deviceIDFromInstanceID[instance.id] = child.device.id;
-        });
-      });
-    }
+
     this.initialMarking = {};
     this.net.places.forEach((place, i) => {
       this.initialMarking[place.id] = this.net.initialMarking[i];
@@ -177,16 +186,22 @@ export class PetriNet {
   childDeviceEvents(marking: Marking): DeviceWithEvents[] {
     let ret: DeviceWithEvents[] = [];
     for (let child of this.net.children) {
-      if (child.device && child.device.instances) {
-        ret.push({
-          id: child.device.id,
-          name: child.device.name,
-          instances: child.device.instances,
-          events: child.transitions.flatMap(({ events }) => events!.map(event => ({
-            ...event,
-            enabled: this.enabledTransitions(marking).some(transition => transition.events && transition.events.some(e => e.id === event.id))
-          })))
-        });
+      if (child.devices) {
+        child.devices.forEach(device => {
+          if (!device.instances) {
+            return;
+          }
+          ret.push({
+            id: device.id,
+            name: device.name,
+            instances: device.instances,
+            events: child.transitions.flatMap(({ events }) => events!.map(event => ({
+              ...event,
+              enabled: this.enabledTransitions(marking).some(transition => transition.events && transition.events.some(e => e.id === event.id))
+            })))
+          });
+        })
+
       }
     }
     return ret;
@@ -331,7 +346,7 @@ export class PetriNet {
       description: this.net.description,
       places, transitions, arcs,
       initialMarking: initialMark,
-      device: this.net.device,
+      devices: this.net.devices,
       placeInterfaces: [],
       transitionInterfaces: [],
       children: this.net.children,

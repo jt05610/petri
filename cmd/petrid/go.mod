@@ -1,4 +1,4 @@
-module github.com/jt05610/cmd/petrid
+module github.com/jt05610/petri/cmd/petrid
 
 go 1.20
 

@@ -1,7 +1,7 @@
 import invariant from "tiny-invariant";
 import type { Connection } from "amqplib";
 import { connect } from "amqplib";
-import { singleton } from "~/singleton.server";
+import { singleton } from "./singleton.server";
 
 const publisher = singleton("amqp", async () => {
   invariant(process.env.RABBITMQ_URI, "RABBITMQ_URI is required");

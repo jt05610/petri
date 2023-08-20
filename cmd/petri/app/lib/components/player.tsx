@@ -14,15 +14,14 @@ import type { RunDetails } from "~/models/net.run.server";
 type RunViewProps = {
   minCols: number
   minRows: number
-  activeStep: number
   deviceNames: string[]
   sequence: RunDetails
 }
 
-export function RunView({ minCols, minRows, deviceNames, sequence, activeStep }: RunViewProps) {
+export function RunView({ minCols, minRows, deviceNames, sequence }: RunViewProps) {
   return (
     <div className="mt-4 -mb-3">
-      <RunGridView nCols={minCols} nRows={minRows} deviceNames={deviceNames} sequence={sequence} activeStep={activeStep}/>
+      <RunGridView nCols={minCols} nRows={minRows} deviceNames={deviceNames} sequence={sequence}/>
     </div>
   );
 }
@@ -112,7 +111,6 @@ export default function Player() {
           minRows={2}
           deviceNames={petriNet?.devices.map((d) => d.name) ?? []}
           sequence={sequence}
-          activeStep={session?.activeAction ?? 0}
         />
       }
     </div>

@@ -11,8 +11,9 @@ import (
 	"github.com/jt05610/petri/prisma/db"
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/bcrypt"
-	"golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/term"
 	"os"
+	"syscall"
 )
 
 func getDeviceID(c *prisma.DeviceClient) *device.ListItem {
@@ -25,11 +26,11 @@ func getDeviceID(c *prisma.DeviceClient) *device.ListItem {
 	}
 	fmt.Println("Please select a device:")
 	for i, d := range dd {
-		fmt.Printf("%d. %s\n", i, d.Name)
+		fmt.Printf("\n%d. %s", i, d.Name)
 	}
 	var i int
-	fmt.Print("Enter device number: ")
-	_, err = fmt.Scanf("%d", &i)
+	fmt.Print("\nEnter device number: ")
+	_, err = fmt.Scanf("%d\n", &i)
 	if err != nil {
 		panic(err)
 	}
@@ -76,7 +77,7 @@ func login(c *db.PrismaClient) context.Context {
 	}
 	fmt.Print("Enter password: ")
 	// hide text for user entry
-	password, err := terminal.ReadPassword(0)
+	password, err := term.ReadPassword(int(syscall.Stdin))
 	if err != nil {
 		panic(err)
 	}

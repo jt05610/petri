@@ -1,18 +1,19 @@
 # base node image
-FROM node:16-bullseye-slim as base
+FROM node:18-bullseye-slim as base
 
 # set for base and all layer that inherit from it
 ENV NODE_ENV production
 
 # Install openssl for Prisma
-RUN apt-get update && apt-get install -y openssl sqlite3
+# Install postgres for PostgreSQL
+RUN apt-get update && apt-get install -y openssl postgresql
 
 # Install all node_modules, including dev dependencies
 FROM base as deps
 
 WORKDIR /myapp
 
-ADD package.json package-lock.json package-lock.json .npmrc ./
+ADD package.json pnpm-lock.yaml .npmrc ./
 RUN npm install --include=dev
 
 # Setup production node_modules
@@ -21,7 +22,7 @@ FROM base as production-deps
 WORKDIR /myapp
 
 COPY --from=deps /myapp/node_modules /myapp/node_modules
-ADD package.json package-lock.json package-lock.json .npmrc ./
+ADD package.json pnpm-lock.yaml .npmrc ./
 RUN npm prune --omit=dev
 
 # Build the app
@@ -33,19 +34,22 @@ COPY --from=deps /myapp/node_modules /myapp/node_modules
 
 ADD prisma .
 RUN npx prisma generate
-
-ADD ui .
+ADD . .
 RUN npm run build
 
 # Finally, build the production image with minimal footprint
 FROM base
 
-ENV DATABASE_URL=file:/data/sqlite.db
-ENV PORT="8080"
+# PostgreSQL connection string (replace with your actual connection details)
+ENV DATABASE_URL="postgresql://user:password@localhost:5432/petri"
+ENV RABBITMQ_EXCHANGE="topic_devices"
+ENV RABBITMQ_URI="amqp://guest:guest@localhost:5672/"
+ENV SESSION_SECRET="super-duper-s3cret"
+ENV PORT=3000
 ENV NODE_ENV="production"
 
-# add shortcut for connecting to database CLI
-RUN echo "#!/bin/sh\nset -x\nsqlite3 \$DATABASE_URL" > /usr/local/bin/database-cli && chmod +x /usr/local/bin/database-cli
+# Add shortcut for connecting to the PostgreSQL database CLI
+RUN echo "#!/bin/sh\nset -x psql -U \$USER -h \$HOST -d \$DBNAME" > /usr/local/bin/database-cli && chmod +x /usr/local/bin/database-cli
 
 WORKDIR /myapp
 

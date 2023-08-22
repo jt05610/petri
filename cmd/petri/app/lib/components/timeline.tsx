@@ -1,9 +1,8 @@
-import { PetriNetContext, RecordRunContext } from "~/context";
+import { PetriNetContext } from "~/context";
 import { useContextSelector } from "use-context-selector";
 import type {
   RunInputDisplay
 } from "~/models/net.run.server";
-import { useEffect, useRef } from "react";
 import { RecordRunGridView } from "~/lib/components/displayGrid";
 
 
@@ -22,75 +21,15 @@ export function RunView({ minCols, minRows, deviceNames, sequence }: RunViewProp
   );
 }
 
+type TimelineProps = {
+  sequence: RunInputDisplay
+}
 
-export default function Timeline() {
+export default function Timeline({sequence}: TimelineProps) {
   const petriNet = useContextSelector(PetriNetContext, (context) => context?.petriNet);
-  const petriNetRef = useRef<typeof petriNet>();
-  const dispatch = useContextSelector(RecordRunContext, (context) => context?.dispatch);
-  const dispatchRef = useRef<typeof dispatch>();
-  const sequence = useContextSelector(RecordRunContext, (context) => context?.run);
-  const seqRef = useRef<typeof sequence>();
 
-  useEffect(() => {
-    console.log("rendering timeline");
-  }, []);
-  useEffect(() => {
-    if (!dispatch) return;
-    dispatchRef.current = dispatch;
-  }, [dispatch]);
+  // when sequence gets updated, rerender
 
-  useEffect(() => {
-    if (!sequence) return;
-    seqRef.current = sequence;
-  }, [sequence]);
-
-  useEffect(() => {
-    if (!petriNet) return;
-    petriNetRef.current = petriNet;
-  }, [petriNet]);
-/*
-  useEffect(() => {
-    socket.on("command", (cmd: Command) => {
-      console.log("timeline saw", cmd);
-      const { deviceID, data, command, output, input } = CommandSchema.parse(cmd);
-      // replace whitespace in event name with underscores and make lowercase
-      const transformedEventName = (event: string) => event.replace(/\s/g, "_").toLowerCase();
-      const event = petriNetRef.current!.events.find((e) => command === transformedEventName(e.name));
-
-      // make human-readable timestamp in format DD MMM YYYY HH:MM:SS
-      if (!event) {
-        console.log("event not found");
-        return;
-      }
-      // map the message fieldNames to the event's field ids
-      const constants: ConstantInputDisplay[] = event.fields.map((field) => {
-        return {
-          fieldID: field.id,
-          fieldName: field.name,
-          constant: false,
-          value: `${data[field.name]}` ?? ""
-        };
-      });
-
-      // any data with the message is assumed to be a constant for this event
-      const actionInput: ActionInputDisplay = {
-        eventName: event.name,
-        eventID: event.id,
-        deviceId: petriNetRef.current!.instanceOf(deviceID),
-        eventFields: event.fields,
-        input: input,
-        output: output,
-        constants
-      };
-      console.log("dispatching", actionInput);
-
-      dispatchRef.current!({
-        type: RunActionType.ActionAdded,
-        payload: actionInput
-      });
-    });
-  }, [socket]);
-*/
   return (
     <div className={"w-full h-3/10 bottom-0 space-x-2"}>
       <h4>Timeline</h4>

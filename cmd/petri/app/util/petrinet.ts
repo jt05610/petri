@@ -30,6 +30,7 @@ type DeviceWithEvents = {
     name: string;
     enabled?: boolean;
     fields: {
+      id: string;
       name: string;
       type: "string" | "number" | "boolean" | string
     }[]
@@ -59,7 +60,7 @@ export class PetriNet {
     this.devices = [];
 
     this.deviceIDFromInstanceID = {};
-    if (this.net.devices) {
+    if (this.net.devices && this.net.devices.length > 0) {
       this.net.devices.forEach((device => {
         this.devices.push({
           id: device.id,
@@ -81,7 +82,7 @@ export class PetriNet {
     }
     if (this.net.children) {
       this.net.children.forEach(child => {
-        if (child.devices) {
+        if (child.devices && child.devices.length > 0) {
           child.devices.forEach(device => {
             this.devices.push({
               id: device.id,

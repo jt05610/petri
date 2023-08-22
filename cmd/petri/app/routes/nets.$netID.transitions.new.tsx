@@ -24,7 +24,7 @@ export const action = async ({ params, request }: LoaderArgs) => {
     return badRequest(submission);
   }
   const transition = await addTransition(submission.value);
-  return redirect(`/design/${params.netID}/transitions/${transition.id}`);
+  return redirect(`/nets/${params.netID}/transitions/${transition.id}`);
 };
 
 export const loader = async ({ params, request }: LoaderArgs) => {

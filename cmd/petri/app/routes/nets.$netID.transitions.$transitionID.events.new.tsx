@@ -1,85 +1,123 @@
 import type { LoaderArgs } from "@remix-run/node";
-import { json, redirect } from "@remix-run/node";
+import { redirect } from "@remix-run/node";
 import { requireUserId } from "~/session.server";
 import invariant from "tiny-invariant";
 import { getUserById } from "~/models/user.server";
-import { getTransition, updateTransition, UpdateTransitionSchema } from "~/models/net.transition.server";
-import { Form, useActionData, useLoaderData } from "@remix-run/react";
+import { addEvent, EventFieldSchema, EventInputSchema } from "~/models/net.transition.event.server";
+import { Form, useActionData } from "@remix-run/react";
 import { parse } from "@conform-to/zod";
 import { badRequest } from "~/util/request.server";
 import { useForm } from "@conform-to/react";
 import FormContent from "~/lib/layouts/form";
-import { useState } from "react";
+import { Suspense, useState } from "react";
+import  Modal  from "~/lib/components/modal";
 
 export const action = async ({ params, request }: LoaderArgs) => {
-  invariant(params.transitionID, "transitionID not found");
+  invariant(params.eventID, "eventID not found");
   let formData = await request.formData();
-  formData.append("id", params.transitionID);
   const submission = parse(formData, {
-    schema: UpdateTransitionSchema
+    schema: EventInputSchema
   });
   if (!submission.value || submission.intent !== "submit") {
     return badRequest(submission);
   }
 
-  await updateTransition(submission.value);
-  return redirect(`/design/${params.netID}/transitions/${params.transitionID}`);
+  const newEvent = await addEvent(submission.value);
+  return redirect(`/nets/${params.netID}/events/${newEvent.id}`);
 };
 
 export const loader = async ({ params, request }: LoaderArgs) => {
   const authorID = await requireUserId(request);
-  invariant(params.transitionID, "netID not found");
   const user = await getUserById(authorID);
   if (!user) {
     throw new Error("User not found");
   }
-  const transition = await getTransition({ id: params.transitionID });
-  return json({ transition: transition });
+  return {};
 };
 
-export default function Transition() {
+
+export default function Event() {
+  const [isOpen, setIsOpen] = useState(true); // handle modal open state
   const lastSubmission = useActionData<typeof action>();
-  const { transition } = useLoaderData<typeof loader>();
-  const [changed, setChanged] = useState(false);
-  const [form, { name, description }] = useForm({
+  const [form, { name, description, fields }] = useForm({
     lastSubmission,
     onValidate({ formData }) {
-      setChanged(false);
-      return parse(formData, { schema: UpdateTransitionSchema });
+      return parse(formData, { schema: EventInputSchema });
     }
   });
 
-  return (
-    <div>
-      <div className={"rounded-lg border-2 p-2 "}>
-        <h2 className={"text-lg font-semibold"}>Update</h2>
-        <Form method={"post"} {...form.props} onChange={() => setChanged(true)}>
-          <FormContent activeButton={changed} fields={[
-            {
-              type: "text",
-              name: "name",
-              content: transition.name,
-              error: name.error
-            },
-            {
-              name: description.name,
-              type: "textarea",
-              content: transition.description ? transition.description : "",
-              error: description.error
-            }
-          ]} />
-        </Form>
-      </div>
-      <div className={"rounded-lg border-2 p-2 "}>
-        <h2 className={"text-lg font-semibold"}>Events</h2>
-        <Form method={"post"} {...form.props} onChange={() => setChanged(true)}>
-          <button
-            className={"bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"}
-            onClick={() => setChanged(true)}
-          >Add Event</button>
-        </Form>
-      </div>
-    </div>
-  );
+  if (!isOpen) return null; // if not open, do not render modal and content
 
+  return (
+    // if not open then we want to show a button to reopen the modal
+    <Suspense fallback={<div>Loading...</div>}>
+      {isOpen ? (
+
+        // if open then we want to show the modal
+        <Modal isOpen={isOpen} setIsOpen={setIsOpen} name={"New event"}>
+          <Form method={"post"} {...form.props}>
+            <FormContent fields={[
+              {
+                type: "text",
+                name: "name",
+                content: name.form,
+                error: name.error
+              },
+              {
+                name: description.name,
+                type: "textarea",
+                content: description ? description.form : "",
+                error: description.error
+              },
+              {
+                name: fields.name,
+                type: "array",
+                content: fields.form,
+                error: fields.error,
+                arraySchema: EventFieldSchema,
+                arrayFields: [
+                  {
+                    name: "name",
+                    type: "text",
+                    content: fields.form,
+                    error: fields.error
+                  },
+                  {
+                    name: "type",
+                    type: "select",
+                    content: fields.form,
+                    error: fields.error,
+                    options: [
+                      { value: "string", display: "String" },
+                      { value: "number", display: "Number" },
+                      { value: "boolean", display: "Boolean" },
+                      { value: "date", display: "Date" },
+                      { value: "time", display: "Time" },
+                      ],
+                  },
+                  {
+                    name: "description",
+                    type: "textarea",
+                    content: fields.form,
+                    error: fields.error
+                  },
+                ]
+              }
+            ]} />
+          </Form>
+        </Modal>
+
+      ) :(
+        <button
+          type="button"
+          onClick={() => setIsOpen(true)}
+        >
+          Open Modal
+        </button>
+        )}
+
+    </Suspense>
+
+
+  );
 }

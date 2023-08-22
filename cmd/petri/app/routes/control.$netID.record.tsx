@@ -5,12 +5,9 @@ import invariant from "tiny-invariant";
 import { getNet } from "~/models/net.server";
 import { Outlet, useLoaderData } from "@remix-run/react";
 import {
-  PetriNetProvider, SocketProvider
+  PetriNetProvider
 } from "~/context";
 import { getUserById } from "~/models/user.server";
-import { useEffect, useState } from "react";
-import type { Socket } from "socket.io-client";
-import { io } from "socket.io-client";
 
 export const action = async ({ params, request }: ActionArgs) => {
   const userID = await requireUserId(request);
@@ -38,24 +35,13 @@ export const loader = async ({ params, request }: LoaderArgs) => {
 export default function ControlSystemPage() {
   const { net } = useLoaderData<typeof loader>();
 
-  const [socket, setSocket] = useState<Socket>();
-  useEffect(() => {
-    const socket = io();
-    setSocket(socket);
-    return () => {
-      socket.close();
-    };
-  }, []);
-
   return (
     <div>
       <h1>Control</h1>
       <main>
-        <SocketProvider socket={socket}>
           <PetriNetProvider net={net}>
             <Outlet />
           </PetriNetProvider>
-        </SocketProvider>
       </main>
     </div>
   );

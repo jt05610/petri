@@ -1,6 +1,5 @@
 import type { Dispatch, ReactNode, Reducer } from "react";
 import { createContext } from "use-context-selector";
-import type { Socket } from "socket.io-client";
 import { PetriNet } from "~/util/petrinet";
 import { useReducer, useState } from "react";
 import type { NetDetailsWithChildren } from "~/models/net.server";
@@ -22,18 +21,6 @@ export type PrismaProviderProps = {
 export function PrismaProvider({ prisma, children }: PrismaProviderProps) {
   return <PrismaContext.Provider value={prisma}>{children}</PrismaContext.Provider>;
 }
-
-type ProviderProps = {
-  socket: Socket | undefined;
-  children: ReactNode;
-};
-
-export const SocketContext = createContext<Socket | undefined>(undefined);
-
-export function SocketProvider({ socket, children }: ProviderProps) {
-  return <SocketContext.Provider value={socket}>{children}</SocketContext.Provider>;
-}
-
 export const PetriNetContext = createContext<({
   petriNet: PetriNet;
   marking: {
@@ -54,7 +41,7 @@ const netMarking = (places: Pick<Place, "id">[], initial: number[]) => {
 
 export function PetriNetProvider({ net, children }: PetriNetProviderProps) {
 
-  const [petriNet] = useState<PetriNet>(net.devices ? new PetriNet(net) : new PetriNet(net).combinedNet);
+  const [petriNet] = useState<PetriNet>((net.devices && net.devices.length > 0) ? new PetriNet(net) : new PetriNet(net).combinedNet);
   const [marking, setMarking] = useState<{
     [key: string]: number
   }>(netMarking(petriNet.net.places, petriNet.net.initialMarking));

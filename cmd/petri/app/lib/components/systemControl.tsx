@@ -1,18 +1,15 @@
-import type { PetriNet } from "~/util/petrinet";
 import { useContextSelector } from "use-context-selector";
-import { PetriNetContext, SocketContext } from "~/context";
+import { PetriNetContext, RecordRunContext, RunActionType } from "~/context";
 import { useEffect, useState } from "react";
 import { MarkedNet } from "~/lib/components/markedNet";
-import type { Event } from "@prisma/client";
 import { parse } from "@conform-to/zod";
 import { z } from "zod";
-import type { Command } from "../../../server/command";
-
-type SystemControlProps = {
-  net: PetriNet
-}
+import type { ActionInputDisplay, ConstantInputDisplay } from "~/models/net.run.server";
+import type { EventDetails } from "~/models/net.transition.event.server";
+import type {Event} from "@prisma/client";
 
 export const makeZodSchema = (fields: {
+  id: string
   name: string,
   type: "string" | "number" | "boolean" | string
 }[]) => {
@@ -40,10 +37,22 @@ export const makeZodSchema = (fields: {
   }, z.object({}));
 };
 
-export function SystemControl(props: SystemControlProps) {
+
+type EventData = {
+  id: Event["id"],
+  name: Event["name"]
+  fields: {
+    id: string,
+    name: string,
+    type: EventDetails["fields"][0]["type"]
+  }[]
+}
+
+export function SystemControl() {
+  const net = useContextSelector(PetriNetContext, (context) => context?.petriNet);
   const marking = useContextSelector(PetriNetContext, (context) => context?.marking);
+  const  dispatch = useContextSelector(RecordRunContext, (context) => context?.dispatch);
   const setMarking = useContextSelector(PetriNetContext, (context) => context?.setMarking);
-  const socket = useContextSelector(SocketContext, (context) => context);
   const [enabledEvents, setEnabledEvents] = useState<{
     [eventID: string]: boolean
   }>({} as {
@@ -66,40 +75,70 @@ export function SystemControl(props: SystemControlProps) {
   };
 
   useEffect(() => {
-    if (!props.net || !marking) return;
-    const enabledEvents = props.net.allEvents(marking).reduce((acc, event) => ({
+    if (!net || !marking) return;
+    const enabledEvents = net.allEvents(marking).reduce((acc, event) => ({
       ...acc,
-      [event.id]: props.net.eventEnabled(marking, event.id)
+      [event.id]: net.eventEnabled(marking, event.id)
     }), {});
     setEnabledEvents(enabledEvents);
     console.log("enabled events", enabledEvents);
-  }, [marking, props.net]);
+  }, [marking, net]);
 
-  function handleEvent(event: Pick<Event, "id" | "name">, deviceID: string, data: any) {
+  function handleEvent(event: EventData, deviceID: string, data: any) {
     if (!selectedInstances[deviceID]) {
       console.log("no instance selected");
       return;
     }
     console.log("handle event", event, deviceID, data);
-    if (!props.net || !marking || !setMarking) return;
-    if (!props.net.eventEnabled(marking, event.id)) {
+    if (!net || !marking || !setMarking) return;
+    if (!net.eventEnabled(marking, event.id)) {
       console.log("event not enabled");
       return;
     }
-    const newMarking = props.net.handleEvent(marking, event.id);
-    const instance = selectedInstances[deviceID];
-    socket?.emit("command", { data, input: marking, output: newMarking, deviceID: instance, command: event.name.replace(/\s/g, "_").toLowerCase() } as Command);
+    // map the message fieldNames to the event's field ids
+    const constants: ConstantInputDisplay[] = event.fields.map((field) => {
+      return {
+        fieldID: field.id,
+        fieldName: field.name,
+        constant: false,
+        value: `${data[field.name]}` ?? ""
+      };
+    });
+
+    const newMarking = net.handleEvent(marking, event.id);
+
+
+    // any data with the message is assumed to be a constant for this event
+    const actionInput: ActionInputDisplay = {
+      eventName: event.name,
+      eventID: event.id,
+      deviceId: net.instanceOf(deviceID),
+      eventFields: event.fields,
+      input: marking,
+      output:newMarking,
+      constants
+    };
+
+    if (!dispatch) return;
+    console.log("dispatching", actionInput);
+
+    dispatch({
+      type: RunActionType.ActionAdded,
+      payload: actionInput
+    });
+
     setMarking(newMarking);
-    handleUpdateEvents(props.net.allEvents(newMarking).reduce((acc, event) => ({
+    handleUpdateEvents(net.allEvents(newMarking).reduce((acc, event) => ({
       ...acc,
-      [event.id]: props.net.eventEnabled(newMarking, event.id)
+      [event.id]: net.eventEnabled(newMarking, event.id)
     }), {}));
+
   }
 
   return (
     <div className={"flex h-full w-full flex-row space-x-2 p-2"}>
       <div className={"flex w-full flex-col space-y-2"}>
-        {props.net.childDeviceEvents(marking!).map(({ id, name, instances, events }) => {
+        {net && net.childDeviceEvents(marking!).map(({ id, name, instances, events }) => {
           return (
             <div
               key={id}
@@ -115,7 +154,6 @@ export function SystemControl(props: SystemControlProps) {
                   handleSelectChanged(id, instance.id);
                   const data = { data: {}, deviceID: instance.id, command: "get" };
                   console.log("systemControl sent", data);
-                  socket?.emit("state", data);
                 }
                 }>
                 <option value={""}>Select a device</option>
@@ -181,7 +219,7 @@ export function SystemControl(props: SystemControlProps) {
       <div
         className={"flex h-full w-full border-2 border-gray-900 rounded-xl items-center p-2 space-x-2"}
       >
-        {marking && <MarkedNet marking={marking} net={props.net} />}
+        {marking && net && <MarkedNet marking={marking} net={net} />}
       </div>
     </div>
 

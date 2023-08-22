@@ -13,8 +13,20 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/term"
 	"os"
+	"strconv"
+	"strings"
 	"syscall"
 )
+
+func getIntFromUser(prompt string) (int, error) {
+	var input string
+	fmt.Print(prompt)
+	_, err := fmt.Scanln(&input)
+	if err != nil {
+		return 0, err
+	}
+	return strconv.Atoi(strings.Trim(input, " \r\n\t"))
+}
 
 func getDeviceID(c *prisma.DeviceClient) *device.ListItem {
 	if devID != "" {
@@ -24,13 +36,11 @@ func getDeviceID(c *prisma.DeviceClient) *device.ListItem {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println("Please select a device:")
+	fmt.Print("Please select a device:")
 	for i, d := range dd {
 		fmt.Printf("\n%d. %s", i, d.Name)
 	}
-	var i int
-	fmt.Print("\nEnter device number: ")
-	_, err = fmt.Scanf("%d\n", &i)
+	i, err := getIntFromUser("\n> ")
 	if err != nil {
 		panic(err)
 	}
@@ -110,17 +120,15 @@ func getLanguage() string {
 	if language != "" {
 		return language
 	}
-	var l int
-	fmt.Println("Please select a language:")
+	fmt.Print("Please select a language:")
 	for i, o := range langOpts {
-		fmt.Printf("%d. %s\n", i, o)
+		fmt.Printf("\n%d. %s", i, o)
 	}
-	fmt.Print("Enter language number: ")
-	_, err := fmt.Scanf("%d", &l)
+	i, err := getIntFromUser("\n> ")
 	if err != nil {
 		panic(err)
 	}
-	return langOpts[l]
+	return langOpts[i]
 }
 
 var rootCmd = &cobra.Command{

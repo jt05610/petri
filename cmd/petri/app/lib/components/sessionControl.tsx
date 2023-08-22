@@ -1,10 +1,9 @@
 import type { PetriNet } from "~/util/petrinet";
 import { useContextSelector } from "use-context-selector";
-import { PetriNetContext, RunSessionContext, SessionActionType, SocketContext } from "~/context";
+import { PetriNetContext, RunSessionContext, SessionActionType } from "~/context";
 import { useState } from "react";
 import { MarkedNet } from "~/lib/components/markedNet";
 import type { Event } from "@prisma/client";
-import type { Command, EventReceived } from "../../../server/command";
 
 type SystemControlProps = {
   net: PetriNet
@@ -13,11 +12,9 @@ type SystemControlProps = {
 export function SessionControl(props: SystemControlProps) {
   const marking = useContextSelector(PetriNetContext, (context) => context?.marking);
   const setMarking = useContextSelector(PetriNetContext, (context) => context?.setMarking);
-  const socket = useContextSelector(SocketContext, (context) => context);
   const session = useContextSelector(RunSessionContext, (context) => context?.session);
   const dispatch = useContextSelector(RunSessionContext, (context) => context?.dispatch);
-  const [playing, setPlaying] = useState(false);
-
+/*
   socket?.on("event", (data: EventReceived) => {
     if (!dispatch) return;
     if (!session || !session.run || !session.run.steps) {
@@ -33,7 +30,7 @@ export function SessionControl(props: SystemControlProps) {
     dispatch({ type: SessionActionType.ActionStarted, payload: {} });
     handleEvent(session.activeAction.action.event, session.activeAction.action.deviceId, data);
   });
-
+*/
   const [selectedInstances, setSelectedInstances] = useState<{
     [deviceID: string]: string
   }>({} as {
@@ -52,8 +49,8 @@ export function SessionControl(props: SystemControlProps) {
     console.log("handle event", event, deviceID, data);
     if (!props.net || !marking || !setMarking) return;
     const newMarking = props.net.handleEvent(marking, event.id);
-    const instance = selectedInstances[deviceID];
-    socket?.emit("command", { data, input: marking, output: newMarking, deviceID: instance, command: event.name.replace(/\s/g, "_").toLowerCase() } as Command);
+    //const instance = selectedInstances[deviceID];
+    //socket?.emit("command", { data, input: marking, output: newMarking, deviceID: instance, command: event.name.replace(/\s/g, "_").toLowerCase() } as Command);
     setMarking(newMarking);
   }
 
@@ -69,7 +66,6 @@ export function SessionControl(props: SystemControlProps) {
     console.log("stop action");
     if (!step) return;
     console.log(step);
-    setPlaying(false);
     handleEvent(step.action.event, step.action.deviceId, session?.data);
   };
 
@@ -99,7 +95,6 @@ export function SessionControl(props: SystemControlProps) {
                   handleSelectChanged(id, instance.id);
                   const data = { data: {}, deviceID: instance.id, command: "get" };
                   console.log("systemControl sent", data);
-                  socket?.emit("state", data);
                 }
                 }>
                 <option value={""}>Select a device</option>

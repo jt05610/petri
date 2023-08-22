@@ -10,6 +10,7 @@ require (
 	github.com/shopspring/decimal v1.3.1
 	github.com/steebchen/prisma-client-go v0.21.0
 	github.com/takuoki/gocase v1.0.0
+	go.bug.st/serial v1.6.0
 	go.uber.org/zap v1.25.0
 	golang.org/x/text v0.10.0
 	gonum.org/v1/gonum v0.13.0
@@ -19,6 +20,7 @@ require (
 )
 
 require (
+	github.com/creack/goselect v0.1.2 // indirect
 	github.com/fogleman/gg v1.3.0 // indirect
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect

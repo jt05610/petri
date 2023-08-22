@@ -45,7 +45,7 @@ ENV DATABASE_URL="postgresql://user:password@localhost:5432/petri"
 ENV RABBITMQ_EXCHANGE="topic_devices"
 ENV RABBITMQ_URI="amqp://guest:guest@localhost:5672/"
 ENV SESSION_SECRET="super-duper-s3cret"
-ENV PORT=3000
+ENV PORT=8088
 ENV NODE_ENV="production"
 
 # Add shortcut for connecting to the PostgreSQL database CLI

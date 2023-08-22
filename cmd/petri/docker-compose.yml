@@ -1,4 +1,4 @@
-version: "3"
+version: "3.9"
 services:
 
   db:
@@ -14,7 +14,8 @@ services:
   web:
     build: .
     ports:
-      - "3000:3000"
+      - "8088:8088"
+      - "80:80"
     depends_on:
       - db
       - rabbitmq
@@ -31,3 +32,19 @@ services:
     ports:
       - "15672:15672"
       - "5672:5672"
+
+  caddy:
+    image: caddy:latest
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:

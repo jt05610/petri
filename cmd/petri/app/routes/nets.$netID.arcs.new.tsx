@@ -29,7 +29,7 @@ export const action = async ({ params, request }: LoaderArgs) => {
   }
 
   const arc = await addArc(submission.value);
-  return redirect(`/design/${params.netID}/arcs/${arc.id}`);
+  return redirect(`/nets/${params.netID}/arcs/${arc.id}`);
 };
 
 export const loader = async ({ params, request }: LoaderArgs) => {

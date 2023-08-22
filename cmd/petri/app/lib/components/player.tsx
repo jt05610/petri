@@ -1,12 +1,7 @@
 import {
   PetriNetContext,
-  RunSessionContext,
-  SessionActionType,
-  SocketContext
 } from "~/context";
 import { useContextSelector } from "use-context-selector";
-import { useEffect } from "react";
-import type { Marking } from "~/util/petrinet";
 import { RunContext } from "~/lib/context/run";
 import RunGridView from "~/lib/components/displayGrid";
 import type { RunDetails } from "~/models/net.run.server";
@@ -27,12 +22,9 @@ export function RunView({ minCols, minRows, deviceNames, sequence }: RunViewProp
 }
 
 export default function Player() {
-  const socket = useContextSelector(SocketContext, (context) => context);
   const petriNet = useContextSelector(PetriNetContext, (context) => context?.petriNet);
-  const session = useContextSelector(RunSessionContext, (context) => context?.session);
-  const dispatch = useContextSelector(RunSessionContext, (context) => context?.dispatch);
   const sequence = useContextSelector(RunContext, (context) => context?.run);
-
+/*
   useEffect(() => {
     if (!socket || !petriNet || !session || !sequence) return;
     socket.on("command", (data: {
@@ -82,7 +74,7 @@ export default function Player() {
       });
     });
   }, [dispatch, petriNet, sequence, session, socket]);
-
+*/
   return (
     <div className={"w-full h-3/10 bottom-0 space-x-2"}>
       <h4>Player</h4>

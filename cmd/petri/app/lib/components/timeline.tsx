@@ -1,14 +1,10 @@
-import { PetriNetContext, RecordRunContext, RunActionType, SocketContext } from "~/context";
+import { PetriNetContext, RecordRunContext } from "~/context";
 import { useContextSelector } from "use-context-selector";
 import type {
-  ConstantInputDisplay,
-  ActionInputDisplay,
   RunInputDisplay
 } from "~/models/net.run.server";
 import { useEffect, useRef } from "react";
 import { RecordRunGridView } from "~/lib/components/displayGrid";
-import { CommandSchema } from "../../../server/command";
-import type { Command } from "../../../server/command";
 
 
 type RunViewProps = {
@@ -28,7 +24,6 @@ export function RunView({ minCols, minRows, deviceNames, sequence }: RunViewProp
 
 
 export default function Timeline() {
-  const socket = useContextSelector(SocketContext, (context) => context);
   const petriNet = useContextSelector(PetriNetContext, (context) => context?.petriNet);
   const petriNetRef = useRef<typeof petriNet>();
   const dispatch = useContextSelector(RecordRunContext, (context) => context?.dispatch);
@@ -53,9 +48,8 @@ export default function Timeline() {
     if (!petriNet) return;
     petriNetRef.current = petriNet;
   }, [petriNet]);
-
+/*
   useEffect(() => {
-    if (!socket) return;
     socket.on("command", (cmd: Command) => {
       console.log("timeline saw", cmd);
       const { deviceID, data, command, output, input } = CommandSchema.parse(cmd);
@@ -96,7 +90,7 @@ export default function Timeline() {
       });
     });
   }, [socket]);
-
+*/
   return (
     <div className={"w-full h-3/10 bottom-0 space-x-2"}>
       <h4>Timeline</h4>

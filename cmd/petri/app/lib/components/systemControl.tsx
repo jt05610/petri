@@ -1,12 +1,13 @@
 import { useContextSelector } from "use-context-selector";
 import { PetriNetContext, RecordRunContext, RunActionType } from "~/context";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { MarkedNet } from "~/lib/components/markedNet";
 import { parse } from "@conform-to/zod";
 import { z } from "zod";
 import type { ActionInputDisplay, ConstantInputDisplay } from "~/models/net.run.server";
 import type { EventDetails } from "~/models/net.transition.event.server";
-import type {Event} from "@prisma/client";
+import type { Event } from "@prisma/client";
+import Timeline from "~/lib/components/timeline";
 
 export const makeZodSchema = (fields: {
   id: string
@@ -51,7 +52,8 @@ type EventData = {
 export function SystemControl() {
   const net = useContextSelector(PetriNetContext, (context) => context?.petriNet);
   const marking = useContextSelector(PetriNetContext, (context) => context?.marking);
-  const  dispatch = useContextSelector(RecordRunContext, (context) => context?.dispatch);
+  const run = useContextSelector(RecordRunContext, (context) => context?.run);
+  const dispatch = useContextSelector(RecordRunContext, (context) => context?.dispatch);
   const setMarking = useContextSelector(PetriNetContext, (context) => context?.setMarking);
   const [enabledEvents, setEnabledEvents] = useState<{
     [eventID: string]: boolean
@@ -107,15 +109,15 @@ export function SystemControl() {
 
     const newMarking = net.handleEvent(marking, event.id);
 
-
+    console.log(net.deviceIDFromInstanceID)
     // any data with the message is assumed to be a constant for this event
     const actionInput: ActionInputDisplay = {
       eventName: event.name,
       eventID: event.id,
-      deviceId: net.instanceOf(deviceID),
+      deviceId: deviceID,
       eventFields: event.fields,
       input: marking,
-      output:newMarking,
+      output: newMarking,
       constants
     };
 
@@ -136,92 +138,102 @@ export function SystemControl() {
   }
 
   return (
-    <div className={"flex h-full w-full flex-row space-x-2 p-2"}>
-      <div className={"flex w-full flex-col space-y-2"}>
-        {net && net.childDeviceEvents(marking!).map(({ id, name, instances, events }) => {
-          return (
-            <div
-              key={id}
-              className={"flex flex-col space-y-2 border-md rounded-lg p-2"}
-            >
-              <h2 className={"text-xl font-bold"}>{name}</h2>
-              <select
-                defaultValue={""}
-                className={"rounded-full p-2"}
-                onChange={(e) => {
-                  const instance = instances.find((instance) => instance.id === e.target.value);
-                  if (!instance) return;
-                  handleSelectChanged(id, instance.id);
-                  const data = { data: {}, deviceID: instance.id, command: "get" };
-                  console.log("systemControl sent", data);
-                }
-                }>
-                <option value={""}>Select a device</option>
-                {instances?.map((instance) => {
-                    return (
-                      <option key={instance.id} value={instance.id}>{instance.name}</option>
-                    );
-                  }
-                )}
-              </select>
-              {events.map((event) => {
-                  return (
-                    <div
-                      className={"flex flex-col space-y-2 border-md rounded-lg p-2"}
-                      key={event.id}
-                    >
-                      <h2 className={"text-xl font-bold"}>{event.name}</h2>
-                      <form onSubmit={(e) => {
-                        const formData = new FormData(e.target as HTMLFormElement);
-                        const data = parse(formData, {
-                          schema: makeZodSchema(event.fields)
-                        });
-                        e.preventDefault();
-                        if (!data.value) {
-                          alert(data.error);
-                        }
-                        handleEvent(event, id, data.value);
-                      }}>
-                        {event.fields!.map((field, i) => {
-                          return (
-                            <div
-                              key={i}
-                              className={"m-2 flex flex-row space-x-2 items-center"}
-                            >
-                              <label
-                                className={"w-1/2 text-right font-medium"}
-                                htmlFor={field.name}
-                              >
-                                {field.name}
-                              </label>
-                              <input
-                                className={"rounded-full p-2 bg-transparent text-inherit w-1/2"}
-                                type={field.type} name={field.name}
-                              />
-                            </div>
-                          );
-                        })}
-                        <button
-                          className={`flex rounded-full px-2 py-1 font-medium text-white flex-grow-0 flex-shrink ${event.enabled ? "bg-green-700" : "bg-slate-900"} `}
-                          disabled={enabledEvents[event.id] !== null ? !enabledEvents[event.id] : true}
-                          type="submit"
-                        >{enabledEvents[event.id] ? "Send" : "Disabled"}</button>
-                      </form>
-                    </div>
-                  );
-                }
-              )}
-            </div>
-          );
-        })
-        }
+    <div className={"flex flex-col h-screen w-full items-center justify-items-center"}>
+      <div className={"h-7/10 w-full"}>
+        <div className={"flex h-full w-full flex-row space-x-2 p-2"}>
+          <div className={"flex w-full flex-col space-y-2"}>
+            {net && net.childDeviceEvents(marking!).map(({ id, name, instances, events }) => {
+              return (
+                <div
+                  key={id}
+                  className={"flex flex-col space-y-2 border-md rounded-lg p-2"}
+                >
+                  <h2 className={"text-xl font-bold"}>{name}</h2>
+                  <select
+                    defaultValue={""}
+                    className={"rounded-full p-2"}
+                    onChange={(e) => {
+                      const instance = instances.find((instance) => instance.id === e.target.value);
+                      if (!instance) return;
+                      handleSelectChanged(id, instance.id);
+                      const data = { data: {}, deviceID: instance.id, command: "get" };
+                      console.log("systemControl sent", data);
+                    }
+                    }>
+                    <option value={""}>Select a device</option>
+                    {instances?.map((instance) => {
+                        return (
+                          <option key={instance.id} value={instance.id}>{instance.name}</option>
+                        );
+                      }
+                    )}
+                  </select>
+                  {events.map((event) => {
+                      return (
+                        <div
+                          className={"flex flex-col space-y-2 border-md rounded-lg p-2"}
+                          key={event.id}
+                        >
+                          <h2 className={"text-xl font-bold"}>{event.name}</h2>
+                          <form onSubmit={(e) => {
+                            const formData = new FormData(e.target as HTMLFormElement);
+                            const data = parse(formData, {
+                              schema: makeZodSchema(event.fields)
+                            });
+                            e.preventDefault();
+                            if (!data.value) {
+                              alert(data.error);
+                            }
+                            handleEvent(event, id, data.value);
+                          }}>
+                            {event.fields!.map((field, i) => {
+                              return (
+                                <div
+                                  key={i}
+                                  className={"m-2 flex flex-row space-x-2 items-center"}
+                                >
+                                  <label
+                                    className={"w-1/2 text-right font-medium"}
+                                    htmlFor={field.name}
+                                  >
+                                    {field.name}
+                                  </label>
+                                  <input
+                                    className={"rounded-full p-2 bg-transparent text-inherit w-1/2"}
+                                    type={field.type} name={field.name}
+                                  />
+                                </div>
+                              );
+                            })}
+                            <button
+                              className={`flex rounded-full px-2 py-1 font-medium text-white flex-grow-0 flex-shrink ${event.enabled ? "bg-green-700" : "bg-slate-900"} `}
+                              disabled={enabledEvents[event.id] !== null ? !enabledEvents[event.id] : true}
+                              type="submit"
+                            >{enabledEvents[event.id] ? "Send" : "Disabled"}</button>
+                          </form>
+                        </div>
+                      );
+                    }
+                  )}
+                </div>
+              );
+            })
+            }
+          </div>
+          <div
+            className={"flex h-full w-full border-2 border-gray-900 rounded-xl items-center p-2 space-x-2"}
+          >
+            {marking && net && <MarkedNet marking={marking} net={net} />}
+          </div>
+        </div>
       </div>
-      <div
-        className={"flex h-full w-full border-2 border-gray-900 rounded-xl items-center p-2 space-x-2"}
-      >
-        {marking && net && <MarkedNet marking={marking} net={net} />}
+      <div className={"h-3/10 w-full"}>
+        <Suspense fallback={<div>Loading...</div>}>
+        {marking && net && run &&
+          <Timeline sequence={run} />
+        }
+        </Suspense>
       </div>
     </div>
-
   );
 }

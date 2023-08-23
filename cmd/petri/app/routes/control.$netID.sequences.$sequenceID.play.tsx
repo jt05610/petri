@@ -18,7 +18,8 @@ export const loader = async ({ params, request }: LoaderArgs) => {
   if (!net) {
     throw new Response("Not Found", { status: 404 });
   }
-  return json({ net: net });
+
+  return json({ net });
 };
 
 export default function PlaySequence() {

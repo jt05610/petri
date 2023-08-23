@@ -10,6 +10,7 @@ import type {
 import type { Place, PrismaClient } from "@prisma/client";
 import type { DataListItem } from "~/models/net.run.session.data.server";
 import type { RunSessionDetails } from "~/models/net.run.session.server";
+import { useMutation } from "@apollo/client";
 
 export const PrismaContext = createContext<PrismaClient | undefined>(undefined);
 
@@ -40,7 +41,6 @@ const netMarking = (places: Pick<Place, "id">[], initial: number[]) => {
 };
 
 export function PetriNetProvider({ net, children }: PetriNetProviderProps) {
-
   const [petriNet] = useState<PetriNet>((net.devices && net.devices.length > 0) ? new PetriNet(net) : new PetriNet(net).combinedNet);
   const [marking, setMarking] = useState<{
     [key: string]: number

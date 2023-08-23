@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 import { PencilIcon, PlayIcon } from "@heroicons/react/24/solid";
 import { NavLink, Outlet, useLoaderData } from "@remix-run/react";
 import { RunProvider } from "~/lib/context/run";
@@ -7,38 +6,48 @@ import { json } from "@remix-run/node";
 import invariant from "tiny-invariant";
 import { requireUser } from "~/session.server";
 import { getRunDetails } from "~/models/net.run.server";
+import type { ReactNode } from "react";
 import { Suspense } from "react";
+import Dropdown, { DropdownItem } from "~/lib/components/dropdown";
 
-type NavLinkBoxItem = {
-  to: string;
-  label: string;
-  icon: ReactNode;
+
+type ActionDropdownItemProps = {
+  active: boolean
+  key: string
+  children: ReactNode
+  route: string
 }
 
-export function NavLinkBoxItem(props: NavLinkBoxItem) {
+function ActionDropdownItem({ route, active, key, children }: ActionDropdownItemProps) {
   return (
-    <div className="flex flex-col items-center justify-center">
-      <NavLink to={props.to}>
-        {props.icon}
-        <span className="text-sm">
-        {props.label}
-      </span>
-      </NavLink>
-    </div>
+    <NavLink to={route}>
+      <DropdownItem key={key} isActive={active}>
+        <div
+          className={"group flex w-full items-center rounded-md px-2 py-2 text-sm"}
+        >
+          {children}
+        </div>
+      </DropdownItem>
+    </NavLink>
   );
 }
 
-type NavLinkBoxProps = {
-  items: NavLinkBoxItem[];
-}
-
-export function NavLinkBox(props: NavLinkBoxProps) {
+function ActionDropdown() {
   return (
-    <div className="flex flex-row justify-around">
-      {props.items.map((item, i) => <NavLinkBoxItem key={i} {...item} />)}
-    </div>
+    <Dropdown title={"Actions"}>
+      <ActionDropdownItem key={"edit"} active={false} route={"edit"}>
+        <PencilIcon className="h-6 w-6" />
+        Edit
+      </ActionDropdownItem>
+      <ActionDropdownItem active={false} key={"play"} route={"play"}>
+        <PlayIcon className="h-6 w-6" />
+        Play
+      </ActionDropdownItem>
+
+    </Dropdown>
   );
 }
+
 
 export const loader = async ({ params, request }: LoaderArgs) => {
   const { sequenceID } = params;
@@ -52,29 +61,20 @@ export default function SequencePage() {
   const { run } = useLoaderData<typeof loader>();
 
   return (
-    <div className="flex flex-row items-center justify-start">
-      <div className="flex flex-row items-center">
-        <h1 className="text-2xl font-bold">Sequence</h1>
-        <NavLinkBox items={[
-          {
-            to: "edit",
-            label: "Edit",
-            icon: <PencilIcon className="h-6 w-6" />
-          },
-          {
-            to: "play",
-            label: "Play",
-            icon: <PlayIcon className="h-6 w-6" />
-          }
-        ]} />
+    <div className="p-2 flex justify-start flex-col w-full h-full space-y-2">
+      <div className="flex items-center flex-row justify-between">
+        <h1 className="text-3xl font-bold">{run.name}</h1>
+        <ActionDropdown />
       </div>
-      <Suspense fallback={<div>Loading...</div>}>
-        {run &&
-          <RunProvider runDetails={run}>
-            <Outlet />
-          </RunProvider>
-        }
-      </Suspense>
+      <div className="flex flex-row space-x-2">
+        <Suspense fallback={<div>Loading...</div>}>
+          {run &&
+            <RunProvider runDetails={run}>
+              <Outlet />
+            </RunProvider>
+          }
+        </Suspense>
+      </div>
     </div>
   );
 }

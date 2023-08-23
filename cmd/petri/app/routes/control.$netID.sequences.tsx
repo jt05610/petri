@@ -1,11 +1,12 @@
 import type { LoaderArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { Link, NavLink, Outlet, useLoaderData } from "@remix-run/react";
+import { NavLink, Outlet, useLoaderData } from "@remix-run/react";
+import type { RunListItem } from "~/models/net.run.server";
 import { listRuns } from "~/models/net.run.server";
 import { requireUserId } from "~/session.server";
 import { getUserById } from "~/models/user.server";
-import Header from "~/lib/components/header";
 import invariant from "tiny-invariant";
+import Dropdown, { DropdownItem } from "~/lib/components/dropdown";
 
 export const loader = async ({ params, request }: LoaderArgs) => {
   const authorID = await requireUserId(request);
@@ -14,46 +15,52 @@ export const loader = async ({ params, request }: LoaderArgs) => {
     throw new Error("User not found");
   }
   invariant(params.netID, "netID not found");
-  const sequences = await listRuns({ netID: params.netID });
+  const netID = params.netID;
+  const sequences = await listRuns({ netID });
 
-  return json({ sequences });
+  return json({ sequences, netID });
 };
 
-export default function RunsPage() {
-  const { sequences } = useLoaderData<typeof loader>();
-  return (
-    <div className="flex h-full min-h-screen flex-col">
-      <Header />
-      <main className="flex h-full">
-        <div className="h-full w-80 border-r bg-gray-50">
-          <Link to="admin" className="block p-4 text-xl text-blue-500">
-            Admin
-          </Link>
+type RunDropdownProps = {
+  runs: RunListItem[]
+  netID: string
+}
 
-          <hr />
-          {sequences.length === 0 ? (
-            <p className="p-4">No sequences yet</p>
-          ) : (
-            <ol>
-              {sequences.map((sequence) => (
-                <li key={sequence.id}>
-                  <NavLink
-                    className={({ isActive }) =>
-                      `block border-b p-4 text-xl ${isActive ? "bg-white" : ""}`
-                    }
-                    to={sequence.id}
-                  >
-                    {sequence.name}
-                  </NavLink>
-                </li>
-              ))}
-            </ol>
-          )}
-        </div>
-        <div className="flex flex-col min-h-full w-full">
-          <Outlet />
-        </div>
-      </main>
+type RunDropdownItemProps = {
+  active: boolean
+  netID: string
+  run: RunListItem
+  key: string
+}
+
+function RunDropdownItem({ netID, active, key, run }: RunDropdownItemProps) {
+  return (
+    <NavLink to={`/control/${netID}/sequences/${run.id}`}>
+      <DropdownItem key={key} isActive={active}>
+        {run.name}
+      </DropdownItem>
+    </NavLink>
+  );
+}
+
+function RunDropdown({ runs, netID }: RunDropdownProps) {
+  return (
+    <Dropdown title={"Sequences"}>
+      {runs.map((run) => (
+        <RunDropdownItem key={run.id} run={run} active={false} netID={netID} />
+      ))}
+    </Dropdown>
+  );
+}
+
+export default function RunsPage() {
+  const { sequences, netID } = useLoaderData<typeof loader>();
+  return (
+    <div className="flex flex-col min-h-full w-full">
+      <div className={"relative top-0 right-0 text-right"}>
+        <RunDropdown runs={sequences} netID={netID} />
+      </div>
+      <Outlet />
     </div>
   );
 }

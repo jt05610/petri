@@ -14,38 +14,26 @@ export function SessionControl(props: SystemControlProps) {
   const setMarking = useContextSelector(PetriNetContext, (context) => context?.setMarking);
   const session = useContextSelector(RunSessionContext, (context) => context?.session);
   const dispatch = useContextSelector(RunSessionContext, (context) => context?.dispatch);
-/*
-  socket?.on("event", (data: EventReceived) => {
-    if (!dispatch) return;
-    if (!session || !session.run || !session.run.steps) {
-      return;
-    }
-    if (!session.activeAction) {
-      return;
-    }
-    if (!playing) {
-      return;
-    }
-    dispatch({ type: SessionActionType.ActionCompleted, payload: data });
-    dispatch({ type: SessionActionType.ActionStarted, payload: {} });
-    handleEvent(session.activeAction.action.event, session.activeAction.action.deviceId, data);
-  });
-*/
-  const [selectedInstances, setSelectedInstances] = useState<{
-    [deviceID: string]: string
-  }>({} as {
-    [deviceID: string]: string
-  });
 
-  const handleSelectChanged = (deviceID: string, instanceID: string) => {
-    setSelectedInstances({ ...selectedInstances, [deviceID]: instanceID });
-  };
+  /*
+    socket?.on("event", (data: EventReceived) => {
+      if (!dispatch) return;
+      if (!session || !session.run || !session.run.steps) {
+        return;
+      }
+      if (!session.activeAction) {
+        return;
+      }
+      if (!playing) {
+        return;
+      }
+      dispatch({ type: SessionActionType.ActionCompleted, payload: data });
+      dispatch({ type: SessionActionType.ActionStarted, payload: {} });
+      handleEvent(session.activeAction.action.event, session.activeAction.action.deviceId, data);
+    });
+  */
 
   function handleEvent(event: Pick<Event, "id" | "name">, deviceID: string, data: any) {
-    if (!selectedInstances[deviceID]) {
-      console.log("no instance selected");
-      return;
-    }
     console.log("handle event", event, deviceID, data);
     if (!props.net || !marking || !setMarking) return;
     const newMarking = props.net.handleEvent(marking, event.id);
@@ -78,37 +66,6 @@ export function SessionControl(props: SystemControlProps) {
   return (
     <div className={"flex w-full flex-col space-y-2"}>
       {marking && <MarkedNet marking={marking} net={props.net} />}
-      <div className={"flex flex-row space-x-2"}>
-        {props.net.childDeviceEvents(marking!).map(({ id, name, instances, events }) => {
-          return (
-            <div
-              key={id}
-              className={"flex flex-col space-y-2 border-md rounded-lg p-2"}
-            >
-              <h2 className={"text-xl font-bold"}>{name}</h2>
-              <select
-                defaultValue={""}
-                className={"rounded-full p-2"}
-                onChange={(e) => {
-                  const instance = instances.find((instance) => instance.id === e.target.value);
-                  if (!instance) return;
-                  handleSelectChanged(id, instance.id);
-                  const data = { data: {}, deviceID: instance.id, command: "get" };
-                  console.log("systemControl sent", data);
-                }
-                }>
-                <option value={""}>Select a device</option>
-                {instances?.map((instance) => {
-                    return (
-                      <option key={instance.id} value={instance.id}>{instance.name}</option>
-                    );
-                  }
-                )}
-              </select>
-            </div>
-          );
-        })}
-      </div>
       <div className={"flex flex-row space-x-2"}>
         <button className={"rounded-full p-2"} onClick={handleInitializeClicked}>
           Initialize

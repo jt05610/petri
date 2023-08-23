@@ -15,6 +15,7 @@ type Message interface {
 }
 
 type Instance struct {
+	deviceID string
 	ID       string
 	Name     string
 	Language string

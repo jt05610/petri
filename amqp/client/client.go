@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/jt05610/petri/amqp"
 	"github.com/jt05610/petri/control"
+	"github.com/jt05610/petri/device"
 	"github.com/jt05610/petri/labeled"
 	"github.com/jt05610/petri/prisma/db"
 	amqpGo "github.com/rabbitmq/amqp091-go"
@@ -26,6 +27,13 @@ type Instance struct {
 	liveness int
 }
 
+func DeviceDiscovered(instance *device.Instance) *labeled.Event {
+	return &labeled.Event{
+		Name: "device",
+		Data: instance,
+	}
+}
+
 type Controller struct {
 	ch              *amqpGo.Channel
 	discoveryCtx    context.Context
@@ -35,6 +43,7 @@ type Controller struct {
 	dataCh          chan *control.Event
 	q               *amqpGo.Queue
 	Routes          map[string]*Instance
+	Known           map[string]map[string]*Instance
 	exchange        string
 }
 
@@ -114,6 +123,7 @@ func NewController(ch *amqpGo.Channel, exchange string) *Controller {
 		event:    &amqp.EventService{},
 		exchange: exchange,
 		Routes:   make(map[string]*Instance),
+		Known:    make(map[string]map[string]*Instance),
 	}
 	c.runDiscoverLoop(context.Background())
 	return c
@@ -209,23 +219,28 @@ func (c *Controller) Data() <-chan *control.Event {
 }
 
 func (c *Controller) registerInstance(deviceID, instanceID string) {
-	if c.Routes[deviceID] != nil {
-		c.Routes[deviceID].liveness = MaxLiveness
+	if c.Known[deviceID] == nil {
+		c.Known[deviceID] = make(map[string]*Instance, 0)
+	}
+	if c.Known[deviceID][instanceID] != nil {
+		c.Known[deviceID][instanceID].liveness = MaxLiveness
 		return
 	}
-	log.Printf("Registering instance %s for device %s", instanceID, deviceID)
-	c.Routes[deviceID] = &Instance{
+	c.Known[deviceID][instanceID] = &Instance{
 		ID:       instanceID,
 		liveness: MaxLiveness,
 	}
+	log.Printf("Registering instance %s for device %s", instanceID, deviceID)
 }
 
 func (c *Controller) pruneInstances() {
-	for k, v := range c.Routes {
-		v.liveness--
-		if v.liveness <= 0 {
-			log.Printf("Pruning instance %s for device %s", v.ID, k)
-			delete(c.Routes, k)
+	for k, vv := range c.Known {
+		for instanceKey, v := range vv {
+			v.liveness--
+			if v.liveness <= 0 {
+				log.Printf("Pruning instance %s for device %s", v.ID, k)
+				delete(c.Known[k], instanceKey)
+			}
 		}
 	}
 }

@@ -4,3 +4,4 @@
 /codegen/testData/go/.env
 /cmd/codegen/.env
 /devices/grbl/grbl/
+/cmd/petrid/.env

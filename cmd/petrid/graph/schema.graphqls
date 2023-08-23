@@ -1,0 +1,105 @@
+type Query {
+    activeSessions: [Session!]!
+    session(sessionID: ID!): Session!
+    sessions(runID: ID!): [Session!]!
+    currentStep(sessionID: ID!): Int!
+    eventHistory(sessionID: ID!): [Event!]!
+    instances(runID: ID!): [Instance!]!
+    devices(filter: String): [Device!]!
+}
+
+input PlaceMarkInput {
+    place: String!
+    mark: Int!
+}
+
+type Field {
+    name: String!
+    type: String!
+    required: Boolean!
+}
+
+type EventSchema {
+    id: ID!
+    name: String!
+    fields: [Field]
+}
+
+scalar JSON
+
+input Command {
+    name: String!
+    data: JSON
+}
+
+type Event {
+    name: String!
+    timestamp: String!
+    data: JSON
+}
+
+type Device {
+    id: ID!
+    name: String!
+    instances: [Instance!]!
+}
+
+type Instance {
+    id: ID!
+    name: String!
+    device: Device!
+}
+
+type Run {
+    id: ID!
+}
+
+type User {
+    id: ID!
+    email: String!
+}
+
+type Session {
+    id: ID!
+    userID: ID!
+    runID: ID!
+    active: Boolean!
+    createdAt: String!
+    updatedAt: String!
+    startedAt: String
+    instances: [Instance!]!
+    parameters: JSON!
+    marking: JSON!
+    events: [Event!]!
+}
+
+input DeviceInstanceInput {
+    deviceID: ID!
+    instanceID: ID!
+}
+
+input NewSessionInput {
+    sequenceID: ID!
+    parameters: JSON!
+    instances: [DeviceInstanceInput!]!
+}
+
+type HandleResult {
+    message: String!
+    errors: [String]
+}
+
+input StartSessionInput {
+    sessionID: ID!
+}
+
+type Mutation {
+    newSession(input: NewSessionInput!): Session!
+    startSession(input: StartSessionInput!): Session!
+    stopSession(sessionID: ID!): Session!
+    deleteSession(sessionID: ID!): HandleResult!
+}
+
+type Subscription {
+    event(sessionID: ID!): Event!
+}

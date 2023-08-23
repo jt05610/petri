@@ -1,0 +1,72 @@
+query ActiveSessions {
+    activeSessions {
+        id,
+        userID,
+        runID,
+        createdAt,
+        updatedAt,
+    }
+}
+
+query Sessions($runID: ID!) {
+    sessions(runID: $runID) {
+        id,
+        userID,
+        runID,
+        active,
+        createdAt,
+        updatedAt,
+    }
+}
+
+query Session($id: ID!) {
+    session(sessionID: $id) {
+        id,
+        userID,
+        runID,
+        active,
+        createdAt,
+        updatedAt,
+        marking,
+        parameters,
+        events {
+            name,
+            timestamp,
+            data,
+        }
+    }
+}
+
+query CurrentStep($id: ID!) {
+    currentStep(sessionID: $id)
+}
+
+query EventHistory($id: ID!) {
+    eventHistory(sessionID: $id) {
+        name,
+        timestamp,
+        data,
+    }
+}
+
+query Instances($id: ID!) {
+    instances(runID: $id) {
+        id,
+        name,
+        device {
+            id,
+            name
+        }
+    }
+}
+
+query Devices($filter: String) {
+    devices(filter: $filter) {
+        id,
+        name,
+        instances {
+            id,
+            name
+        }
+    }
+}

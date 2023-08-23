@@ -84,6 +84,8 @@ func (a *EventService) Load(_ context.Context, data amqp.Delivery) (*control.Eve
 			Name: event,
 		},
 	}
-
+	if len(data.Body) == 0 {
+		return res, nil
+	}
 	return res, json.Unmarshal(data.Body, &res.Data)
 }

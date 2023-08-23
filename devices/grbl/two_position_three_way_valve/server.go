@@ -35,6 +35,10 @@ func main() {
 	if !ok {
 		logger.Fatal("DEVICE_ID not set")
 	}
+	instanceID, ok := os.LookupEnv("INSTANCE_ID")
+	if !ok {
+		logger.Fatal("INSTANCE_ID not set")
+	}
 	conn, err := amqp.Dial(uri)
 	failOnError(err, "Failed to connect to RabbitMQ")
 	logger.Info("Connected to RabbitMQ", zap.String("uri", uri))
@@ -52,7 +56,7 @@ func main() {
 
 	d := NewTwoPositionThreeWayValve(nil)
 	dev := d.load()
-	srv := server.New(dev.Nets[0], ch, exchange, deviceID, dev.EventMap(), d.Handlers())
+	srv := server.New(dev.Nets[0], ch, exchange, deviceID, instanceID, dev.EventMap(), d.Handlers())
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	c := make(chan os.Signal, 1)

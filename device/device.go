@@ -36,6 +36,7 @@ type Device struct {
 	Nets   []*labeled.Net
 	Events []*labeled.Event
 	*Instance
+	Instances []*Instance
 }
 
 func (d *Device) EventMap() map[string]*petri.Transition {

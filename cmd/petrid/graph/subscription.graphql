@@ -1,0 +1,7 @@
+subscription Events($id: ID!) {
+    event(sessionID: $id) {
+        name,
+        timestamp,
+        data
+    }
+}

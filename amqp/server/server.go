@@ -20,15 +20,16 @@ func failOnError(err error, msg string) {
 
 type Server struct {
 	*labeled.Net
-	ch        *amqp.Channel
-	q         *amqp.Queue
-	devEvents <-chan *labeled.Event
-	cmd       *amqp2.CommandService
-	event     *amqp2.EventService
-	netCh     <-chan *labeled.Event
-	handlers  control.Handlers
-	exchange  string
-	deviceID  string
+	ch         *amqp.Channel
+	q          *amqp.Queue
+	devEvents  <-chan *labeled.Event
+	cmd        *amqp2.CommandService
+	event      *amqp2.EventService
+	netCh      <-chan *labeled.Event
+	handlers   control.Handlers
+	exchange   string
+	deviceID   string
+	instanceID string
 }
 
 func (s *Server) AddHandler(route string, f labeled.Handler) {
@@ -70,13 +71,13 @@ func (s *Server) route(data *control.Command) (*control.Event, error) {
 	return res, nil
 }
 
-func New(net *labeled.Net, ch *amqp.Channel, exchange string, deviceID string, eventMap map[string]*petri.Transition, handlers control.Handlers) *Server {
+func New(net *labeled.Net, ch *amqp.Channel, exchange string, deviceID string, instanceID string, eventMap map[string]*petri.Transition, handlers control.Handlers) *Server {
 	for ev, h := range handlers {
 		err := net.AddHandler(ev, eventMap[ev], h)
 		failOnError(err, "Failed to add handler")
 	}
 
-	queues := make([]string, 0, len(handlers)+1)
+	queues := make([]string, 0, len(handlers)+2)
 	err := ch.ExchangeDeclare(
 		exchange, // name
 		"topic",  // type
@@ -88,8 +89,10 @@ func New(net *labeled.Net, ch *amqp.Channel, exchange string, deviceID string, e
 	)
 	failOnError(err, "Failed to declare an exchange")
 	for key := range handlers {
-		queues = append(queues, deviceID+".commands."+key)
+		queues = append(queues, instanceID+".commands."+key)
 	}
+	queues = append(queues, instanceID+".state.get")
+	queues = append(queues, "devices")
 	q, err := ch.QueueDeclare(
 		"",    // name
 		false, // durable
@@ -99,7 +102,6 @@ func New(net *labeled.Net, ch *amqp.Channel, exchange string, deviceID string, e
 		nil,   // arguments
 	)
 	failOnError(err, "Failed to declare a queue")
-	queues = append(queues, deviceID+".state.get")
 	for _, key := range queues {
 		err := ch.QueueBind(
 			q.Name,   // queue name
@@ -109,17 +111,33 @@ func New(net *labeled.Net, ch *amqp.Channel, exchange string, deviceID string, e
 			nil)
 		failOnError(err, "Failed to bind a queue")
 	}
+
 	return &Server{
-		Net:       net,
-		ch:        ch,
-		q:         &q,
-		devEvents: net.Channel(),
-		exchange:  exchange,
-		handlers:  handlers,
-		deviceID:  deviceID,
-		event:     &amqp2.EventService{},
-		cmd:       &amqp2.CommandService{},
+		Net:        net,
+		ch:         ch,
+		q:          &q,
+		devEvents:  net.Channel(),
+		exchange:   exchange,
+		handlers:   handlers,
+		deviceID:   deviceID,
+		instanceID: instanceID,
+		event:      &amqp2.EventService{},
+		cmd:        &amqp2.CommandService{},
 	}
+}
+
+func (s *Server) publishBeacon() {
+	err := s.ch.PublishWithContext(
+		context.Background(),
+		s.exchange,
+		s.instanceID+".device."+s.deviceID,
+		false,
+		false,
+		amqp.Publishing{
+			Body: nil,
+		},
+	)
+	failOnError(err, "Failed to publish beacon")
 }
 
 func (s *Server) Listen(ctx context.Context) {
@@ -144,13 +162,17 @@ func (s *Server) Listen(ctx context.Context) {
 				fmt.Println("Received a message from the net")
 			case d := <-msgs:
 				log.Printf("Received a message: %s", d.Body)
+				if d.RoutingKey == "devices" {
+					s.publishBeacon()
+					continue
+				}
 				data, err := s.cmd.Load(context.Background(), d)
 				failOnError(err, "Failed to load command")
 				switch data.Topic {
 				case "state":
 					resp, err := s.cmd.Flush(context.Background(), data.Event, s.MarkingMap())
 					failOnError(err, "Failed to flush command")
-					err = s.ch.PublishWithContext(ctx, s.exchange, s.deviceID+".state.current", false, false, resp)
+					err = s.ch.PublishWithContext(ctx, s.exchange, s.instanceID+".state.current", false, false, resp)
 				case "commands":
 					event, err := s.route(data)
 					failOnError(err, "Failed to handle data")

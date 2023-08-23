@@ -19,17 +19,63 @@ func failOnError(err error, msg string) {
 	}
 }
 
-type Controller struct {
-	ch       *amqpGo.Channel
-	cmd      *amqp.CommandService
-	event    *amqp.EventService
-	dataCh   chan *control.Event
-	q        *amqpGo.Queue
-	Routes   map[string]string
-	exchange string
+const MaxLiveness = 3
+
+type Instance struct {
+	ID       string
+	liveness int
 }
 
-func NewController(ch *amqpGo.Channel, exchange string, routes map[string]string) *Controller {
+type Controller struct {
+	ch              *amqpGo.Channel
+	discoveryCtx    context.Context
+	discoveryCancel context.CancelFunc
+	cmd             *amqp.CommandService
+	event           *amqp.EventService
+	dataCh          chan *control.Event
+	q               *amqpGo.Queue
+	Routes          map[string]*Instance
+	exchange        string
+}
+
+func (c *Controller) Close() {
+	c.discoveryCancel()
+}
+
+func (c *Controller) Discover() error {
+	return c.ch.PublishWithContext(
+		c.discoveryCtx,
+		c.exchange, // exchange
+		"devices",  // routing key
+		false,      // mandatory
+		false,      // immediate
+		amqpGo.Publishing{
+			ContentType:  "application/json",
+			DeliveryMode: amqpGo.Persistent,
+			Body:         []byte{},
+		},
+	)
+}
+
+func (c *Controller) runDiscoverLoop(ctx context.Context) {
+	c.discoveryCtx, c.discoveryCancel = context.WithCancel(ctx)
+	go func() {
+		for {
+			select {
+			case <-c.discoveryCtx.Done():
+				return
+			case <-time.After(time.Duration(1) * time.Second):
+				c.pruneInstances()
+				err := c.Discover()
+				if err != nil {
+					log.Println(err)
+				}
+			}
+		}
+	}()
+}
+
+func NewController(ch *amqpGo.Channel, exchange string) *Controller {
 	err := ch.Confirm(false)
 	failOnError(err, "Failed to set confirm mode")
 	err = ch.ExchangeDeclare(
@@ -51,7 +97,7 @@ func NewController(ch *amqpGo.Channel, exchange string, routes map[string]string
 		nil,   // arguments
 	)
 	failOnError(err, "Failed to declare a queue")
-	topics := []string{"*.events.*", "*.state.current"}
+	topics := []string{"*.events.*", "*.state.current", "*.device.*"}
 	for _, t := range topics {
 		err = ch.QueueBind(
 			q.Name,   // queue name
@@ -61,21 +107,22 @@ func NewController(ch *amqpGo.Channel, exchange string, routes map[string]string
 			nil)
 		failOnError(err, "Failed to bind queue")
 	}
-
-	return &Controller{
+	c := &Controller{
 		ch:       ch,
 		q:        &q,
 		cmd:      &amqp.CommandService{},
 		event:    &amqp.EventService{},
 		exchange: exchange,
-		Routes:   routes,
+		Routes:   make(map[string]*Instance),
 	}
+	c.runDiscoverLoop(context.Background())
+	return c
 }
 
-func (a *Controller) sendPing(ctx context.Context, deviceID string) error {
-	return a.ch.PublishWithContext(
+func (c *Controller) sendPing(ctx context.Context, deviceID string) error {
+	return c.ch.PublishWithContext(
 		ctx,
-		a.exchange,            // exchange
+		c.exchange,            // exchange
 		deviceID+".state.get", // routing key
 		false,                 // mandatory
 		false,                 // immediate
@@ -87,10 +134,10 @@ func (a *Controller) sendPing(ctx context.Context, deviceID string) error {
 	)
 }
 
-func (a *Controller) Ping(ctx context.Context, deviceID string) (control.Marking, error) {
+func (c *Controller) Ping(ctx context.Context, deviceID string) (control.Marking, error) {
 	retries := 3
 	for i := 0; i < retries; i++ {
-		err := a.sendPing(ctx, deviceID)
+		err := c.sendPing(ctx, deviceID)
 		if err != nil {
 			return nil, err
 		}
@@ -99,7 +146,7 @@ func (a *Controller) Ping(ctx context.Context, deviceID string) (control.Marking
 			return nil, ctx.Err()
 		case <-time.After(time.Duration(1) * time.Second):
 			continue
-		case recv := <-a.dataCh:
+		case recv := <-c.dataCh:
 			if recv.From != deviceID {
 				continue
 			}
@@ -109,15 +156,15 @@ func (a *Controller) Ping(ctx context.Context, deviceID string) (control.Marking
 	return nil, errors.New("ping timed out")
 }
 
-func (a *Controller) Send(ctx context.Context, cmd *control.Command) error {
-	p, err := a.cmd.Flush(ctx, cmd.Event)
+func (c *Controller) Send(ctx context.Context, cmd *control.Command) error {
+	p, err := c.cmd.Flush(ctx, cmd.Event)
 	if err != nil {
 		return err
 	}
 	fmt.Printf("sending %v to %s\n", cmd, cmd.RoutingKey())
-	return a.ch.PublishWithContext(
+	return c.ch.PublishWithContext(
 		ctx,
-		a.exchange,       // exchange
+		c.exchange,       // exchange
 		cmd.RoutingKey(), // routing key
 		false,            // mandatory
 		false,            // immediate
@@ -125,13 +172,13 @@ func (a *Controller) Send(ctx context.Context, cmd *control.Command) error {
 	)
 }
 
-func (a *Controller) Start(ctx context.Context, step *db.StepModel, data interface{}) error {
-	to, found := a.Routes[step.Action().Device().ID]
+func (c *Controller) Start(ctx context.Context, step *db.StepModel, data interface{}) error {
+	to, found := c.Routes[step.Action().Device().ID]
 	if !found {
-		return nil
+		return errors.New("device not found")
 	}
 	cmd := &control.Command{
-		To: to,
+		To: to.ID,
 		Event: &labeled.Event{
 			Name: step.Action().Event().Name,
 			Data: data,
@@ -141,7 +188,7 @@ func (a *Controller) Start(ctx context.Context, step *db.StepModel, data interfa
 	done := make(chan struct{})
 	var sendErr error
 	go func() {
-		err := a.Send(ctx, cmd)
+		err := c.Send(ctx, cmd)
 		if err != nil {
 			sendErr = err
 		}
@@ -157,14 +204,36 @@ func (a *Controller) Start(ctx context.Context, step *db.StepModel, data interfa
 	}
 }
 
-func (a *Controller) Data() <-chan *control.Event {
-	return a.dataCh
+func (c *Controller) Data() <-chan *control.Event {
+	return c.dataCh
 }
 
-func (a *Controller) Listen(ctx context.Context) {
-	a.dataCh = make(chan *control.Event)
-	msgs, err := a.ch.Consume(
-		a.q.Name, // queue
+func (c *Controller) registerInstance(deviceID, instanceID string) {
+	if c.Routes[deviceID] != nil {
+		c.Routes[deviceID].liveness = MaxLiveness
+		return
+	}
+	log.Printf("Registering instance %s for device %s", instanceID, deviceID)
+	c.Routes[deviceID] = &Instance{
+		ID:       instanceID,
+		liveness: MaxLiveness,
+	}
+}
+
+func (c *Controller) pruneInstances() {
+	for k, v := range c.Routes {
+		v.liveness--
+		if v.liveness <= 0 {
+			log.Printf("Pruning instance %s for device %s", v.ID, k)
+			delete(c.Routes, k)
+		}
+	}
+}
+
+func (c *Controller) Listen(ctx context.Context) {
+	c.dataCh = make(chan *control.Event)
+	msgs, err := c.ch.Consume(
+		c.q.Name, // queue
 		"",       // consumer
 		true,     // auto-ack
 		false,    // exclusive
@@ -172,6 +241,7 @@ func (a *Controller) Listen(ctx context.Context) {
 		false,    // no-wait
 		nil,      // args
 	)
+
 	failOnError(err, "Failed to register a consumer")
 
 	go func() {
@@ -180,12 +250,16 @@ func (a *Controller) Listen(ctx context.Context) {
 			case <-ctx.Done():
 				return
 			case d := <-msgs:
-				data, err := a.event.Load(ctx, d)
+				data, err := c.event.Load(ctx, d)
 				if err != nil {
 					log.Println(err)
 					continue
 				}
-				a.dataCh <- data
+				if data.Topic == "device" {
+					go c.registerInstance(data.From, data.Name)
+					continue
+				}
+				c.dataCh <- data
 			}
 		}
 	}()

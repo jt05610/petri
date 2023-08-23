@@ -1,0 +1,35 @@
+mutation NewSession($input: NewSessionInput!) {
+    newSession(input: $input) {
+        id
+        createdAt
+        updatedAt
+    }
+}
+
+mutation StartSession($input: StartSessionInput!) {
+    startSession(input: $input) {
+        id
+        createdAt
+        updatedAt
+    }
+}
+
+mutation StopSession($input: ID!) {
+    stopSession(sessionID: $input) {
+        id
+        createdAt
+        updatedAt
+        events {
+            name
+            timestamp
+            data
+        }
+    }
+}
+
+mutation DeleteSession($input: ID!) {
+    deleteSession(sessionID: $input) {
+        message
+        errors
+    }
+}

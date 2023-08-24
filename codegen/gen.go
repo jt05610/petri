@@ -1,6 +1,7 @@
 package codegen
 
 import (
+	"bytes"
 	"context"
 	"embed"
 	"errors"
@@ -12,6 +13,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"text/template"
 )
@@ -21,13 +23,58 @@ var templateDir embed.FS
 
 type Language string
 
+type RabbitMQParams struct {
+	Exchange string
+	User     string
+	Password string
+	VHost    string
+	Host     string
+	Port     int
+}
+
+func (p *RabbitMQParams) URI() string {
+	return fmt.Sprintf("amqp://%s:%s@%s:%d/%s", p.User, p.Password, p.Host, p.Port, p.VHost)
+}
+
+func splitInTwo(s, sep string) (string, string) {
+	split := strings.Split(s, sep)
+	if len(split) != 2 {
+		return "", ""
+	}
+	return split[0], split[1]
+}
+
+func (p *RabbitMQParams) FromURI(uri, exchange string) {
+	s := strings.TrimPrefix(uri, "amqp://")
+	var addr string
+	addr, p.VHost = splitInTwo(s, "/")
+	if p.VHost == "" {
+		p.VHost = "/"
+	}
+	var portString string
+	userPass, hostPort := splitInTwo(addr, "@")
+	p.User, p.Password = splitInTwo(userPass, ":")
+	p.Host, portString = splitInTwo(hostPort, ":")
+	if portString == "" {
+		p.Port = 5672
+	} else {
+		p.Port, _ = strconv.Atoi(portString)
+	}
+	p.Exchange = exchange
+
+}
+
 type Params struct {
 	Language
 	Port         int
 	OutDir       string
 	DeviceID     string
-	RabbitMQURI  string
-	AMQPExchange string
+	RabbitMQ     *RabbitMQParams
+	InstanceName string
+}
+
+func (p *Params) RabbitMQURI() string {
+	return p.RabbitMQ.URI()
 }
 
 type DevParams struct {
@@ -38,6 +85,7 @@ type Generator struct {
 	*Params
 	*prisma.DeviceClient
 	dev *DevParams
+	fm  template.FuncMap
 }
 
 type TypeMap map[string]string
@@ -78,6 +126,7 @@ func (g *Generator) Generate(ctx context.Context) error {
 			fmt.Printf("error disconnecting from database: %v", err)
 		}
 	}()
+	g.fm = funcMap(g.Language)
 	steps := []struct {
 		Text string
 		f    func(ctx context.Context) error
@@ -165,7 +214,7 @@ func (g *Generator) loadDev(ctx context.Context) error {
 func (g *Generator) makeInstance(ctx context.Context) error {
 	g.dev.Instance = &device.Instance{
 		ID:       g.dev.ID,
-		Name:     g.dev.Name,
+		Name:     g.InstanceName,
 		Language: string(g.Language),
 		Address:  "localhost",
 		Port:     g.Port,
@@ -173,19 +222,44 @@ func (g *Generator) makeInstance(ctx context.Context) error {
 	return nil
 }
 
+func funcMap(lang Language) template.FuncMap {
+	return template.FuncMap{
+		"pascal":          sentenceToPascalCase,
+		"snake":           sentenceToSnakeCase,
+		"camel":           sentenceToCamelCase,
+		"pascalFromSnake": sentenceToPascalCase,
+		"langType":        langType(lang),
+	}
+}
+
+func (g *Generator) fileName(s string) (string, error) {
+	outFile := strings.Replace(strings.TrimSuffix(s, ".gotpl"), "{dot}", ".", 1)
+	outFile = strings.Replace(outFile, "{init}", "__init__", 1)
+	fileBuf := new(bytes.Buffer)
+	err := template.Must(template.New("file").Funcs(g.fm).Parse(outFile)).Execute(fileBuf, g.dev)
+	if err != nil {
+		return "", fmt.Errorf("error parsing file name: %v", err)
+	}
+	outFile = fileBuf.String()
+	return outFile, nil
+}
+
 func (g *Generator) genFromTemplate(outPath, tPath string) error {
 	t, err := templateDir.ReadFile(tPath)
 	if err != nil {
 		return fmt.Errorf("error reading template: %v", err)
 	}
-	tmpl := template.Must(template.New(tPath).Funcs(template.FuncMap{
-		"pascal":          sentenceToPascalCase,
-		"snake":           sentenceToSnakeCase,
-		"camel":           sentenceToCamelCase,
-		"pascalFromSnake": sentenceToPascalCase,
-		"langType":        langType(g.Language),
-	}).Parse(string(t)))
-	outFile := strings.Replace(strings.TrimSuffix(outPath, filepath.Ext(outPath)), "{dot}", ".", 1)
+	tmpl := template.Must(template.New(tPath).Funcs(g.fm).Parse(string(t)))
+	outFile, err := g.fileName(outPath)
+	if err != nil {
+		return fmt.Errorf("error parsing file name: %v", err)
+	}
+	parDir := filepath.Dir(outFile)
+	if err = os.MkdirAll(parDir, 0755); err != nil {
+		if !errors.Is(err, os.ErrExist) {
+			return fmt.Errorf("error creating directory: %v", err)
+		}
+	}
 	f, err := os.Create(outFile)
 	defer func() {
 		err := f.Close()
@@ -207,7 +281,11 @@ func (g *Generator) crawlDir(ctx context.Context, outPath, tPath string, parDir 
 	if !parDir.IsDir() {
 		return nil
 	}
-	rPath := Join(outPath, parDir.Name())
+	fPath, err := g.fileName(parDir.Name())
+	if err != nil {
+		return fmt.Errorf("error parsing file name: %v", err)
+	}
+	rPath := Join(outPath, fPath)
 	dPath := Join(tPath, parDir.Name())
 	subDir, err := templateDir.ReadDir(dPath)
 	if err != nil {
@@ -215,23 +293,22 @@ func (g *Generator) crawlDir(ctx context.Context, outPath, tPath string, parDir 
 	}
 	for _, file := range subDir {
 		if file.IsDir() {
-			err := g.crawlDir(ctx, dPath, rPath, file)
+			err := g.crawlDir(ctx, rPath, dPath, file)
 			if err != nil {
 				return err
 			}
 			continue
 		}
-		fName := strings.Replace(file.Name(), "{dot}", ".", 1)
-		fPath := Join(rPath, fName)
-		tfPath := Join(dPath, fName)
-		err := g.genFromTemplate(fPath, tfPath)
+		if err != nil {
+			return fmt.Errorf("error parsing file name: %v", err)
+		}
+		filename, err := g.fileName(file.Name())
+		fPath := Join(rPath, filename)
+		tfPath := Join(dPath, file.Name())
+		err = g.genFromTemplate(fPath, tfPath)
 		if err != nil {
 			return err
 		}
-	}
-	err = os.MkdirAll(rPath, 0755)
-	if err != nil {
-		return fmt.Errorf("error creating file: %v", err)
 	}
 	return nil
 }

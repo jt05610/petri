@@ -1,0 +1,37 @@
+from dataclasses import dataclass
+from typing import Dict
+
+from {{snake .Instance.Name}} import config
+
+
+@dataclass
+class Event:
+    pass
+
+
+{{range .Device.Events }}
+@dataclass
+class {{pascalFromSnake .Name}}(Event):
+    {{ range .Fields}}{{snake .Name}}: {{langType .Type}}
+    {{end}}
+    def __str__(self):
+        return "{{snake .Name}}"
+
+{{end}}
+@dataclass
+class DeviceRetrieved(Event):
+    def __str__(self):
+        return config.DEVICE_ID
+
+
+@dataclass
+class StateRetrieved(Event):
+    state: Dict[str, int]
+
+    def __str__(self):
+        return "current"
+
+
+
+
+

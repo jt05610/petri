@@ -1,11 +1,12 @@
 import json
 import logging
 from dataclasses import asdict
+from typing import Callable, Dict, Type
 
 import pika
 
-from valve import config
-from valve.domain import events
+from {{snake .Instance.Name}} import config
+from {{snake .Instance.Name}}.domain import events
 
 logger = logging.getLogger(__name__)
 
@@ -24,21 +25,13 @@ channel = connection.channel()
 
 channel.exchange_declare(exchange=config.AMQP_EXCHANGE, exchange_type='topic')
 
+ROUTES: Dict[Type[events.Event], Callable[[events.Event], str]] = {
+    events.DeviceRetrieved: lambda e: f"{config.INSTANCE_ID}.device.{e}",
+    events.StateRetrieved: lambda e: f"{config.INSTANCE_ID}.state.{e}",
+}
 
 def routing_key(event: events.Event) -> str:
-    match type(event):
-        case events.DeviceRetrieved:
-            return (
-                f"{config.INSTANCE_ID}.device.{event}"
-            )
-        case events.StateRetrieved:
-            return (
-                f"{config.INSTANCE_ID}.state.{event}"
-            )
-        case _:
-            return (
-                f"{config.INSTANCE_ID}.events.{event}"
-            )
+    return ROUTES[type(event)](event)
 
 
 def publish(event: events.Event):

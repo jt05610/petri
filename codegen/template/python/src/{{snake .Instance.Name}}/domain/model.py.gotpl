@@ -1,0 +1,25 @@
+from enum import Enum
+from typing import List, Dict
+
+from . import events
+
+class {{pascalFromSnake .Instance.Name}}:
+    events: List[events.Event]
+    state: Dict[str, int]
+
+    def __init__(self):
+        self.events = []
+        self.state = {}
+
+{{range .Device.Events}}
+    def {{snake .Name}}(self{{range .Fields}}, {{snake .Name}}: {{langType .Type}}{{end}}):
+        self.events.append(events.{{pascal .Name}}())
+        raise(NotImplementedError)
+
+{{end}}
+
+    def get_device(self):
+        self.events.append(events.DeviceRetrieved())
+
+    def get_state(self):
+        self.events.append(events.StateRetrieved(self.state))

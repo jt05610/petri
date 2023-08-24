@@ -50,20 +50,22 @@ def main():
     )
 
     def callback(ch, method, properties: pika.BasicProperties, body):
-        logger.info('Received message')
         match method.routing_key:
             case "devices":
                 cmd = commands.GetDevice()
                 bus.handle(cmd)
             case _:
+                logger.debug(f"Received message {body}")
                 split = method.routing_key.split(".")
                 topic = split[1]
                 k = split[2]
                 match topic:
                     case "state":
+                        logger.info(f"Received state request")
                         cmd = commands.GetState()
 
                     case "commands":
+                        logger.info(f"Received command {k}< {body} >")
                         match k:
                             case "open_a":
                                 cmd = commands.OpenA()

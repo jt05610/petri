@@ -19,13 +19,17 @@ import (
 )
 
 func getIntFromUser(prompt string) (int, error) {
+	return strconv.Atoi(getStringFromUser(prompt))
+}
+
+func getStringFromUser(prompt string) string {
 	var input string
 	fmt.Print(prompt)
 	_, err := fmt.Scanln(&input)
 	if err != nil {
-		return 0, err
+		return ""
 	}
-	return strconv.Atoi(strings.Trim(input, " \r\n\t"))
+	return strings.Trim(input, " \r\n\t")
 }
 
 func getDeviceID(c *prisma.DeviceClient) *device.ListItem {
@@ -45,6 +49,10 @@ func getDeviceID(c *prisma.DeviceClient) *device.ListItem {
 		panic(err)
 	}
 	return dd[i]
+}
+
+func getInstanceName() string {
+	return getStringFromUser("Please enter an instance name: \n> ")
 }
 
 func validateLogin(c *db.PrismaClient, email, password string) (string, error) {
@@ -151,15 +159,19 @@ var rootCmd = &cobra.Command{
 		ctx := withAuthorID(context.Background(), c)
 		devClient := &prisma.DeviceClient{PrismaClient: c}
 		device := getDeviceID(devClient)
+		instanceName := getInstanceName()
 		lang := getLanguage()
 		fmt.Printf("Generating %s code for device id %s\n", lang, device)
+		params := new(codegen.RabbitMQParams)
+		params.FromURI(rabbitMQURI, amqpExchange)
+
 		g := codegen.NewGenerator(devClient, &codegen.Params{
 			Language:     codegen.Language(lang),
 			Port:         port,
-			OutDir:       codegen.ToSnakeCaseFromSentence(device.Name),
+			OutDir:       codegen.ToSnakeCaseFromSentence(instanceName),
+			InstanceName: instanceName,
 			DeviceID:     device.ID,
-			RabbitMQURI:  rabbitMQURI,
-			AMQPExchange: amqpExchange,
+			RabbitMQ:     params,
 		})
 		err = g.Generate(ctx)
 		if err != nil {

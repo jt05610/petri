@@ -4,5 +4,4 @@ use (
 	.
 	cmd/petrid
 	cmd/codegen
-	cmd/runner
 )

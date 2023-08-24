@@ -5,3 +5,4 @@
 /cmd/codegen/.env
 /devices/grbl/grbl/
 /cmd/petrid/.env
+/cmd/petrid/graph/generated/

@@ -1,6 +1,7 @@
 from __future__ import annotations
 import abc
 import threading
+from typing import Callable, Dict, Type
 
 import serial
 
@@ -12,10 +13,12 @@ from valve.domain.model import Valve
 class AbstractUnitOfWork(abc.ABC):
     valve: Valve
     mutex = threading.Lock()
-    handlers = {
+    handlers: Dict[Type[commands.Command], Callable] = {
         commands.OpenA: Valve.open_a,
         commands.OpenB: Valve.open_b,
         commands.Flow: Valve.flow,
+        commands.GetDevice: Valve.get_device,
+        commands.GetState: Valve.get_state,
     }
 
     def __enter__(self) -> AbstractUnitOfWork:
@@ -34,8 +37,10 @@ class AbstractUnitOfWork(abc.ABC):
         raise NotImplementedError
 
     def do(self, cmd: commands.Command):
-        self._do(cmd)
-        self.handlers[type(cmd)](self.valve, cmd)
+        if type(cmd) in [commands.OpenA, commands.OpenB]:
+            self._do(cmd)
+
+        self.handlers[type(cmd)](self.valve)
 
 
 class GRBLUnitOfWork(AbstractUnitOfWork):

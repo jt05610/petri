@@ -74,7 +74,24 @@ func (r *queryResolver) EventHistory(ctx context.Context, sessionID string) ([]*
 
 // Instances is the resolver for the instances field.
 func (r *queryResolver) Instances(ctx context.Context, runID string) ([]*model.Instance, error) {
-	panic(fmt.Errorf("not implemented: Instances - instances"))
+	if r.Sequence == nil {
+		return nil, fmt.Errorf("no sequence")
+	}
+	if r.Sequence.ID != runID {
+		return nil, fmt.Errorf("runID mismatch")
+	}
+
+	dd := r.Sequence.Devices()
+	instances := make([]*model.Instance, 0, len(dd))
+	for _, d := range dd {
+		for _, instance := range r.Known[d.ID] {
+			instances = append(instances, &model.Instance{
+				ID:   instance.ID,
+				Name: instance.ID,
+			})
+		}
+	}
+	return instances, nil
 }
 
 // Devices is the resolver for the devices field.

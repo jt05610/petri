@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import List
+from typing import List, Dict
 
 from . import events
 
@@ -15,10 +15,12 @@ class ValvePosition(str, Enum):
 class Valve:
     events: List[events.Event]
     position: ValvePosition
+    state: Dict[str, int]
 
     def __init__(self, initial_position: ValvePosition):
         self.events = []
         self.position = initial_position
+        self.state = {}
 
     def open_a(self):
         self.position = ValvePosition.A
@@ -35,3 +37,9 @@ class Valve:
             self.events.append(events.FlowedB(volume))
         else:
             raise Exception("Valve position is not A or B")
+
+    def get_device(self):
+        self.events.append(events.DeviceRetrieved())
+
+    def get_state(self):
+        self.events.append(events.StateRetrieved(self.state))

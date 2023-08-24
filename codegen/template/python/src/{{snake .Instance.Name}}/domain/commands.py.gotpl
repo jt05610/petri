@@ -1,0 +1,28 @@
+from dataclasses import dataclass
+
+from {{snake .Instance.Name}} import config
+
+
+class Command:
+    pass
+
+
+{{range .Device.Events -}}
+@dataclass
+class {{pascalFromSnake .Name}}(Command):
+    {{ range .Fields}}{{snake .Name}}: {{langType .Type}}
+    {{end}}
+    def __str__(self):
+        return "{{snake .Name}}"
+
+{{end}}
+@dataclass
+class GetDevice(Command):
+    def __str__(self):
+        return config.DEVICE_ID
+
+
+@dataclass
+class GetState(Command):
+    def __str__(self):
+        return "state"

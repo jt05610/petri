@@ -1,0 +1,8 @@
+PORT={{.Port}}
+RABBITMQ_HOST={{.RabbitMQ.Host}}
+RABBITMQ_VHOST={{.RabbitMQ.VHost}}
+RABBITMQ_USER={{.RabbitMQ.User}}
+RABBITMQ_PASSWORD={{.RabbitMQ.Password}}
+INSTANCE_ID={{.Instance.ID}}
+DEVICE_ID={{.ID}}
+AMQP_EXCHANGE={{.RabbitMQ.Exchange}}

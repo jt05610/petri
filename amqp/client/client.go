@@ -9,8 +9,10 @@ import (
 	"github.com/jt05610/petri/device"
 	"github.com/jt05610/petri/labeled"
 	"github.com/jt05610/petri/prisma/db"
+	"github.com/jt05610/petri/sequence"
 	amqpGo "github.com/rabbitmq/amqp091-go"
 	"log"
+	"sync"
 	"time"
 )
 
@@ -36,6 +38,7 @@ func DeviceDiscovered(instance *device.Instance) *labeled.Event {
 
 type Controller struct {
 	ch              *amqpGo.Channel
+	mu              sync.Mutex
 	discoveryCtx    context.Context
 	discoveryCancel context.CancelFunc
 	cmd             *amqp.CommandService
@@ -43,6 +46,7 @@ type Controller struct {
 	dataCh          chan *control.Event
 	q               *amqpGo.Queue
 	Routes          map[string]*Instance
+	Sequence        *sequence.Sequence
 	Known           map[string]map[string]*Instance
 	exchange        string
 }
@@ -226,6 +230,8 @@ func (c *Controller) registerInstance(deviceID, instanceID string) {
 		c.Known[deviceID][instanceID].liveness = MaxLiveness
 		return
 	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.Known[deviceID][instanceID] = &Instance{
 		ID:       instanceID,
 		liveness: MaxLiveness,
@@ -271,7 +277,7 @@ func (c *Controller) Listen(ctx context.Context) {
 					continue
 				}
 				if data.Topic == "device" {
-					go c.registerInstance(data.From, data.Name)
+					go c.registerInstance(data.Name, data.From)
 					continue
 				}
 				c.dataCh <- data

@@ -18,27 +18,24 @@ type Action struct {
 	Event *labeled.Event
 }
 
-func NewAction(constants []*Constant, d *device.Device, e *labeled.Event) *Action {
-	a := &Action{
-		Constants: constants,
-		Device:    d,
-		Event:     e,
+func (a *Action) ApplyParameters(params map[string]interface{}) {
+	for _, p := range a.Parameters {
+		if val, ok := params[p.Field.Name]; ok {
+			p.Value = val
+		}
 	}
-	a.Parameters = a.parameters()
-	return a
 }
 
-func (a *Action) parameters() map[string]*Parameter {
-	ret := make(map[string]*Parameter, len(a.Constants))
+func (a *Action) ExtractParameters() {
+	a.Parameters = make(map[string]*Parameter, len(a.Constants))
 	for _, f := range a.Event.Fields {
-		ret[f.Name] = &Parameter{
+		a.Parameters[f.Name] = &Parameter{
 			Field: f,
 		}
 	}
 	for _, c := range a.Constants {
-		delete(ret, c.Name)
+		delete(a.Parameters, c.Name)
 	}
-	return ret
 }
 
 type Step struct {
@@ -49,8 +46,21 @@ type Sequence struct {
 	ID          string
 	Name        string
 	Description string
+	CurrentStep int
+	Running     bool
 	Steps       []*Step
-	Parameters  []*Parameter
+}
+
+func (s *Sequence) ApplyParameters(params map[string]interface{}) {
+	for _, step := range s.Steps {
+		step.ApplyParameters(params)
+	}
+}
+
+func (s *Sequence) ExtractParameters() {
+	for _, step := range s.Steps {
+		step.ExtractParameters()
+	}
 }
 
 func (s *Sequence) SetInstance(deviceID string, i *device.Instance) {
@@ -69,20 +79,6 @@ type Parameter struct {
 type Config struct {
 	DeviceInstance map[string]*device.Instance
 	Steps          []*Step
-}
-
-func New(cfg *Config) *Sequence {
-	s := &Sequence{
-		Steps: cfg.Steps,
-	}
-	for _, d := range s.Devices() {
-		if inst, ok := cfg.DeviceInstance[d.ID]; !ok {
-			panic("missing device instance")
-		} else {
-			d.Instance = inst
-		}
-	}
-	return s
 }
 
 func (s *Sequence) Devices() []*device.Device {

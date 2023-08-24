@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/jt05610/petri/cmd/petrid/graph/generated"
@@ -16,7 +17,36 @@ import (
 
 // NewSession is the resolver for the newSession field.
 func (r *mutationResolver) NewSession(ctx context.Context, input model.NewSessionInput) (*model.Session, error) {
-	panic(fmt.Errorf("not implemented: NewSession - newSession"))
+	run, err := r.RunClient.Load(ctx, input.SequenceID)
+	if err != nil {
+		return nil, err
+	}
+	devices := run.Devices()
+	r.Sequence = run
+	r.Sequence.ExtractParameters()
+	if len(input.Instances) != len(devices) {
+		return nil, errors.New("wrong number of instances")
+	}
+	for _, inst := range input.Instances {
+		if _, ok := r.Known[inst.DeviceID]; !ok {
+			return nil, errors.New("unknown device")
+		}
+		r.Routes[inst.DeviceID] = r.Known[inst.DeviceID][inst.InstanceID]
+	}
+	s, err := r.CreateSession(ctx, input.SequenceID)
+	if err != nil {
+		return nil, err
+	}
+	return &model.Session{
+		ID:         s.ID,
+		UserID:     s.UserID,
+		RunID:      s.RunID,
+		Active:     true,
+		CreatedAt:  s.CreatedAt.String(),
+		UpdatedAt:  s.UpdatedAt.String(),
+		Parameters: input.Parameters,
+	}, nil
+
 }
 
 // StartSession is the resolver for the startSession field.

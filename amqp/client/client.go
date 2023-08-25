@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"github.com/jt05610/petri/amqp"
 	"github.com/jt05610/petri/control"
-	"github.com/jt05610/petri/device"
 	"github.com/jt05610/petri/labeled"
 	"github.com/jt05610/petri/prisma/db"
 	"github.com/jt05610/petri/sequence"
@@ -27,13 +26,7 @@ const MaxLiveness = 3
 type Instance struct {
 	ID       string
 	liveness int
-}
-
-func DeviceDiscovered(instance *device.Instance) *labeled.Event {
-	return &labeled.Event{
-		Name: "device",
-		Data: instance,
-	}
+	marking  control.Marking
 }
 
 type Controller struct {
@@ -186,7 +179,7 @@ func (c *Controller) Send(ctx context.Context, cmd *control.Command) error {
 	)
 }
 
-func (c *Controller) Start(ctx context.Context, step *db.StepModel, data interface{}) error {
+func (c *Controller) Start(ctx context.Context, step *db.StepModel, data map[string]interface{}) error {
 	to, found := c.Routes[step.Action().Device().ID]
 	if !found {
 		return errors.New("device not found")
@@ -222,21 +215,23 @@ func (c *Controller) Data() <-chan *control.Event {
 	return c.dataCh
 }
 
-func (c *Controller) registerInstance(deviceID, instanceID string) {
+func (c *Controller) registerInstance(deviceID, instanceID string, marking control.Marking) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	if c.Known[deviceID] == nil {
-		c.Known[deviceID] = make(map[string]*Instance, 0)
+		c.Known[deviceID] = make(map[string]*Instance)
 	}
 	if c.Known[deviceID][instanceID] != nil {
 		c.Known[deviceID][instanceID].liveness = MaxLiveness
+		c.Known[deviceID][instanceID].marking = marking
 		return
 	}
-	c.mu.Lock()
-	defer c.mu.Unlock()
 	c.Known[deviceID][instanceID] = &Instance{
 		ID:       instanceID,
 		liveness: MaxLiveness,
+		marking:  marking,
 	}
-	log.Printf("Registering instance %s for device %s", instanceID, deviceID)
+	log.Printf("Registering instance %s for device %s with marking %v", instanceID, deviceID, marking)
 }
 
 func (c *Controller) pruneInstances() {
@@ -277,7 +272,7 @@ func (c *Controller) Listen(ctx context.Context) {
 					continue
 				}
 				if data.Topic == "device" {
-					go c.registerInstance(data.Name, data.From)
+					go c.registerInstance(data.Name, data.From, data.Marking)
 					continue
 				}
 				c.dataCh <- data

@@ -3,6 +3,7 @@ package amqp
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"github.com/jt05610/petri/control"
 	"github.com/jt05610/petri/labeled"
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -59,6 +60,9 @@ type EventService struct{}
 
 func (a *EventService) Load(_ context.Context, data amqp.Delivery) (*control.Event, error) {
 	sk := strings.Split(data.RoutingKey, ".")
+	if len(sk) != 3 {
+		return nil, errors.New("invalid routing key")
+	}
 	from := sk[0]
 	topic := sk[1]
 	event := sk[2]

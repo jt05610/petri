@@ -98,7 +98,7 @@ async function handleBrowserRequest(
   const client = new ApolloClient({
     ssrMode: true,
     link: createHttpLink({
-      uri: "http://localhost:8081/graphql",
+      uri: "http://localhost:4000/api/",
       headers: makeHeaders(),
       credentials: request.credentials ?? "same-origin"
     }),

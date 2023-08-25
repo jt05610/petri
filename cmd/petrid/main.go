@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"errors"
+	"github.com/99designs/gqlgen/graphql/handler"
+	"github.com/99designs/gqlgen/graphql/playground"
 	"github.com/jt05610/petri/amqp/client"
 	"github.com/jt05610/petri/cmd/petrid/graph"
 	"github.com/jt05610/petri/cmd/petrid/graph/generated"
@@ -12,10 +14,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"runtime/debug"
-
-	"github.com/99designs/gqlgen/graphql/handler"
-	"github.com/99designs/gqlgen/graphql/playground"
 )
 
 func main() {
@@ -52,6 +50,7 @@ func main() {
 			generated.Config{
 				Resolvers: &graph.Resolver{
 					SessionClient: &prisma.SessionClient{PrismaClient: dbClient},
+					RunClient:     &prisma.RunClient{PrismaClient: dbClient},
 					Controller:    controller,
 				},
 			},
@@ -60,11 +59,10 @@ func main() {
 	srv.SetRecoverFunc(func(ctx context.Context, err interface{}) (userMessage error) {
 		// send this panic somewhere
 		log.Print(err)
-		debug.PrintStack()
 		return errors.New("user message on panic")
 	})
 
-	http.Handle("/", playground.Handler("Session", "/graphql"))
-	http.Handle("/graphql", srv)
+	http.Handle("/", srv)
+	http.Handle("/playground", playground.Handler("Session", "/api/"))
 	log.Fatal(http.ListenAndServe(":8081", nil))
 }

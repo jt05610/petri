@@ -12,7 +12,7 @@ type Command struct {
 	To    string
 }
 
-func NewCommand(to string, fields []db.FieldModel, event *db.EventModel, data interface{}) *Command {
+func NewCommand(to string, fields []db.FieldModel, event *db.EventModel, data map[string]interface{}) *Command {
 	ef := make([]*labeled.Field, len(fields))
 	for i, f := range fields {
 		ef[i] = &labeled.Field{

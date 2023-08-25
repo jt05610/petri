@@ -35,6 +35,10 @@ func main() {
 	if !ok {
 		logger.Fatal("DEVICE_ID not set")
 	}
+	instanceID, ok := os.LookupEnv("INSTANCE_ID")
+	if !ok {
+		logger.Fatal("INSTANCE_ID not set")
+	}
 	conn, err := amqp.Dial(uri)
 	failOnError(err, "Failed to connect to RabbitMQ")
 	logger.Info("Connected to RabbitMQ", zap.String("uri", uri))

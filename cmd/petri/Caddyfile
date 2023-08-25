@@ -1,3 +1,8 @@
-localhost
-
-reverse_proxy :8088
+:4000 {
+    handle /api/* {
+        reverse_proxy :8081
+    }
+    handle {
+        reverse_proxy :3000
+    }
+}

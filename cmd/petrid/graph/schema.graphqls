@@ -79,8 +79,8 @@ input DeviceInstanceInput {
 }
 
 input NewSessionInput {
+    userID: ID!
     sequenceID: ID!
-    parameters: JSON!
     instances: [DeviceInstanceInput!]!
 }
 
@@ -91,15 +91,15 @@ type HandleResult {
 
 input StartSessionInput {
     sessionID: ID!
+    parameters: JSON
 }
 
 type Mutation {
     newSession(input: NewSessionInput!): Session!
-    startSession(input: StartSessionInput!): Session!
     stopSession(sessionID: ID!): Session!
     deleteSession(sessionID: ID!): HandleResult!
 }
 
 type Subscription {
-    event(sessionID: ID!): Event!
+    startSession(input: StartSessionInput!): Event!
 }

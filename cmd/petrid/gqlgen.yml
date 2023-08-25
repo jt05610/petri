@@ -95,3 +95,6 @@ models:
       - github.com/99designs/gqlgen/graphql.Int
       - github.com/99designs/gqlgen/graphql.Int64
       - github.com/99designs/gqlgen/graphql.Int32
+  JSON:
+    model:
+      - github.com/jt05610/petri/cmd/petrid/graph/model.JSON

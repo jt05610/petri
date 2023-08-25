@@ -20,6 +20,8 @@ func failOnError(err error, msg string) {
 
 type Server struct {
 	*labeled.Net
+	name       string
+	deviceName string
 	ch         *amqp.Channel
 	q          *amqp.Queue
 	devEvents  <-chan *labeled.Event
@@ -127,15 +129,22 @@ func New(net *labeled.Net, ch *amqp.Channel, exchange string, deviceID string, i
 }
 
 func (s *Server) publishBeacon() {
-	err := s.ch.PublishWithContext(
+	event := &labeled.Event{
+		Name: "info",
+		Data: map[string]interface{}{
+			"device_name":   s.deviceName,
+			"instance_name": s.name,
+		},
+	}
+	resp, err := s.cmd.Flush(context.Background(), event, s.MarkingMap())
+	failOnError(err, "Failed to flush command")
+	err = s.ch.PublishWithContext(
 		context.Background(),
 		s.exchange,
 		s.instanceID+".device."+s.deviceID,
 		false,
 		false,
-		amqp.Publishing{
-			Body: nil,
-		},
+		resp,
 	)
 	failOnError(err, "Failed to publish beacon")
 }

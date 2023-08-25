@@ -11,7 +11,7 @@ import { ApolloClient, ApolloProvider, InMemoryCache } from "@apollo/client";
 
 startTransition(() => {
   const client = new ApolloClient({
-    uri: "http://localhost:8081/graphql",
+    uri: "http://localhost:4000/api/",
     cache: new InMemoryCache().restore(window.__APOLLO_STATE__)
   });
 

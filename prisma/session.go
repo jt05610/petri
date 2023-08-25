@@ -22,13 +22,9 @@ func (c *SessionClient) ListSessions(ctx context.Context) ([]db.SessionModel, er
 	return c.Session.FindMany().Exec(ctx)
 }
 
-func (c *SessionClient) CreateSession(ctx context.Context, runID string) (*db.SessionModel, error) {
-	uID, err := requireUser(ctx)
-	if err != nil {
-		return nil, err
-	}
+func (c *SessionClient) CreateSession(ctx context.Context, runID, userID string) (*db.SessionModel, error) {
 	return c.Session.CreateOne(
-		db.Session.User.Link(db.User.ID.Equals(uID)),
+		db.Session.User.Link(db.User.ID.Equals(userID)),
 		db.Session.Run.Link(db.Run.ID.Equals(runID)),
 	).Exec(ctx)
 }

@@ -29,7 +29,7 @@ type Event struct {
 	Name   string
 	Fields []*Field
 	// The data associated with the event
-	Data interface{}
+	Data map[string]interface{}
 }
 
 func firstCap(s string) string {
@@ -187,13 +187,14 @@ func (n *Net) AddHandler(event string, transition *petri.Transition, handler Han
 	return nil
 }
 
-type Getter func(ctx context.Context) (interface{}, error)
+type Getter func(ctx context.Context) (map[string]interface{}, error)
+
 type Notification struct {
 	Name string
 	Getter
 }
 
-func (n *Net) AddNotification(name string, transition *petri.Transition, Getter func(ctx context.Context) (interface{}, error)) error {
+func (n *Net) AddNotification(name string, transition *petri.Transition, Getter func(ctx context.Context) (map[string]interface{}, error)) error {
 	if _, ok := n.notifications[transition.Name]; !ok {
 		n.notifications[transition.Name] = make([]*Notification, 0)
 	}

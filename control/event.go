@@ -23,10 +23,14 @@ func NewEvent(from string, fields []db.FieldModel, event *db.EventModel) *Event 
 			Type: labeled.FieldType(f.Type),
 		}
 	}
+	eventData := make(map[string]interface{})
+	for _, f := range event.Data() {
+		eventData[f.Event().Name] = f.Value
+	}
 	return &Event{
 		Event: &labeled.Event{
 			Name:   event.Name,
-			Data:   event.Data,
+			Data:   eventData,
 			Fields: ef,
 		},
 		From: from,

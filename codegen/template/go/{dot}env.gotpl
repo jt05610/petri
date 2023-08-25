@@ -2,4 +2,4 @@ PORT={{.Port}}
 RABBITMQ_URI={{.RabbitMQURI}}
 INSTANCE_ID={{.Instance.ID}}
 DEVICE_ID={{.ID}}
-AMQP_EXCHANGE={{.AMQPExchange}}
+AMQP_EXCHANGE={{.RabbitMQ.Exchange}}

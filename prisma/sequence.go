@@ -54,18 +54,18 @@ func (c *RunClient) load(ctx context.Context, id string) (*db.RunModel, error) {
 	).With(
 		db.Run.Steps.Fetch().With(
 			db.Step.Action.Fetch().With(
-				db.Action.Constants.Fetch(),
+				db.Action.Constants.Fetch().With(
+					db.Constant.Field.Fetch().With(),
+				),
 			).With(
 				db.Action.Device.Fetch().With(
 					db.Device.Nets.Fetch(),
 				).With(
-					db.Device.Actions.Fetch().With(),
-				).With(
 					db.Device.Instances.Fetch(),
-				),
+				).With(),
 			).With(
 				db.Action.Event.Fetch().With(
-					db.Event.Fields.Fetch(),
+					db.Event.Fields.Fetch().With(),
 				).With(
 					db.Event.Transitions.Fetch(),
 				),

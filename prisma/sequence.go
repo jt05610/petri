@@ -2,6 +2,7 @@ package prisma
 
 import (
 	"context"
+	"github.com/jt05610/petri/control"
 	"github.com/jt05610/petri/device"
 	"github.com/jt05610/petri/labeled"
 	"github.com/jt05610/petri/prisma/db"
@@ -42,15 +43,7 @@ func (c *RunClient) load(ctx context.Context, id string) (*db.RunModel, error) {
 	return c.Run.FindUnique(
 		db.Run.ID.Equals(id),
 	).With(
-		db.Run.Net.Fetch().With(
-			db.Net.Places.Fetch(),
-		).With(
-			db.Net.Transitions.Fetch(),
-		).With(
-			db.Net.Arcs.Fetch(),
-		).With(
-			db.Net.Children.Fetch(),
-		),
+		db.Run.Net.Fetch(),
 	).With(
 		db.Run.Steps.Fetch().With(
 			db.Step.Action.Fetch().With(
@@ -144,15 +137,26 @@ func ToStep(s *db.StepModel) *sequence.Step {
 	}
 }
 
+func ToMarking(n *db.NetModel) control.Marking {
+	ret := make(control.Marking, len(n.Places()))
+	places := n.Places()
+	for i, m := range n.InitialMarking {
+		ret[places[i].ID] = m
+	}
+	return ret
+}
+
 func ToSequence(r *db.RunModel) *sequence.Sequence {
 	steps := make([]*sequence.Step, len(r.Steps()))
 	for i, step := range r.Steps() {
 		steps[i] = ToStep(&step)
 	}
 	return &sequence.Sequence{
-		ID:          r.ID,
-		Name:        r.Name,
-		Description: r.Description,
-		Steps:       steps,
+		ID:             r.ID,
+		Name:           r.Name,
+		NetID:          r.NetID,
+		Description:    r.Description,
+		Steps:          steps,
+		InitialMarking: ToMarking(r.Net()),
 	}
 }

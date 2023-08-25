@@ -19,6 +19,10 @@ const (
 	Boolean FieldType = "boolean"
 )
 
+func ErrMissingParameter(f *Field, e *Event) error {
+	return fmt.Errorf(`event "%s" is missing a %s value for the "%s" field`, e.Name, f.Type, f.Name)
+}
+
 type Field struct {
 	Name string
 	Type FieldType

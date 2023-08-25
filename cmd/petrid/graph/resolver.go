@@ -13,6 +13,7 @@ import (
 type Resolver struct {
 	*prisma.SessionClient
 	*prisma.RunClient
+	*prisma.NetClient
 	*client.Controller
 	eventCh <-chan *control.Event
 }

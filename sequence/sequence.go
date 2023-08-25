@@ -2,8 +2,10 @@ package sequence
 
 import (
 	"context"
+	"github.com/jt05610/petri/control"
 	"github.com/jt05610/petri/device"
 	"github.com/jt05610/petri/labeled"
+	"github.com/jt05610/petri/marked"
 )
 
 type Constant struct {
@@ -14,16 +16,20 @@ type Constant struct {
 type Action struct {
 	Constants  []*Constant
 	Parameters map[string]*Parameter
+	setParams  int
 	*device.Device
 	Event *labeled.Event
 }
 
-func (a *Action) ApplyParameters(params map[string]interface{}) {
+func (a *Action) ApplyParameters(params map[string]interface{}) error {
 	for _, p := range a.Parameters {
 		if val, ok := params[p.Field.Name]; ok {
 			p.Value = val
+		} else {
+			return labeled.ErrMissingParameter(p.Field, a.Event)
 		}
 	}
+	return nil
 }
 
 func (a *Action) ExtractParameters() {
@@ -43,18 +49,30 @@ type Step struct {
 }
 
 type Sequence struct {
-	ID          string
-	Name        string
-	Description string
-	CurrentStep int
-	Running     bool
-	Steps       []*Step
+	ID             string
+	InitialMarking control.Marking
+	NetID          string
+	Net            *labeled.Net
+	Name           string
+	Description    string
+	CurrentStep    int
+	Running        bool
+	Steps          []*Step
 }
 
-func (s *Sequence) ApplyParameters(params map[string]interface{}) {
+func (s *Sequence) ApplyNet(net *marked.Net) error {
+	s.Net = labeled.New(net)
+	return nil
+}
+
+func (s *Sequence) ApplyParameters(params map[string]interface{}) error {
 	for _, step := range s.Steps {
-		step.ApplyParameters(params)
+		err := step.ApplyParameters(params)
+		if err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 func (s *Sequence) ExtractParameters() {
@@ -69,6 +87,14 @@ func (s *Sequence) SetInstance(deviceID string, i *device.Instance) {
 			step.Device.Instance = i
 		}
 	}
+}
+
+func (s *Sequence) Events() []*labeled.Event {
+	ret := make([]*labeled.Event, len(s.Steps))
+	for _, step := range s.Steps {
+		ret = append(ret, step.Event)
+	}
+	return ret
 }
 
 type Parameter struct {

@@ -21,6 +21,14 @@ func (r *mutationResolver) NewSession(ctx context.Context, input model.NewSessio
 	}
 	devices := run.Devices()
 	r.Sequence = run
+	net, err := r.NetClient.Load(ctx, run.NetID)
+	if err != nil {
+		return nil, err
+	}
+	err = r.Sequence.ApplyNet(net)
+	if err != nil {
+		return nil, err
+	}
 	r.Sequence.ExtractParameters()
 	if len(input.Instances) != len(devices) {
 		return nil, errors.New("wrong number of instances")
@@ -140,7 +148,14 @@ func (r *queryResolver) Devices(ctx context.Context, filter *string) ([]*model.D
 
 // StartSession is the resolver for the startSession field.
 func (r *subscriptionResolver) StartSession(ctx context.Context, input model.StartSessionInput) (<-chan *model.Event, error) {
-	r.Sequence.ApplyParameters(input.Parameters)
+	err := r.Sequence.ApplyParameters(input.Parameters)
+	if err != nil {
+		return nil, err
+	}
+	err = r.DevicesReady()
+	if err != nil {
+		return nil, err
+	}
 	ret := make(chan *model.Event)
 	go func() {
 		defer close(ret)

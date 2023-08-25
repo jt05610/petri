@@ -6,9 +6,6 @@ import (
 	"fmt"
 	"github.com/joho/godotenv"
 	"github.com/jt05610/petri"
-	"github.com/jt05610/petri/amqp/client"
-	"github.com/jt05610/petri/amqp/server"
-	"github.com/jt05610/petri/control"
 	"github.com/jt05610/petri/labeled"
 	"github.com/jt05610/petri/marked"
 	"github.com/jt05610/petri/prisma"
@@ -16,63 +13,9 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 	"log"
 	"os"
-	"strconv"
 	"strings"
-	"sync"
 	"time"
 )
-
-func fLower(s string) string {
-	return strings.ToLower(s[:1]) + s[1:]
-}
-
-func event(model *db.EventModel) *labeled.Event {
-	fields := make([]*labeled.Field, len(model.Fields()))
-	for i, f := range model.Fields() {
-		fields[i] = &labeled.Field{
-			Name: fLower(f.Name),
-			Type: labeled.FieldType(f.Type),
-		}
-	}
-	return &labeled.Event{
-		Name:   model.Name,
-		Data:   nil,
-		Fields: fields,
-	}
-}
-
-func makeHandler(eN string) labeled.Handler {
-	return func(ctx context.Context, event *labeled.Event) (*labeled.Event, error) {
-		fmt.Printf("Handling event %s with handler %s\n", event.Name, eN)
-		return event, nil
-	}
-}
-
-type Controller struct {
-	*client.Controller
-	nets   map[string]*labeled.Net
-	net    *labeled.Net
-	run    *db.RunModel
-	events []*labeled.Event
-}
-
-func echoHandlers(n *labeled.Net) control.Handlers {
-	handlers := make(control.Handlers)
-	for _, e := range n.Events {
-		handlers[snakeCase(e.Name)] = makeHandler(e.Name)
-	}
-	return handlers
-}
-
-func NewController(events []*labeled.Event, ch *amqp.Channel, exchange string, nets map[string]*labeled.Net, net *labeled.Net, model *db.RunModel, routes map[string]string) *Controller {
-	return &Controller{
-		Controller: client.NewController(ch, exchange, routes),
-		net:        net,
-		nets:       nets,
-		run:        model,
-		events:     events,
-	}
-}
 
 func load(netClient *prisma.NetClient, runClient *prisma.RunClient, ch *amqp.Channel, exchange string, routes ...map[string]string) *Controller {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -101,66 +44,6 @@ func load(netClient *prisma.NetClient, runClient *prisma.RunClient, ch *amqp.Cha
 		rm = make(map[string]string)
 	} else {
 		rm = routes[0]
-	}
-
-	for i, step := range run.Steps() {
-		events[i] = event(step.Action().Event())
-
-		step.Action().Event().Transitions()
-		fmt.Println(events[i])
-		if len(routes) == 0 {
-			rm[step.Action().Device().ID] = step.Action().Device().Instances()[0].ID
-		}
-		for _, t := range step.Action().Event().Transitions() {
-			idxConstants := make(map[string]interface{})
-			for _, c := range step.Action().Constants() {
-				idxConstants[c.FieldID] = c.Value
-			}
-			if len(events[i].Fields) > 0 {
-				fmt.Println("Adding fieldData")
-				fieldData := make(map[string]interface{})
-				for _, f := range step.Action().Event().Fields() {
-					if val, ok := idxConstants[f.ID]; ok {
-						if f.Type == "string" {
-							fieldData[fLower(f.Name)] = val
-						}
-						if f.Type == "number" {
-							floatVal, err := strconv.ParseFloat(val.(string), 64)
-							if err != nil {
-								panic(err)
-							}
-							fieldData[fLower(f.Name)] = floatVal
-						}
-						if f.Type == "boolean" {
-							boolVal, err := strconv.ParseBool(val.(string))
-							if err != nil {
-								panic(err)
-							}
-							fieldData[fLower(f.Name)] = boolVal
-						}
-						continue
-					}
-					log.Fatalf("Missing fieldData for field %s", f.Name)
-				}
-				events[i].Data = fieldData
-				if !events[i].IsValid() {
-					panic("Invalid event")
-				}
-
-			}
-			for _, nt := range net.Transitions {
-				if nt.ID == t.ID {
-
-					err := ln.AddHandler(events[i].Name, nt, makeHandler(events[i].Name))
-					if err != nil {
-						panic(err)
-					}
-				}
-			}
-		}
-		if err != nil {
-			panic(err)
-		}
 	}
 
 	ok := labeled.ValidSequence(ln, events)
@@ -285,53 +168,6 @@ func main() {
 		}
 	}
 
-	devNameFromID := make(map[string]string)
-	var mu sync.Mutex
-	for devID, instanceID := range c.Routes {
-		go func(devID, instanceID string) {
-			fmt.Printf("Starting mock instance %s for device %s\n", instanceID, devID)
-			srvConn, err := amqp.Dial(uri)
-			if err != nil {
-				panic(err)
-			}
-			srvCh, err := srvConn.Channel()
-			if err != nil {
-				panic(err)
-			}
-			h := make(map[string]labeled.Handler)
-			for _, s := range c.run.Steps() {
-				if s.Action().Device().ID == devID && s.Action().Device().Instances()[0].ID == instanceID {
-					h[snakeCase(s.Action().Event().Name)] = makeHandler(s.Action().Event().Name)
-				}
-			}
-			// maps event names to transitions
-			for _, s := range c.run.Steps() {
-				if s.Action().Device().ID == devID && s.Action().Device().Instances()[0].ID == instanceID {
-					mu.Lock()
-					devNameFromID[devID] = s.Action().Device().Name
-					mu.Unlock()
-					for _, t := range s.Action().Event().Transitions() {
-						devNet, found := deviceNetIndex[devID]
-						if !found {
-							panic("Device net not found")
-						}
-						if devNet.Transitions == nil {
-							continue
-						}
-						for _, nt := range deviceNetIndex[devID].Transitions {
-							if nt.ID == t.ID {
-								eventMap[snakeCase(s.Action().Event().Name)] = nt
-							}
-						}
-					}
-				}
-			}
-
-			srv := server.New(deviceNetIndex[devID], srvCh, exchange, instanceID, eventMap, h)
-			srv.Listen(ctx)
-			<-done
-		}(devID, instanceID)
-	}
 	expectedInitial := c.net.MarkingMap()
 	// make sure devices are ready
 	for _, dev := range c.Routes {

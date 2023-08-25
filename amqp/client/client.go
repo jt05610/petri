@@ -40,12 +40,52 @@ type Controller struct {
 	q               *amqpGo.Queue
 	Routes          map[string]*Instance
 	Sequence        *sequence.Sequence
+	Net             *db.NetModel
 	Known           map[string]map[string]*Instance
 	exchange        string
 }
 
 func (c *Controller) Close() {
 	c.discoveryCancel()
+}
+
+func (c *Controller) ActualMarking() control.Marking {
+	ret := make(control.Marking)
+	for _, v := range c.Known {
+		for _, i := range v {
+			for k, v := range i.marking {
+				ret[k] = v
+			}
+		}
+	}
+	return ret
+}
+
+func (c *Controller) MarkingIs(marking control.Marking) bool {
+	actual := c.ActualMarking()
+	for k, v := range marking {
+		if actual[k] != v {
+			return false
+		}
+	}
+	return true
+}
+
+func (c *Controller) DevicesReady() error {
+	if !c.MarkingIs(c.Sequence.InitialMarking) {
+		return errors.New("initial marking incorrect")
+	}
+	return nil
+}
+
+func (c *Controller) ValidSequence() error {
+	if c.Sequence == nil {
+		return errors.New("no sequence")
+	}
+	if !labeled.ValidSequence(c.Sequence.Net, c.Sequence.Events()) {
+		return errors.New("invalid sequence")
+	}
+	return nil
 }
 
 func (c *Controller) Discover() error {
@@ -124,43 +164,6 @@ func NewController(ch *amqpGo.Channel, exchange string) *Controller {
 	}
 	c.runDiscoverLoop(context.Background())
 	return c
-}
-
-func (c *Controller) sendPing(ctx context.Context, deviceID string) error {
-	return c.ch.PublishWithContext(
-		ctx,
-		c.exchange,            // exchange
-		deviceID+".state.get", // routing key
-		false,                 // mandatory
-		false,                 // immediate
-		amqpGo.Publishing{
-			ContentType:  "application/json",
-			DeliveryMode: amqpGo.Persistent,
-			Body:         []byte{},
-		},
-	)
-}
-
-func (c *Controller) Ping(ctx context.Context, deviceID string) (control.Marking, error) {
-	retries := 3
-	for i := 0; i < retries; i++ {
-		err := c.sendPing(ctx, deviceID)
-		if err != nil {
-			return nil, err
-		}
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		case <-time.After(time.Duration(1) * time.Second):
-			continue
-		case recv := <-c.dataCh:
-			if recv.From != deviceID {
-				continue
-			}
-			return recv.Marking, nil
-		}
-	}
-	return nil, errors.New("ping timed out")
 }
 
 func (c *Controller) Send(ctx context.Context, cmd *control.Command) error {

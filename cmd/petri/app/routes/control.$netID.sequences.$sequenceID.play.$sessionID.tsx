@@ -1,4 +1,4 @@
-import { PetriNetContext, SessionProvider } from "~/context";
+import { SessionProvider } from "~/context";
 import { useContextSelector } from "use-context-selector";
 import type { LoaderArgs } from "@remix-run/node";
 import { getRunSession } from "~/models/net.run.session.server";
@@ -9,6 +9,7 @@ import { json } from "@remix-run/node";
 import Player from "~/lib/components/player";
 import { Suspense } from "react";
 import { SessionControl } from "~/lib/components/sessionControl";
+import { PetriNetContext } from "~/lib/context/petrinet";
 
 export const loader = async ({ params, request }: LoaderArgs) => {
   const { sessionID } = params;
@@ -20,14 +21,19 @@ export const loader = async ({ params, request }: LoaderArgs) => {
 
 export default function PlaySequence() {
   const { session } = useLoaderData<typeof loader>();
-  const petriNet = useContextSelector(PetriNetContext, (context) => context?.petriNet);
-  const marking = useContextSelector(PetriNetContext, (context) => context?.marking);
+  const {
+    petriNet,
+    marking
+  } = useContextSelector(PetriNetContext, (context) => context ? context.petriNet || {} : {
+    petriNet: undefined,
+    marking: undefined
+  });
   return (
     <SessionProvider sessionDetails={session}>
       <div className={"flex flex-col h-screen w-full items-center justify-items-center"}>
         <div className={"h-7/10 w-full"}>
           <Suspense fallback={<div>Loading controls</div>}>
-            {petriNet && <SessionControl net={petriNet!} />}
+            {petriNet && <SessionControl />}
           </Suspense>
         </div>
         <div className={"h-3/10 w-full"}>

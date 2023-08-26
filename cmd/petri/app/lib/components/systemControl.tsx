@@ -1,6 +1,6 @@
 import { useContextSelector } from "use-context-selector";
-import { PetriNetContext, RecordRunContext, RunActionType } from "~/context";
-import { Suspense, useEffect, useState } from "react";
+import { RecordRunContext, RunActionType } from "~/context";
+import { Suspense, useState } from "react";
 import { MarkedNet } from "~/lib/components/markedNet";
 import { parse } from "@conform-to/zod";
 import { z } from "zod";
@@ -8,6 +8,7 @@ import type { ActionInputDisplay, ConstantInputDisplay } from "~/models/net.run.
 import type { EventDetails } from "~/models/net.transition.event.server";
 import type { Event } from "@prisma/client";
 import Timeline from "~/lib/components/timeline";
+import { PetriNetActionType, PetriNetContext } from "~/lib/context/petrinet";
 
 export const makeZodSchema = (fields: {
   id: string
@@ -49,42 +50,19 @@ type EventData = {
   }[]
 }
 
-export function SystemControl() {
-  const net = useContextSelector(PetriNetContext, (context) => context?.petriNet);
-  const marking = useContextSelector(PetriNetContext, (context) => context?.marking);
+export function SystemControl(props: {}) {
+  const net = useContextSelector(PetriNetContext, (context) => context);
   const run = useContextSelector(RecordRunContext, (context) => context?.run);
   const dispatch = useContextSelector(RecordRunContext, (context) => context?.dispatch);
-  const setMarking = useContextSelector(PetriNetContext, (context) => context?.setMarking);
-  const [enabledEvents, setEnabledEvents] = useState<{
-    [eventID: string]: boolean
-  }>({} as {
-    [eventID: string]: boolean
-  });
   const [selectedInstances, setSelectedInstances] = useState<{
     [deviceID: string]: string
   }>({} as {
     [deviceID: string]: string
   });
 
-  const handleUpdateEvents = (data: {
-    [eventID: string]: boolean
-  }) => {
-    setEnabledEvents(data);
-  };
-
   const handleSelectChanged = (deviceID: string, instanceID: string) => {
     setSelectedInstances({ ...selectedInstances, [deviceID]: instanceID });
   };
-
-  useEffect(() => {
-    if (!net || !marking) return;
-    const enabledEvents = net.allEvents(marking).reduce((acc, event) => ({
-      ...acc,
-      [event.id]: net.eventEnabled(marking, event.id)
-    }), {});
-    setEnabledEvents(enabledEvents);
-    console.log("enabled events", enabledEvents);
-  }, [marking, net]);
 
   function handleEvent(event: EventData, deviceID: string, data: any) {
     if (!selectedInstances[deviceID]) {
@@ -92,8 +70,8 @@ export function SystemControl() {
       return;
     }
     console.log("handle event", event, deviceID, data);
-    if (!net || !marking || !setMarking) return;
-    if (!net.eventEnabled(marking, event.id)) {
+    if (!net) return;
+    if (!net.petriNet.net.eventEnabled(net.petriNet.marking, event.id)) {
       console.log("event not enabled");
       return;
     }
@@ -107,17 +85,21 @@ export function SystemControl() {
       };
     });
 
-    const newMarking = net.handleEvent(marking, event.id);
+    const newMarking = net.petriNet.net.handleEvent(net.petriNet.marking, event.id);
 
-    console.log(net.deviceIDFromInstanceID)
+    net.dispatch({
+      type: PetriNetActionType.UpdateMarking,
+      payload: newMarking
+    });
+
     // any data with the message is assumed to be a constant for this event
     const actionInput: ActionInputDisplay = {
       eventName: event.name,
       eventID: event.id,
       deviceId: deviceID,
       eventFields: event.fields,
-      input: marking,
-      output: newMarking,
+      input: net.petriNet.markingHistory[net.petriNet.markingHistory.length - 2],
+      output: net.petriNet.markingHistory[net.petriNet.markingHistory.length - 1],
       constants
     };
 
@@ -128,21 +110,20 @@ export function SystemControl() {
       type: RunActionType.ActionAdded,
       payload: actionInput
     });
-
-    setMarking(newMarking);
-    handleUpdateEvents(net.allEvents(newMarking).reduce((acc, event) => ({
-      ...acc,
-      [event.id]: net.eventEnabled(newMarking, event.id)
-    }), {}));
-
   }
 
   return (
     <div className={"flex flex-col h-screen w-full items-center justify-items-center"}>
-      <div className={"h-7/10 w-full"}>
-        <div className={"flex h-full w-full flex-row space-x-2 p-2"}>
+      <div className={"w-full"}>
+        <div className={"flex h-full w-full flex-row space-x-2 p-2 overflow-y-scroll"}>
           <div className={"flex w-full flex-col space-y-2"}>
-            {net && net.childDeviceEvents(marking!).map(({ id, name, instances, events }) => {
+            {net && net.petriNet.net.childDeviceEvents(net.petriNet.marking).map((
+              {
+                id,
+                name,
+                instances,
+                events
+              }) => {
               return (
                 <div
                   key={id}
@@ -207,9 +188,9 @@ export function SystemControl() {
                             })}
                             <button
                               className={`flex rounded-full px-2 py-1 font-medium text-white flex-grow-0 flex-shrink ${event.enabled ? "bg-green-700" : "bg-slate-900"} `}
-                              disabled={enabledEvents[event.id] !== null ? !enabledEvents[event.id] : true}
+                              disabled={net.petriNet.enabledEvents[event.id] !== null ? !net.petriNet.enabledEvents[event.id] : true}
                               type="submit"
-                            >{enabledEvents[event.id] ? "Send" : "Disabled"}</button>
+                            >{net.petriNet.enabledEvents[event.id] ? "Send" : "Disabled"}</button>
                           </form>
                         </div>
                       );
@@ -223,15 +204,15 @@ export function SystemControl() {
           <div
             className={"flex h-full w-full border-2 border-gray-900 rounded-xl items-center p-2 space-x-2"}
           >
-            {marking && net && <MarkedNet marking={marking} net={net} />}
+            {net && <MarkedNet marking={net.petriNet.marking} net={net.petriNet.net} />}
           </div>
         </div>
       </div>
-      <div className={"h-3/10 w-full"}>
+      <div className={"w-full"}>
         <Suspense fallback={<div>Loading...</div>}>
-        {marking && net && run &&
-          <Timeline sequence={run} />
-        }
+          {net && run &&
+            <Timeline sequence={run} />
+          }
         </Suspense>
       </div>
     </div>

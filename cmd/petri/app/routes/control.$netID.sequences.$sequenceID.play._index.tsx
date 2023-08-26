@@ -5,7 +5,6 @@ import { Form, useLoaderData, useNavigate } from "@remix-run/react";
 import { useContextSelector } from "use-context-selector";
 import type { FormEvent } from "react";
 import { Suspense, useRef } from "react";
-import { PetriNetContext } from "~/context";
 import { useMutation, useQuery } from "@apollo/client";
 import type { RunDetails, ConstantDetails, ActionDetails } from "~/models/net.run.server";
 import { getRunDetails } from "~/models/net.run.server";
@@ -20,6 +19,7 @@ import {
 } from "~/models/__generated__/graphql";
 import { parse } from "@conform-to/zod";
 import { z } from "zod";
+import { PetriNetContext } from "~/lib/context/petrinet";
 
 export const loader = async ({ params, request }: ActionArgs) => {
   const user = await requireUser(request);
@@ -77,8 +77,16 @@ function getParameters(run: RunDetails): Record<string, Parameter[]> {
 
 export default function PlaySequence() {
   const { run, runParams, user } = useLoaderData<typeof loader>();
-  const net = useContextSelector(PetriNetContext, (ctx) => ctx?.petriNet);
-  const marking = useContextSelector(PetriNetContext, (ctx) => ctx?.marking);
+  const {
+    net,
+    marking
+  } = useContextSelector(PetriNetContext, (ctx) => ctx ? {
+    net: ctx.petriNet.net,
+    marking: ctx.petriNet.marking
+  } || {} : {
+    net: undefined,
+    marking: undefined
+  });
   const paramRecord = useRef<Record<string, any>>({});
   const sessions = useQuery(
     SessionsDocument, { variables: { runID: run.id } }

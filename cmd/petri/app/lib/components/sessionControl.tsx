@@ -1,17 +1,13 @@
-import type { PetriNet } from "~/util/petrinet";
 import { useContextSelector } from "use-context-selector";
-import { PetriNetContext, RunSessionContext, SessionActionType } from "~/context";
-import { useState } from "react";
+import { RunSessionContext, SessionActionType } from "~/context";
 import { MarkedNet } from "~/lib/components/markedNet";
 import type { Event } from "@prisma/client";
+import { PetriNetActionType, PetriNetContext } from "~/lib/context/petrinet";
 
-type SystemControlProps = {
-  net: PetriNet
-}
 
-export function SessionControl(props: SystemControlProps) {
-  const marking = useContextSelector(PetriNetContext, (context) => context?.marking);
-  const setMarking = useContextSelector(PetriNetContext, (context) => context?.setMarking);
+export function SessionControl() {
+  const net = useContextSelector(PetriNetContext, (context) => context?.petriNet);
+  const netDispatch = useContextSelector(PetriNetContext, (context) => context?.dispatch);
   const session = useContextSelector(RunSessionContext, (context) => context?.session);
   const dispatch = useContextSelector(RunSessionContext, (context) => context?.dispatch);
 
@@ -35,11 +31,11 @@ export function SessionControl(props: SystemControlProps) {
 
   function handleEvent(event: Pick<Event, "id" | "name">, deviceID: string, data: any) {
     console.log("handle event", event, deviceID, data);
-    if (!props.net || !marking || !setMarking) return;
-    const newMarking = props.net.handleEvent(marking, event.id);
+    if (!net || !netDispatch) return;
+    const newMarking = net.net.handleEvent(net.marking, event.id);
     //const instance = selectedInstances[deviceID];
     //socket?.emit("command", { data, input: marking, output: newMarking, deviceID: instance, command: event.name.replace(/\s/g, "_").toLowerCase() } as Command);
-    setMarking(newMarking);
+    netDispatch({ type: PetriNetActionType.UpdateMarking, payload: newMarking });
   }
 
   const handleStartActionClicked = () => {
@@ -65,7 +61,7 @@ export function SessionControl(props: SystemControlProps) {
 
   return (
     <div className={"flex w-full flex-col space-y-2"}>
-      {marking && <MarkedNet marking={marking} net={props.net} />}
+      {net && <MarkedNet marking={net.marking} net={net.net} />}
       <div className={"flex flex-row space-x-2"}>
         <button className={"rounded-full p-2"} onClick={handleInitializeClicked}>
           Initialize

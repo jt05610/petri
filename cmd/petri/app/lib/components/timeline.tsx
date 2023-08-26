@@ -1,10 +1,10 @@
-import { PetriNetContext } from "~/context";
 import { useContextSelector } from "use-context-selector";
 import type {
   RunInputDisplay
 } from "~/models/net.run.server";
 import { RecordRunGridView } from "~/lib/components/displayGrid";
 import { useState } from "react";
+import { PetriNetContext } from "~/lib/context/petrinet";
 
 
 type RunViewProps = {
@@ -37,14 +37,14 @@ export default function Timeline({ sequence }: TimelineProps) {
       headers: {
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({ ...sequence, name: name})
+      body: JSON.stringify({ ...sequence, name: name })
     }).then((res) => res.json()).then((res) => {
       console.log("response", res);
     });
   }
 
   return (
-    <div className={"w-full h-3/10 bottom-0 space-x-2"} >
+    <div className={"w-full h-3/10 bottom-0 space-x-2"}>
       <h4>Timeline</h4>
       <label
         htmlFor={"name"}
@@ -68,7 +68,7 @@ export default function Timeline({ sequence }: TimelineProps) {
         sequence && <RunView
           minCols={10}
           minRows={2}
-          deviceNames={petriNet?.devices.map((d) => d.name) ?? []}
+          deviceNames={petriNet?.net.devices.map((d) => d.name) ?? []}
           sequence={sequence}
         />
       }

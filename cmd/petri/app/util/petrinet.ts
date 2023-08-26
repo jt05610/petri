@@ -6,6 +6,7 @@ import type {
   TransitionWithEvents
 } from "~/models/net.server";
 import type { ColorProfile } from "~/lib/components/markedNet";
+import cloneDeep from "lodash/cloneDeep";
 
 export type Marking = {
   [placeID: string]: number;
@@ -69,7 +70,7 @@ export class PetriNet {
           events: this.events
         });
         if (!device.instances) {
-          return
+          return;
         }
         device.instances.forEach(instance => {
           if (!this.net.devices || !instance.id) {
@@ -91,15 +92,15 @@ export class PetriNet {
               events: this.events
             });
             if (!device.instances) {
-              return
+              return;
             }
             device.instances.forEach(instance => {
               if (!child.devices || !instance.id) {
                 return;
               }
               this.deviceIDFromInstanceID[instance.id] = device.id;
-            })
-          })
+            });
+          });
         }
       });
     }
@@ -201,7 +202,7 @@ export class PetriNet {
               enabled: this.enabledTransitions(marking).some(transition => transition.events && transition.events.some(e => e.id === event.id))
             })))
           });
-        })
+        });
 
       }
     }
@@ -212,7 +213,7 @@ export class PetriNet {
     return this.enabledTransitions(marking).some(transition => transition.events && transition.events.some(event => event.id === eventID));
   }
 
-  fireEvent(marking: Marking, eventID: string): Marking {
+  fireEvent(marking: Marking, eventID: string) {
     const transition = this.net.transitions.find(transition => transition.events && transition.events.some(event => event.id === eventID));
     if (!transition) {
       throw new Error("Transition does not exist");
@@ -227,19 +228,18 @@ export class PetriNet {
     this.outputs(transition).forEach(arc => {
       marking[arc.placeID]++;
     });
-    return marking;
   }
 
   // handle the event and keep calling hot transitions until there are no more hot transitions
   handleEvent(marking: Marking, eventID: string): Marking {
-    let newMarking = marking;
+    let newMarking = cloneDeep(marking);
     if (!this.eventEnabled(newMarking, eventID)) {
       console.log("Event: " + eventID + " is not enabled");
       return newMarking;
     }
-    newMarking = this.fireEvent(marking, eventID);
+    this.fireEvent(newMarking, eventID);
     while (this.hotTransitions(newMarking).length > 0) {
-      newMarking = this.fire(newMarking, this.hotTransitions(newMarking)[0]);
+      this.fire(newMarking, this.hotTransitions(newMarking)[0]);
     }
     return newMarking;
   }

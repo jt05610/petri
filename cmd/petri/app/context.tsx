@@ -1,56 +1,13 @@
 import type { Dispatch, ReactNode, Reducer } from "react";
 import { createContext } from "use-context-selector";
-import { PetriNet } from "~/util/petrinet";
-import { useReducer, useState } from "react";
-import type { NetDetailsWithChildren } from "~/models/net.server";
+import type { PetriNet } from "~/util/petrinet";
+import { useReducer } from "react";
 import type {
   ActionInputDisplay,
   RunInputDisplay
 } from "~/models/net.run.server";
-import type { Place, PrismaClient } from "@prisma/client";
 import type { DataListItem } from "~/models/net.run.session.data.server";
 import type { RunSessionDetails } from "~/models/net.run.session.server";
-import { useMutation } from "@apollo/client";
-
-export const PrismaContext = createContext<PrismaClient | undefined>(undefined);
-
-export type PrismaProviderProps = {
-  prisma: PrismaClient;
-  children: ReactNode;
-}
-
-export function PrismaProvider({ prisma, children }: PrismaProviderProps) {
-  return <PrismaContext.Provider value={prisma}>{children}</PrismaContext.Provider>;
-}
-export const PetriNetContext = createContext<({
-  petriNet: PetriNet;
-  marking: {
-    [key: string]: number
-  };
-  setMarking: (marking: {
-    [key: string]: number
-  }) => void;
-}) | null>(null);
-
-type PetriNetProviderProps = {
-  net: NetDetailsWithChildren;
-  children: ReactNode;
-}
-const netMarking = (places: Pick<Place, "id">[], initial: number[]) => {
-  return places.map((p, i) => [p.id, initial[i]]).reduce((acc, [id, tokens]) => ({ ...acc, [id]: tokens }), {});
-};
-
-export function PetriNetProvider({ net, children }: PetriNetProviderProps) {
-  const [petriNet] = useState<PetriNet>((net.devices && net.devices.length > 0) ? new PetriNet(net) : new PetriNet(net).combinedNet);
-  const [marking, setMarking] = useState<{
-    [key: string]: number
-  }>(netMarking(petriNet.net.places, petriNet.net.initialMarking));
-  return (
-    <PetriNetContext.Provider value={{ petriNet, marking, setMarking }}>
-      {children}
-    </PetriNetContext.Provider>
-  );
-}
 
 export const RecordRunContext = createContext<({
   run: RunInputDisplay;

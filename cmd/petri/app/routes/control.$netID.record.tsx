@@ -4,10 +4,8 @@ import { requireUserId } from "~/session.server";
 import invariant from "tiny-invariant";
 import { getNet } from "~/models/net.server";
 import { Outlet, useLoaderData } from "@remix-run/react";
-import {
-  PetriNetProvider
-} from "~/context";
 import { getUserById } from "~/models/user.server";
+import { PetriNetProvider } from "~/lib/context/petrinet";
 
 export const action = async ({ params, request }: ActionArgs) => {
   const userID = await requireUserId(request);
@@ -30,8 +28,6 @@ export const loader = async ({ params, request }: LoaderArgs) => {
   }
   return json({ net: net });
 };
-
-
 export default function ControlSystemPage() {
   const { net } = useLoaderData<typeof loader>();
 
@@ -39,9 +35,9 @@ export default function ControlSystemPage() {
     <div>
       <h1>Control</h1>
       <main>
-          <PetriNetProvider net={net}>
-            <Outlet />
-          </PetriNetProvider>
+        <PetriNetProvider net={net}>
+          <Outlet />
+        </PetriNetProvider>
       </main>
     </div>
   );

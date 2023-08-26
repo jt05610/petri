@@ -1,8 +1,9 @@
 import type { ReactNode } from "react";
 import type { ConstantInput, RunDetails, RunInputDisplay } from "~/models/net.run.server";
 import { useContextSelector } from "use-context-selector";
-import { PetriNetContext, RecordRunContext, RunActionType, RunSessionContext } from "~/context";
+import { RecordRunContext, RunActionType, RunSessionContext } from "~/context";
 import { BackspaceIcon } from "@heroicons/react/24/outline";
+import { PetriNetContext } from "~/lib/context/petrinet";
 
 type GridHeaderItemProps = {
   col: number
@@ -144,7 +145,7 @@ export default function RunGridView({ nCols, nRows, deviceNames, sequence }: Run
 
   const session = useContextSelector(RunSessionContext, (context) => context!.session);
 
-  const petriNet = useContextSelector(PetriNetContext, (context) => context!.petriNet);
+  const petriNet = useContextSelector(PetriNetContext, (context) => context!.petriNet.net);
   return (
     <div className="not-prose relative bg-slate-50 rounded-xl overflow-hidden dark:bg-slate-800/25">
       <h2>Progress: {`${session.activeIndex} of ${sequence.steps.length}`}</h2>
@@ -209,7 +210,7 @@ type RecordRunGridViewProps = {
 }
 
 export function RecordRunGridView({ nCols, nRows, deviceNames, sequence }: RecordRunGridViewProps) {
-  const petriNet = useContextSelector(PetriNetContext, (context) => context!.petriNet);
+  const petriNet = useContextSelector(PetriNetContext, (context) => context!.petriNet.net);
   return (
     <div className="not-prose relative bg-slate-50 rounded-xl overflow-hidden dark:bg-slate-800/25">
       <div
@@ -230,9 +231,9 @@ export function RecordRunGridView({ nCols, nRows, deviceNames, sequence }: Recor
                   }
                   if (sequence.actions[col - 1] !== undefined) {
                     const event = sequence.actions[col - 1];
-                    const intendedRow = petriNet!.deviceIndexFromID(event.deviceId) + 1;
+                    const intendedRow = petriNet.deviceIndexFromID(event.deviceId) + 1;
                     if (row === intendedRow) {
-                      const color = colorFromIndex(petriNet!.deviceIndexFromID(event.deviceId));
+                      const color = colorFromIndex(petriNet.deviceIndexFromID(event.deviceId));
                       return (
                         <GridCell key={`${row}.${col}`}>
                           <ActionDetails

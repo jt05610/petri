@@ -2,7 +2,6 @@ package prisma
 
 import (
 	"context"
-	"github.com/jt05610/petri/control"
 	"github.com/jt05610/petri/device"
 	"github.com/jt05610/petri/labeled"
 	"github.com/jt05610/petri/prisma/db"
@@ -79,6 +78,7 @@ func ToEvent(e *db.EventModel) *labeled.Event {
 		fields[i] = ToField(&f)
 	}
 	return &labeled.Event{
+		ID:     e.ID,
 		Name:   e.Name,
 		Fields: fields,
 	}
@@ -137,26 +137,16 @@ func ToStep(s *db.StepModel) *sequence.Step {
 	}
 }
 
-func ToMarking(n *db.NetModel) control.Marking {
-	ret := make(control.Marking, len(n.Places()))
-	places := n.Places()
-	for i, m := range n.InitialMarking {
-		ret[places[i].ID] = m
-	}
-	return ret
-}
-
 func ToSequence(r *db.RunModel) *sequence.Sequence {
 	steps := make([]*sequence.Step, len(r.Steps()))
 	for i, step := range r.Steps() {
 		steps[i] = ToStep(&step)
 	}
 	return &sequence.Sequence{
-		ID:             r.ID,
-		Name:           r.Name,
-		NetID:          r.NetID,
-		Description:    r.Description,
-		Steps:          steps,
-		InitialMarking: ToMarking(r.Net()),
+		ID:          r.ID,
+		Name:        r.Name,
+		NetID:       r.NetID,
+		Description: r.Description,
+		Steps:       steps,
 	}
 }

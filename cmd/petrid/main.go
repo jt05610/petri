@@ -4,19 +4,26 @@ import (
 	"context"
 	"errors"
 	"github.com/99designs/gqlgen/graphql/handler"
+	"github.com/99designs/gqlgen/graphql/handler/extension"
+	"github.com/99designs/gqlgen/graphql/handler/lru"
+	"github.com/99designs/gqlgen/graphql/handler/transport"
 	"github.com/99designs/gqlgen/graphql/playground"
 	"github.com/jt05610/petri/amqp/client"
 	"github.com/jt05610/petri/cmd/petrid/graph"
 	"github.com/jt05610/petri/cmd/petrid/graph/generated"
-	"github.com/jt05610/petri/prisma"
 	"github.com/jt05610/petri/prisma/db"
 	amqp "github.com/rabbitmq/amqp091-go"
+	"go.uber.org/zap"
 	"log"
 	"net/http"
 	"os"
 )
 
 func main() {
+	logger, err := zap.NewDevelopment()
+	if err != nil {
+		panic(err)
+	}
 	dbClient := db.NewClient()
 	if err := dbClient.Connect(); err != nil {
 		log.Fatal(err)
@@ -42,20 +49,29 @@ func main() {
 	if !found {
 		panic(errors.New("AMQP_EXCHANGE not set"))
 	}
-	controller := client.NewController(ch, exchange)
+	controller := client.NewController(logger, ch, exchange)
 	defer controller.Close()
 	controller.Listen(context.Background())
-	srv := handler.NewDefaultServer(
+	srv := handler.New(
 		generated.NewExecutableSchema(
 			generated.Config{
-				Resolvers: &graph.Resolver{
-					SessionClient: &prisma.SessionClient{PrismaClient: dbClient},
-					RunClient:     &prisma.RunClient{PrismaClient: dbClient},
-					Controller:    controller,
-				},
+				Resolvers: graph.NewResolver(dbClient, controller),
 			},
 		),
 	)
+	srv.AddTransport(transport.SSE{}) // <---- This is the important
+
+	// default server
+	srv.AddTransport(transport.Options{})
+	srv.AddTransport(transport.GET{})
+	srv.AddTransport(transport.POST{})
+	srv.AddTransport(transport.MultipartForm{})
+	srv.SetQueryCache(lru.New(1000))
+	srv.Use(extension.Introspection{})
+	srv.Use(extension.AutomaticPersistedQuery{
+		Cache: lru.New(100),
+	})
+
 	srv.SetRecoverFunc(func(ctx context.Context, err interface{}) (userMessage error) {
 		// send this panic somewhere
 		log.Print(err)

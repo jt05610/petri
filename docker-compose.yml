@@ -1,0 +1,70 @@
+version: "3.9"
+services:
+
+  db:
+    image: postgres
+    restart: always
+    ports:
+      - "5532:5532"
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: petri
+
+  web:
+    build: cmd/petri
+    ports:
+      - "8088:8088"
+    depends_on:
+      - db
+    environment:
+      DATABASE_URL: postgresql://user:password@db:5532/petri
+      RABBITMQ_EXCHANGE: topic_devices
+      RABBITMQ_URI: amqp://guest:guest@localhost:5672/
+      SESSION_SECRET: "super-duper-s3cret"
+      NODE_ENV: production
+
+  daemon:
+    build: .
+    depends_on:
+      - db
+      - rabbitmq
+    restart: always
+    ports:
+      - "8081:8081"
+    environment:
+      DATABASE_URL: postgresql://petri-dev:wY7B9svquGUQPGGDJeJEgngh3tiM4hi@localhost:5432/petri-dev
+      RABBITMQ_URI: amqp://jrt:GJWJLOABBoFnrE8xiUnSONfMLBzWn7m@SOP-4470A-1/petri
+      AMQP_EXCHANGE: topic_devices
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    restart: always
+    ports:
+      - "15672:15672"
+      - "5672:5672"
+    volumes:
+      - ~/.docker-conf/rabbitmq/data/:/var/lib/rabbitmq/
+      - ~/.docker-conf/rabbitmq/log/:/var/log/rabbitmq
+    networks:
+      - rabbitmq_go_net
+
+  caddy:
+    image: caddy:latest
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:
+
+networks:
+  rabbitmq_go_net:
+    driver: bridge

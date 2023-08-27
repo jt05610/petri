@@ -6,14 +6,6 @@ mutation NewSession($input: NewSessionInput!) {
     }
 }
 
-mutation StartSession($input: StartSessionInput!) {
-    startSession(input: $input) {
-        id
-        createdAt
-        updatedAt
-    }
-}
-
 mutation StopSession($input: ID!) {
     stopSession(sessionID: $input) {
         id
@@ -27,9 +19,15 @@ mutation StopSession($input: ID!) {
     }
 }
 
-mutation DeleteSession($input: ID!) {
-    deleteSession(sessionID: $input) {
-        message
-        errors
+mutation PauseSession($input: ID!) {
+    pauseSession(sessionID: $input) {
+        id
+        createdAt
+        updatedAt
+        events {
+            name
+            timestamp
+            data
+        }
     }
 }

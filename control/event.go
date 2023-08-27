@@ -6,7 +6,20 @@ import (
 	"strings"
 )
 
+type MarkingUpdate struct {
+	DeviceID string
+	Marking  Marking
+}
+
 type Marking map[string]int
+
+func (m *Marking) JSON() map[string]interface{} {
+	ret := make(map[string]interface{})
+	for k, v := range *m {
+		ret[k] = v
+	}
+	return ret
+}
 
 type Event struct {
 	*labeled.Event

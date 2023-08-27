@@ -30,6 +30,7 @@ type Field struct {
 
 type Event struct {
 	// The name of the event
+	ID     string
 	Name   string
 	Fields []*Field
 	// The data associated with the event

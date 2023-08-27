@@ -5,7 +5,7 @@ services:
     image: postgres
     restart: always
     ports:
-      - "5432:5432"
+      - "5678:5678"
     environment:
       POSTGRES_USER: user
       POSTGRES_PASSWORD: password
@@ -19,6 +19,7 @@ services:
     depends_on:
       - db
       - rabbitmq
+    restart: always
     environment:
       DATABASE_URL: postgresql://user:password@db:5432/petri
       RABBITMQ_EXCHANGE: topic_devices
@@ -27,7 +28,7 @@ services:
       NODE_ENV: production
 
   rabbitmq:
-    image: rabbitmq:3-management
+    image: rabbitmq:3
     restart: always
     ports:
       - "15672:15672"
@@ -37,7 +38,6 @@ services:
     image: caddy:latest
     restart: unless-stopped
     ports:
-      - "80:80"
       - "443:443"
       - "443:443/udp"
     volumes:

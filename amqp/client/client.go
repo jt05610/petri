@@ -7,9 +7,9 @@ import (
 	"github.com/jt05610/petri/amqp"
 	"github.com/jt05610/petri/control"
 	"github.com/jt05610/petri/labeled"
-	"github.com/jt05610/petri/prisma/db"
 	"github.com/jt05610/petri/sequence"
 	amqpGo "github.com/rabbitmq/amqp091-go"
+	"go.uber.org/zap"
 	"log"
 	"sync"
 	"time"
@@ -26,10 +26,11 @@ const MaxLiveness = 3
 type Instance struct {
 	ID       string
 	liveness int
-	marking  control.Marking
+	Marking  control.Marking
 }
 
 type Controller struct {
+	logger          *zap.Logger
 	ch              *amqpGo.Channel
 	mu              sync.Mutex
 	discoveryCtx    context.Context
@@ -39,8 +40,10 @@ type Controller struct {
 	dataCh          chan *control.Event
 	q               *amqpGo.Queue
 	Routes          map[string]*Instance
+	StepQueue       []*sequence.Step
+	CurrentStep     int
 	Sequence        *sequence.Sequence
-	Net             *db.NetModel
+	Net             *labeled.Net
 	Known           map[string]map[string]*Instance
 	exchange        string
 }
@@ -53,10 +56,19 @@ func (c *Controller) ActualMarking() control.Marking {
 	ret := make(control.Marking)
 	for _, v := range c.Known {
 		for _, i := range v {
-			for k, v := range i.marking {
+			for k, v := range i.Marking {
 				ret[k] = v
 			}
 		}
+	}
+	return ret
+}
+
+func (c *Controller) DeviceMarking() map[string]control.Marking {
+	ret := make(map[string]control.Marking)
+	for devID, instance := range c.Routes {
+		ret[devID] = make(control.Marking)
+		ret[devID] = instance.Marking
 	}
 	return ret
 }
@@ -73,7 +85,7 @@ func (c *Controller) MarkingIs(marking control.Marking) bool {
 
 func (c *Controller) DevicesReady() error {
 	if !c.MarkingIs(c.Sequence.InitialMarking) {
-		return errors.New("initial marking incorrect")
+		return errors.New("initial Marking incorrect")
 	}
 	return nil
 }
@@ -121,7 +133,7 @@ func (c *Controller) runDiscoverLoop(ctx context.Context) {
 	}()
 }
 
-func NewController(ch *amqpGo.Channel, exchange string) *Controller {
+func NewController(logger *zap.Logger, ch *amqpGo.Channel, exchange string) *Controller {
 	err := ch.Confirm(false)
 	failOnError(err, "Failed to set confirm mode")
 	err = ch.ExchangeDeclare(
@@ -154,6 +166,7 @@ func NewController(ch *amqpGo.Channel, exchange string) *Controller {
 		failOnError(err, "Failed to bind queue")
 	}
 	c := &Controller{
+		logger:   logger,
 		ch:       ch,
 		q:        &q,
 		cmd:      &amqp.CommandService{},
@@ -182,19 +195,70 @@ func (c *Controller) Send(ctx context.Context, cmd *control.Command) error {
 	)
 }
 
-func (c *Controller) Start(ctx context.Context, step *db.StepModel, data map[string]interface{}) error {
-	to, found := c.Routes[step.Action().Device().ID]
+func (c *Controller) Start(ctx context.Context) {
+	c.logger.Info("Starting sequence", zap.String("sequence", c.Sequence.Name))
+	c.StepQueue = make([]*sequence.Step, len(c.Sequence.Steps))
+	for i, step := range c.Sequence.Steps {
+		c.StepQueue[i] = step
+	}
+	c.CurrentStep = 0
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				step := c.StepQueue[0]
+				c.logger.Info("Starting step", zap.String("step", step.Name))
+				err := c.startStep(ctx, step, step.ParameterMap())
+				if err != nil {
+					log.Println(err)
+				}
+				done := <-c.dataCh
+				err = c.Net.Handle(ctx, done.Event)
+				if err != nil {
+					log.Println(err)
+				}
+				marking := c.Net.MarkingMap()
+				for id, v := range done.Marking {
+					expectMarking, found := marking[id]
+					if !found {
+						log.Fatalf("Marking for place with id %s not found", id)
+					}
+					if expectMarking != v {
+						placeName := ""
+						for _, p := range c.Net.Places {
+							if p.ID == id {
+								placeName = p.Name
+							}
+						}
+						log.Fatalf("Marking for place %s (id: %s) is %d, expected %d", placeName, id, marking[id], v)
+					}
+				}
+				c.StepQueue = c.StepQueue[1:]
+				c.CurrentStep++
+				if len(c.StepQueue) == 0 {
+					c.logger.Info("Sequence complete", zap.String("sequence", c.Sequence.Name))
+					return
+				}
+			}
+		}
+	}()
+}
+
+func (c *Controller) startStep(ctx context.Context, step *sequence.Step, data map[string]interface{}) error {
+	to, found := c.Routes[step.Device.ID]
 	if !found {
 		return errors.New("device not found")
 	}
 	cmd := &control.Command{
-		To: to.ID,
-		Event: &labeled.Event{
-			Name: step.Action().Event().Name,
-			Data: data,
-		},
+		To:    to.ID,
+		Event: step.Event,
 	}
-
+	err := step.ApplyParameters(data)
+	if err != nil {
+		return err
+	}
 	done := make(chan struct{})
 	var sendErr error
 	go func() {
@@ -226,15 +290,15 @@ func (c *Controller) registerInstance(deviceID, instanceID string, marking contr
 	}
 	if c.Known[deviceID][instanceID] != nil {
 		c.Known[deviceID][instanceID].liveness = MaxLiveness
-		c.Known[deviceID][instanceID].marking = marking
+		c.Known[deviceID][instanceID].Marking = marking
 		return
 	}
 	c.Known[deviceID][instanceID] = &Instance{
 		ID:       instanceID,
 		liveness: MaxLiveness,
-		marking:  marking,
+		Marking:  marking,
 	}
-	log.Printf("Registering instance %s for device %s with marking %v", instanceID, deviceID, marking)
+	log.Printf("Registering instance %s for device %s with Marking %v", instanceID, deviceID, marking)
 }
 
 func (c *Controller) pruneInstances() {
@@ -264,6 +328,9 @@ func (c *Controller) Listen(ctx context.Context) {
 	failOnError(err, "Failed to register a consumer")
 
 	go func() {
+		defer func() {
+			close(c.dataCh)
+		}()
 		for {
 			select {
 			case <-ctx.Done():

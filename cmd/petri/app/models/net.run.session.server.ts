@@ -1,6 +1,18 @@
 import { z } from "zod";
 import { prisma } from "~/db.server";
-import type { Event, Session, User, Datum, Run, Action } from "@prisma/client";
+import type {
+  Instance,
+  SessionState,
+  Constant,
+  Device,
+  Field,
+  Event,
+  Session,
+  User,
+  Datum,
+  Run,
+  Action
+} from "@prisma/client";
 
 export const RunSessionCreateInputSchema = z.object({
   runID: z.string().cuid(),
@@ -35,21 +47,34 @@ export const GetRunSessionInputSchema = z.object({
 
 export type GetRunSessionInput = z.infer<typeof GetRunSessionInputSchema>;
 
+export type DataListItem = Pick<Datum, "instanceID" | "value"> & {
+  createdAt: Date | string
+}
+
+
 export type RunSessionDetails = Pick<Session, "id"> & {
-  createdAt: Date | string,
-  updatedAt: Date | string,
+  createdAt: Date | string | null,
+  updatedAt: Date | string | null,
+  state: SessionState,
+  startedAt: Date | string | null,
+  stoppedAt: Date | string | null,
+  pausedAt: (Date | string)[],
+  resumedAt: (Date | string)[],
   user: Pick<User, "email">,
   run: Pick<Run, "name"> & {
     steps: {
       order: number,
-      action: (Pick<Action, "id" | "input" | "output" | "deviceId"> & {
-        event: Pick<Event, "id" | "name" | "description">
+      action: (Pick<Action, "id" | "input" | "output"> & {
+        event: (Pick<Event, "id" | "name" | "description"> & {
+          fields: Pick<Field, "id" | "name" | "type">[]
+        }),
+        device: Pick<Device, "id" | "name">
+        constants: (Pick<Constant, "id" | "value"> & { field: Pick<Field, "id" | "name" | "type"> })[]
       })
     }[]
   }
-  data: (Pick<Datum, "instanceID" | "value"> & {
-    createdAt: Date | string
-  }) [];
+  instances: (Pick<Instance, "name" | "id"> & { device: Pick<Device, "id" | "name"> })[]
+  data: DataListItem[];
 }
 
 export async function getRunSession(input: GetRunSessionInput): Promise<RunSessionDetails> {
@@ -65,8 +90,21 @@ export async function getRunSession(input: GetRunSessionInput): Promise<RunSessi
           email: true
         }
       },
+      instances: {
+        select: {
+          id: true,
+          name: true,
+          device: {
+            select: {
+              id: true,
+              name: true
+            }
+          }
+        }
+      },
       run: {
         select: {
+          id: true,
           name: true,
           steps: {
             select: {
@@ -81,7 +119,33 @@ export async function getRunSession(input: GetRunSessionInput): Promise<RunSessi
                     select: {
                       id: true,
                       name: true,
-                      description: true
+                      description: true,
+                      fields: {
+                        select: {
+                          id: true,
+                          name: true,
+                          type: true
+                        }
+                      }
+                    }
+                  },
+                  device: {
+                    select: {
+                      id: true,
+                      name: true
+                    }
+                  },
+                  constants: {
+                    select: {
+                      id: true,
+                      field: {
+                        select: {
+                          id: true,
+                          name: true,
+                          type: true
+                        }
+                      },
+                      value: true
                     }
                   }
                 }

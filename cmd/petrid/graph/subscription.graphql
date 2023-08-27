@@ -1,5 +1,5 @@
-subscription Events($id: ID!) {
-    event(sessionID: $id) {
+subscription Start($input: StartSessionInput!) {
+    startSession(input: $input) {
         name,
         timestamp,
         data

@@ -4,9 +4,8 @@ import { requireUser } from "~/session.server";
 import { Form, useLoaderData, useNavigate } from "@remix-run/react";
 import { useContextSelector } from "use-context-selector";
 import type { FormEvent } from "react";
-import { Suspense, useRef } from "react";
+import { Suspense } from "react";
 import { useMutation, useQuery } from "@apollo/client";
-import type { RunDetails, ConstantDetails, ActionDetails } from "~/models/net.run.server";
 import { getRunDetails } from "~/models/net.run.server";
 
 import type {
@@ -26,57 +25,16 @@ export const loader = async ({ params, request }: ActionArgs) => {
   const sequenceID = params.sequenceID;
   invariant(sequenceID, "sequenceID is required");
   const run = await getRunDetails({ runID: sequenceID });
-  const runParams = getParameters(run);
-  return { run, runParams, user };
+  // create an array of Devices with only the unique ones
+  const runDevices = run.steps.map(({ action }) => action.device).filter((device, index, self) => {
+    return self.findIndex((d) => d.id === device.id) === index;
+  });
+  return { run, user, runDevices };
 };
 
-type EventConstant = {
-  event: ActionDetails["event"]
-  order: number
-  constants: ConstantDetails[]
-  deviceID: string
-}
-
-type Parameter = {
-  order: number
-  eventID: string
-  deviceID: string
-  fieldID: string
-  fieldName: string
-  fieldType: "string" | "number" | "boolean" | "date" | string
-}
-
-function getParameters(run: RunDetails): Record<string, Parameter[]> {
-  // make all EventConstants from the run
-  const eventConstants: EventConstant[] = run.steps.map(({ action, order }) => {
-    return {
-      order,
-      deviceID: action.device.id,
-      event: action.event!,
-      constants: action.constants
-    };
-  });
-  const params: Record<string, Parameter[]> = {};
-  eventConstants.forEach(({ order, event, constants, deviceID }) => {
-    event.fields.forEach((field) => {
-      const constant = constants.find((constant) => constant.fieldID === field.id);
-      if (constant) return;
-      if (!params[deviceID]) params[deviceID] = [];
-      params[deviceID].push({
-        order,
-        eventID: event.id,
-        deviceID: deviceID,
-        fieldID: field.id,
-        fieldName: field.name,
-        fieldType: field.type
-      });
-    });
-  });
-  return params;
-}
 
 export default function PlaySequence() {
-  const { run, runParams, user } = useLoaderData<typeof loader>();
+  const { run, user, runDevices } = useLoaderData<typeof loader>();
   const {
     net,
     marking
@@ -87,13 +45,12 @@ export default function PlaySequence() {
     net: undefined,
     marking: undefined
   });
-  const paramRecord = useRef<Record<string, any>>({});
   const sessions = useQuery(
     SessionsDocument, { variables: { runID: run.id } }
   );
 
   const devices = useQuery(
-    DevicesDocument, { variables: { filter: "" } }
+    DevicesDocument, { variables: { filter: "" }, pollInterval: 1000 }
   );
   const [newSession] = useMutation(NewSessionDocument);
   const navigate = useNavigate();
@@ -110,13 +67,11 @@ export default function PlaySequence() {
     console.log(instances);
     formData.set("sequenceID", run.id);
     formData.set("userID", user.id);
-    formData.set("parameters", JSON.stringify(paramRecord.current));
     console.log(formData);
     const submission = parse(formData, {
       schema: z.object({
         sequenceID: z.string(),
         userID: z.string(),
-        parameters: z.preprocess((s) => JSON.parse(s as string), z.record(z.any()).optional()),
         instances: z.preprocess((instStrings) => {
           const instanceStrings = instStrings as string[];
           return instanceStrings.map((instString) => {
@@ -160,7 +115,7 @@ export default function PlaySequence() {
       <Suspense fallback={<div>Loading...</div>}>
         {net && marking &&
           <Form onSubmit={handleSubmit}>
-            {net.childDeviceEvents(marking!).map(({ id, name, instances, events }, index) => {
+            {runDevices.map(({ id, name }, index) => {
               return (
                 <div
                   key={index}
@@ -184,44 +139,6 @@ export default function PlaySequence() {
                         }
                       )}
                   </select>
-                  <h1 className={"text-lg font-semibold"}>Parameters</h1>
-                  {runParams && runParams[id] && runParams[id].map(({
-                                                                      order,
-                                                                      eventID,
-                                                                      fieldID,
-                                                                      fieldName,
-                                                                      fieldType
-                                                                    }, index) => {
-                    return (
-                      <div
-                        className={"flex flex-col space-y-2 border-md rounded-lg p-2"}
-                        key={index}
-                      >
-                        <div
-                          className={"m-2 flex flex-row space-x-2 items-center"}
-                        >
-                          <label
-                            className={"text-sm w-1/4 font-medium"}
-                            htmlFor={fieldID}
-                          >
-                            {`Step ${order} ${fieldName}`}
-                          </label>
-                          <input
-                            className={"w-3/4 rounded-full p-2"}
-                            name={`${order}.${eventID}.${fieldName}`}
-                            type={fieldType}
-                            onChange={(e) => {
-                              e.preventDefault();
-                              // turn the number into a json object of {key: value}
-                              // and add it to the parameters
-                              const key = `${fieldName}.${order}.${eventID}`;
-                              paramRecord.current[key] = e.currentTarget.value;
-                            }}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
                 </div>
               );
             })}

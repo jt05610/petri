@@ -7,7 +7,6 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/jt05610/petri"
 	"github.com/jt05610/petri/labeled"
-	"github.com/jt05610/petri/marked"
 	"github.com/jt05610/petri/prisma"
 	"github.com/jt05610/petri/prisma/db"
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -16,54 +15,6 @@ import (
 	"strings"
 	"time"
 )
-
-func load(netClient *prisma.NetClient, runClient *prisma.RunClient, ch *amqp.Channel, exchange string, routes ...map[string]string) *Controller {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	srv := runClient
-
-	res, err := srv.List(ctx)
-	if err != nil {
-		panic(err)
-	}
-
-	fst := res[0]
-	run, err := srv.Load(ctx, fst.ID)
-	if err != nil {
-		panic(err)
-	}
-
-	net, err := netClient.Load(ctx, run.NetID)
-
-	ln := labeled.New(net)
-
-	events := make([]*labeled.Event, len(run.Steps()))
-
-	var rm map[string]string
-	if len(routes) == 0 {
-		rm = make(map[string]string)
-	} else {
-		rm = routes[0]
-	}
-
-	ok := labeled.ValidSequence(ln, events)
-	if !ok {
-		panic("Invalid sequence")
-	}
-	fmt.Println("\n\nValid sequence")
-	for i, s := range run.Steps() {
-		fmt.Printf("\nStep %d\n", i+1)
-		fmt.Printf("  Action: %s\n", s.Action().Event().Name)
-		fmt.Printf("  Device: %s\n", s.Action().Device().Name)
-		fmt.Printf("  Addr: %s\n", s.Action().Device().Instances()[0].Addr)
-	}
-	lnm := make(map[string]*labeled.Net)
-	for _, n := range netClient.Nets {
-		mn := marked.NewFromMap(n, netClient.InitialMarking)
-		lnm[n.ID] = labeled.New(mn)
-	}
-	return NewController(events, ch, exchange, lnm, ln, run, rm)
-}
 
 func snakeCase(s string) string {
 	return strings.ToLower(strings.ReplaceAll(s, " ", "_"))

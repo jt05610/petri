@@ -1,9 +1,11 @@
 import type { ReactNode } from "react";
 import type { ConstantInput, RunDetails, RunInputDisplay } from "~/models/net.run.server";
 import { useContextSelector } from "use-context-selector";
-import { RecordRunContext, RunActionType, RunSessionContext } from "~/context";
+import { RecordRunContext, RunActionType } from "~/context";
 import { BackspaceIcon } from "@heroicons/react/24/outline";
 import { PetriNetContext } from "~/lib/context/petrinet";
+import type { Parameter } from "~/models/net.run.session.data.server";
+import { RunSessionContext, RunSessionActionType } from "~/lib/context/session";
 
 type GridHeaderItemProps = {
   col: number
@@ -35,16 +37,94 @@ function GridCell({ children }: GridCellProps) {
 }
 
 type GridRowProps = {
-  title?: string
+  children: ReactNode
   row: number
 }
 
-function GridHeaderCell({ title, row }: GridRowProps) {
+function GridHeaderCell({ children, row }: GridRowProps) {
   return (
     <div
-      className={`row-start-${row} col-start-1 border-slate-100 dark:border-slate-200/5 border-r text-xs p-1.5 text-right text-slate-400 uppercase sticky left-0 bg-white dark:bg-slate-800 font-medium`}>
-      {title || " "}
+      className={`col-start-1 border-slate-100 dark:border-slate-200/5 border-r text-xs p-1.5 text-right text-slate-400 uppercase sticky left-0 bg-white dark:bg-slate-800 font-medium`}>
+      {children}
     </div>
+  );
+}
+
+type ActionParamViewProps = {
+  deviceID: string
+  actionIndex: number
+  fields: {
+    [key: string]: string
+  }
+  constants: ConstantInput[]
+}
+
+function DeviceEditParamView({ deviceID, actionIndex, constants, fields }: ActionParamViewProps) {
+  const paramValues = useContextSelector(RunSessionContext, v => v?.session.parameters[deviceID][actionIndex]);
+  const dispatch = useContextSelector(RunSessionContext, v => v?.dispatch);
+
+  return (
+    <table className="table-auto w-full">
+      <thead>
+      <tr className={"text-xs font-medium"}>
+        <th>Name</th>
+        <th>Value</th>
+      </tr>
+      </thead>
+      <tbody>
+      {constants.map((constant, i) => {
+        return (
+          <tr key={i} className={"text-xs font-medium"}>
+            <td>{fields[constant.fieldID]}</td>
+            <td>{constant.value}</td>
+          </tr>
+        );
+      })}
+      {paramValues && Object.values(paramValues).map((param, i) => {
+          return (
+            <tr key={i} className={"text-xs font-medium"}>
+              <td>{param.parameter.fieldName}</td>
+              <td>
+                {
+                  param.parameter.fieldType === "boolean" ?
+                    <input
+                      type={"checkbox"}
+                      value={param.value ? "true" : "false"}
+                      onChange={(e) => {
+                        dispatch!({
+                          type: RunSessionActionType.ChangeParameter,
+                          payload: {
+                            parameter: param.parameter,
+                            value: e.target.value
+                          }
+                        });
+                      }
+                      }
+                    /> :
+                    <input
+                      className={"w-full bg-gray-900/20 rounded-full pt-0.5 pb-0.5 px-2"}
+                      type={"text"}
+                      value={param.value as string}
+                      onChange={(e) => {
+                        dispatch!({
+                          type: RunSessionActionType.ChangeParameter,
+                          payload: {
+                            parameter: param.parameter,
+                            value: e.target.value
+                          }
+                        });
+                      }
+                      }
+                    />
+                }
+              </td>
+            </tr>
+          );
+        }
+      )}
+
+      </tbody>
+    </table>
   );
 }
 
@@ -56,7 +136,7 @@ type ActionConstantViewProps = {
   constants: ConstantInput[]
 }
 
-function DeviceParameterView({ actionIndex, constants, fields }: ActionConstantViewProps) {
+function DeviceEditConstantView({ actionIndex, constants, fields }: ActionConstantViewProps) {
   const dispatch = useContextSelector(RecordRunContext, v => v?.dispatch);
   return (
     <table className="table-auto">
@@ -103,6 +183,7 @@ const colorFromIndex = (index: number): Color => {
 };
 
 type ActionDetailsProps = {
+  deviceID: string
   index: number
   color: Color
   name: string,
@@ -110,9 +191,10 @@ type ActionDetailsProps = {
     [key: string]: string
   }
   constants: ConstantInput[]
+  playback?: boolean
 }
 
-function ActionDetails({ index, color, name, constants, fields }: ActionDetailsProps) {
+function ActionDetails({ deviceID, index, color, name, constants, fields, playback }: ActionDetailsProps) {
   const deviceEventColors = {
     teal: "bg-teal-400/20 dark:bg-cyan-600/50 border-teal-700/10 dark:border-cyan-500 text-teal-600 dark:text-cyan-100",
     yellow: "bg-yellow-400/20 dark:bg-amber-600/50 border-yellow-700/10 dark:border-amber-500 text-yellow-600 dark:text-amber-100",
@@ -124,10 +206,12 @@ function ActionDetails({ index, color, name, constants, fields }: ActionDetailsP
 
   };
   return (
-    <div className={`m-1 p-2 text-sm rounded-lg flex flex-col ${deviceEventColors[color]}`}>
-      <span className="text-sm font-medium">{name}</span>
+    <div className={`relative m-1 p-2 text-sm rounded-lg flex flex-col max-w-lg ${deviceEventColors[color]}`}>
+      <span className="w-full text-sm font-medium">{name}</span>
       {constants.length > 0 && (
-        <DeviceParameterView constants={constants} fields={fields} actionIndex={index} />
+        playback ?
+          <DeviceEditParamView deviceID={deviceID} constants={constants} fields={fields} actionIndex={index} /> :
+          <DeviceEditConstantView constants={constants} fields={fields} actionIndex={index} />
       )}
     </div>
   );
@@ -135,20 +219,25 @@ function ActionDetails({ index, color, name, constants, fields }: ActionDetailsP
 
 
 type RunGridViewProps = {
-  nCols: number
-  nRows: number
-  sequence: RunDetails
-  deviceNames: string[]
+  nCols: number;
+  nRows: number;
+  sequence: RunDetails;
+  deviceNames: string[];
+  deviceMarkings?: {
+    [key: string
+      ]:
+      number;
+  },
+  parameters?: Parameter[];
 }
 
 export default function RunGridView({ nCols, nRows, deviceNames, sequence }: RunGridViewProps) {
 
   const session = useContextSelector(RunSessionContext, (context) => context!.session);
-
   const petriNet = useContextSelector(PetriNetContext, (context) => context!.petriNet.net);
   return (
     <div className="not-prose relative bg-slate-50 rounded-xl overflow-hidden dark:bg-slate-800/25">
-      <h2>Progress: {`${session.activeIndex} of ${sequence.steps.length}`}</h2>
+      <h2>Progress: {`${session.currentStep} of ${sequence.steps.length}`}</h2>
       <div
         className="absolute inset-0 bg-grid-slate-100 [mask-image:linear-gradient(0deg,#fff,rgba(255,255,255,0.6))] dark:bg-grid-slate-700/25 dark:[mask-image:linear-gradient(0deg,rgba(255,255,255,0.1),rgba(255,255,255,0.5))]"></div>
       <div className="relative rounded-xl overflow-auto">
@@ -163,20 +252,27 @@ export default function RunGridView({ nCols, nRows, deviceNames, sequence }: Run
                     );
                   }
                   if (col === 0) {
-                    return <GridHeaderCell key={`${row}.${col}`} title={deviceNames[row - 1]} row={row + 1} />;
+                    return (
+                      <GridHeaderCell key={`${row}.${col}`} row={row + 1}>
+                        {deviceNames[row - 1]}
+                      </GridHeaderCell>
+                    );
                   }
                   if (sequence.steps[col - 1] !== undefined) {
                     const { action } = sequence.steps[col - 1];
-                    const intendedRow = petriNet!.deviceIndexFromID(action.device.id) + 1;
+                    // loop through the session markings keys and if the deviceID matches the key of the marking, then the index of the marking is the row we want
+                    const intendedRow = Object.keys(session.markings).findIndex((key) => key === action.device.id) + 1;
                     if (row === intendedRow) {
                       const color = colorFromIndex(petriNet!.deviceIndexFromID(action.device.id));
                       return (
                         <GridCell key={`${row}.${col}`}>
                           <ActionDetails
+                            deviceID={action.device.id}
                             index={col - 1}
                             color={color}
                             name={action.event.name}
                             constants={action.constants}
+                            playback
                             fields={action.event.fields.map((field) => field.id).reduce((acc, id, i) => {
                                 acc[id] = action.event.fields[i].name;
                                 return acc;
@@ -203,10 +299,10 @@ export default function RunGridView({ nCols, nRows, deviceNames, sequence }: Run
 }
 
 type RecordRunGridViewProps = {
-  nCols: number
-  nRows: number
-  sequence: RunInputDisplay
-  deviceNames: string[]
+  nCols: number;
+  nRows: number;
+  sequence: RunInputDisplay;
+  deviceNames: string[];
 }
 
 export function RecordRunGridView({ nCols, nRows, deviceNames, sequence }: RecordRunGridViewProps) {
@@ -227,7 +323,11 @@ export function RecordRunGridView({ nCols, nRows, deviceNames, sequence }: Recor
                     );
                   }
                   if (col === 0) {
-                    return <GridHeaderCell key={`${row}.${col}`} title={deviceNames[row - 1]} row={row + 1} />;
+                    return (
+                      <GridHeaderCell key={`${row}.${col}`} row={row + 1}>
+                        {deviceNames[row - 1]}
+                      </GridHeaderCell>
+                    );
                   }
                   if (sequence.actions[col - 1] !== undefined) {
                     const event = sequence.actions[col - 1];
@@ -235,8 +335,9 @@ export function RecordRunGridView({ nCols, nRows, deviceNames, sequence }: Recor
                     if (row === intendedRow) {
                       const color = colorFromIndex(petriNet.deviceIndexFromID(event.deviceId));
                       return (
-                        <GridCell key={`${row}.${col}`}>
+                        <GridCell key={`${row - 1}.${col}`}>
                           <ActionDetails
+                            deviceID={event.deviceId}
                             index={col - 1}
                             color={color}
                             name={event.eventName}
@@ -267,3 +368,50 @@ export function RecordRunGridView({ nCols, nRows, deviceNames, sequence }: Recor
     </div>
   );
 }
+
+const rowStart = (row: number) => {
+  // have to use switch statement because tailwind doesn't support dynamic classes. supporting 20 rows, then adding scroll if more than 20
+  if (row > 20) row = row % 20;
+  switch (row) {
+    case 1:
+      return "row-start-1";
+    case 2:
+      return "row-start-2";
+    case 3:
+      return "row-start-3";
+    case 4:
+      return "row-start-4";
+    case 5:
+      return "row-start-5";
+    case 6:
+      return "row-start-6";
+    case 7:
+      return "row-start-7";
+    case 8:
+      return "row-start-8";
+    case 9:
+      return "row-start-9";
+    case 10:
+      return "row-start-10";
+    case 11:
+      return "row-start-11";
+    case 12:
+      return "row-start-12";
+    case 13:
+      return "row-start-13";
+    case 14:
+      return "row-start-14";
+    case 15:
+      return "row-start-15";
+    case 16:
+      return "row-start-16";
+    case 17:
+      return "row-start-17";
+    case 18:
+      return "row-start-18";
+    case 19:
+      return "row-start-19";
+    case 20:
+      return "row-start-20";
+  }
+};

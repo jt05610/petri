@@ -8,9 +8,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/jt05610/petri/cmd/petrid/graph/generated"
 	"github.com/jt05610/petri/cmd/petrid/graph/model"
+	"github.com/jt05610/petri/prisma/db"
 )
 
 // NewSession is the resolver for the newSession field.
@@ -33,13 +35,16 @@ func (r *mutationResolver) NewSession(ctx context.Context, input model.NewSessio
 	if len(input.Instances) != len(devices) {
 		return nil, errors.New("wrong number of instances")
 	}
-	for _, inst := range input.Instances {
+	instanceIDs := make([]string, len(input.Instances))
+	for i, inst := range input.Instances {
 		if _, ok := r.Known[inst.DeviceID]; !ok {
 			return nil, errors.New("unknown device")
 		}
 		r.Routes[inst.DeviceID] = r.Known[inst.DeviceID][inst.InstanceID]
+		instanceIDs[i] = inst.InstanceID
 	}
-	s, err := r.CreateSession(ctx, input.SequenceID, input.UserID)
+
+	s, err := r.CreateSession(ctx, input.SequenceID, input.UserID, instanceIDs)
 	if err != nil {
 		return nil, err
 	}
@@ -55,27 +60,54 @@ func (r *mutationResolver) NewSession(ctx context.Context, input model.NewSessio
 
 // StopSession is the resolver for the stopSession field.
 func (r *mutationResolver) StopSession(ctx context.Context, sessionID string) (*model.Session, error) {
-	panic(fmt.Errorf("not implemented: StopSession - stopSession"))
+	s, err := r.SessionClient.StopSession(ctx, sessionID, time.Now())
+	if err != nil {
+		return nil, err
+	}
+	events, err := r.eventHistory(ctx, sessionID)
+	if err != nil {
+		return nil, err
+	}
+	return &model.Session{
+		ID:     s.ID,
+		UserID: s.UserID,
+		RunID:  s.RunID,
+		Active: false,
+		Events: events,
+	}, nil
 }
 
-// DeleteSession is the resolver for the deleteSession field.
-func (r *mutationResolver) DeleteSession(ctx context.Context, sessionID string) (*model.HandleResult, error) {
-	panic(fmt.Errorf("not implemented: DeleteSession - deleteSession"))
+// PauseSession is the resolver for the pauseSession field.
+func (r *mutationResolver) PauseSession(ctx context.Context, sessionID string) (*model.Session, error) {
+	s, err := r.SessionClient.PauseSession(ctx, sessionID, time.Now())
+	if err != nil {
+		return nil, err
+	}
+	return &model.Session{
+		ID:     s.ID,
+		UserID: s.UserID,
+		RunID:  s.RunID,
+		Active: false,
+	}, nil
+}
+
+// ResumeSession is the resolver for the resumeSession field.
+func (r *mutationResolver) ResumeSession(ctx context.Context, sessionID string) (*model.Session, error) {
+	s, err := r.SessionClient.ResumeSession(ctx, sessionID, time.Now())
+	if err != nil {
+		return nil, err
+	}
+	return &model.Session{
+		ID:     s.ID,
+		UserID: s.UserID,
+		RunID:  s.RunID,
+		Active: true,
+	}, nil
 }
 
 // ActiveSessions is the resolver for the activeSessions field.
 func (r *queryResolver) ActiveSessions(ctx context.Context) ([]*model.Session, error) {
-	panic(fmt.Errorf("not implemented: ActiveSessions - activeSessions"))
-}
-
-// Session is the resolver for the session field.
-func (r *queryResolver) Session(ctx context.Context, sessionID string) (*model.Session, error) {
-	panic(fmt.Errorf("not implemented: Session - session"))
-}
-
-// Sessions is the resolver for the sessions field.
-func (r *queryResolver) Sessions(ctx context.Context, runID string) ([]*model.Session, error) {
-	s, err := r.ListSessions(ctx)
+	s, err := r.SessionClient.ActiveSessions(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -83,7 +115,25 @@ func (r *queryResolver) Sessions(ctx context.Context, runID string) ([]*model.Se
 	for i, session := range s {
 		sessions[i] = &model.Session{
 			ID:        session.ID,
-			Active:    false,
+			Active:    true,
+			CreatedAt: session.CreatedAt.Format(time.RFC3339Nano),
+			UpdatedAt: session.UpdatedAt.Format(time.RFC3339Nano),
+		}
+	}
+	return sessions, nil
+}
+
+// Sessions is the resolver for the sessions field.
+func (r *queryResolver) Sessions(ctx context.Context, runID string) ([]*model.Session, error) {
+	s, err := r.ListSessions(ctx, runID)
+	if err != nil {
+		return nil, err
+	}
+	sessions := make([]*model.Session, len(s))
+	for i, session := range s {
+		sessions[i] = &model.Session{
+			ID:        session.ID,
+			Active:    session.State == db.SessionStateRUNNING,
 			CreatedAt: session.CreatedAt.String(),
 			UpdatedAt: session.UpdatedAt.String(),
 		}
@@ -93,12 +143,12 @@ func (r *queryResolver) Sessions(ctx context.Context, runID string) ([]*model.Se
 
 // CurrentStep is the resolver for the currentStep field.
 func (r *queryResolver) CurrentStep(ctx context.Context, sessionID string) (int, error) {
-	panic(fmt.Errorf("not implemented: CurrentStep - currentStep"))
+	return r.Controller.CurrentStep, nil
 }
 
 // EventHistory is the resolver for the eventHistory field.
 func (r *queryResolver) EventHistory(ctx context.Context, sessionID string) ([]*model.Event, error) {
-	panic(fmt.Errorf("not implemented: EventHistory - eventHistory"))
+	return r.eventHistory(ctx, sessionID)
 }
 
 // Instances is the resolver for the instances field.
@@ -146,9 +196,27 @@ func (r *queryResolver) Devices(ctx context.Context, filter *string) ([]*model.D
 	return ret, nil
 }
 
+// DeviceMarkings is the resolver for the deviceMarkings field.
+func (r *queryResolver) DeviceMarkings(ctx context.Context, input model.DeviceMarkingsInput) ([]*model.DeviceMarking, error) {
+	ret := make([]*model.DeviceMarking, 0)
+	for _, device := range input.Instances {
+		ret = append(ret, &model.DeviceMarking{
+			DeviceID: device.DeviceID,
+			Marking:  r.Routes[device.DeviceID].Marking.JSON(),
+		})
+	}
+	fmt.Printf("DeviceMarkings: %v\n", ret)
+	return ret, nil
+}
+
 // StartSession is the resolver for the startSession field.
 func (r *subscriptionResolver) StartSession(ctx context.Context, input model.StartSessionInput) (<-chan *model.Event, error) {
-	err := r.Sequence.ApplyParameters(input.Parameters)
+	sequence, err := r.RunClient.Load(ctx, input.SessionID)
+	if err != nil {
+		return nil, err
+	}
+	r.Sequence = sequence
+	err = r.Sequence.ApplyParameters(input.Parameters)
 	if err != nil {
 		return nil, err
 	}
@@ -163,9 +231,14 @@ func (r *subscriptionResolver) StartSession(ctx context.Context, input model.Sta
 		case <-ctx.Done():
 			return
 		case data := <-r.eventCh:
+			_, err := r.AddData(ctx, input.SessionID, data)
+			if err != nil {
+				return
+			}
 			ret <- &model.Event{
-				Name: data.Name,
-				Data: data.Data,
+				Name:      data.Name,
+				Data:      data.Data,
+				Timestamp: time.Now().Format(time.RFC3339Nano),
 			}
 		}
 	}()

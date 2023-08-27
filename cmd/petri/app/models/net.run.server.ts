@@ -322,8 +322,11 @@ export type ActionDetails = Pick<Action, "id"> & {
       addr: string
     }[]
   }
+  input: InputJsonValue | null
+  output: InputJsonValue | null
   constants: ConstantDetails[]
 }
+
 export type RunDetails = Pick<Run, "id" | "name" | "description"> & {
   steps: (Pick<Step, "id" | "order"> & { action: ActionDetails })[]
 }
@@ -343,6 +346,8 @@ export async function getRunDetails(input: GetRunInput): Promise<RunDetails> {
           action: {
             select: {
               id: true,
+              input: true,
+              output: true,
               device: {
                 select: {
                   id: true,

@@ -7,6 +7,7 @@ import type {
 } from "~/models/net.server";
 import type { ColorProfile } from "~/lib/components/markedNet";
 import cloneDeep from "lodash/cloneDeep";
+import type { PlaceListItem } from "~/models/net.place.server";
 
 export type Marking = {
   [placeID: string]: number;
@@ -121,6 +122,36 @@ export class PetriNet {
 
   get arcs() {
     return this.net.arcs;
+  }
+
+  get allPlaces(): PlaceListItem[] {
+    // return a generator for the places and the child places
+    const places = this.net.places.concat(this.net.children.map(child => child.places).flat());
+    this.net.placeInterfaces.forEach(placeInterface => {
+      places.push({
+        id: placeInterface.id,
+        name: placeInterface.name,
+        bound: placeInterface.bound
+      });
+      placeInterface.places.forEach(place => {
+        places.push({
+          id: place.id,
+          name: placeInterface.name,
+          bound: placeInterface.bound
+        });
+      });
+    });
+    return places;
+  }
+
+  placeName(placeID: string): string {
+    const place = this.allPlaces.find(place => place.id === placeID);
+    console.log("place found", placeID, place)
+    if (!place) {
+      const possiblePlaces = this.allPlaces.map(place => place.id).join(", ");
+      throw new Error(placeID + " does not exist. Possible places: " + possiblePlaces);
+    }
+    return place.name;
   }
 
   // get all inputs to the passed node.

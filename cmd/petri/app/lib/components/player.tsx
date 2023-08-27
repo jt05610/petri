@@ -1,28 +1,29 @@
-import {
-  PetriNetContext
-} from "~/lib/context/petrinet";
 import { useContextSelector } from "use-context-selector";
 import { RunContext } from "~/lib/context/run";
 import RunGridView from "~/lib/components/displayGrid";
 import type { RunDetails } from "~/models/net.run.server";
+import type { Device } from "@prisma/client";
 
 type RunViewProps = {
   minCols: number
   minRows: number
-  deviceNames: string[]
   sequence: RunDetails
+  devices: Pick<Device, "id" | "name">[]
 }
 
-export function RunView({ minCols, minRows, deviceNames, sequence }: RunViewProps) {
+export function RunView({ minCols, minRows, devices, sequence }: RunViewProps) {
   return (
     <div className="mt-4 -mb-3">
-      <RunGridView nCols={minCols} nRows={minRows} deviceNames={deviceNames} sequence={sequence} />
+      <RunGridView nCols={minCols} nRows={minRows} deviceNames={devices.map((d) => d.name)} sequence={sequence} />
     </div>
   );
 }
 
-export default function Player() {
-  const petriNet = useContextSelector(PetriNetContext, (context) => context?.petriNet.petriNet);
+type PlayerProps = {
+  devices: Pick<Device, "id" | "name">[]
+}
+
+export default function Player({ devices }: PlayerProps) {
   const sequence = useContextSelector(RunContext, (context) => context?.run);
   /*
     useEffect(() => {
@@ -78,30 +79,11 @@ export default function Player() {
   return (
     <div className={"w-full h-3/10 bottom-0 space-x-2"}>
       <h4>Player</h4>
-      <button
-        type="submit"
-        className={`rounded-full px-2 py-1 text-white bg-slate-900`}
-        onClick={async (e) => {
-          e.preventDefault();
-          await fetch("sequences/new", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json"
-            },
-            body: JSON.stringify(sequence)
-          }).then((res) => res.json()).then((res) => {
-            console.log("response", res);
-          });
-        }
-        }
-      >
-        Save
-      </button>
       {
         sequence && <RunView
           minCols={10}
-          minRows={2}
-          deviceNames={petriNet?.devices.map((d) => d.name) ?? []}
+          minRows={5}
+          devices={devices}
           sequence={sequence}
         />
       }

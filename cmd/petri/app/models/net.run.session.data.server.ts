@@ -12,6 +12,15 @@ export const DatumInputSchema = z.object({
   sessionID: z.string().cuid()
 });
 
+export type Parameter = {
+  order: number
+  eventID: string
+  deviceID: string
+  fieldID: string
+  fieldName: string
+  fieldType: "string" | "number" | "boolean" | "date" | string
+}
+
 export type DatumInput = z.infer<typeof DatumInputSchema>;
 
 export async function createDatum(input: DatumInput) {

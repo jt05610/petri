@@ -21,6 +21,14 @@ type Action struct {
 	Event *labeled.Event
 }
 
+func (a *Action) ParameterMap() map[string]interface{} {
+	ret := make(map[string]interface{})
+	for _, p := range a.Parameters {
+		ret[p.Field.Name] = p.Value
+	}
+	return ret
+}
+
 func (a *Action) ApplyParameters(params map[string]interface{}) error {
 	for _, p := range a.Parameters {
 		if val, ok := params[p.Field.Name]; ok {
@@ -62,6 +70,7 @@ type Sequence struct {
 
 func (s *Sequence) ApplyNet(net *marked.Net) error {
 	s.Net = labeled.New(net)
+	s.InitialMarking = net.MarkingMap()
 	return nil
 }
 

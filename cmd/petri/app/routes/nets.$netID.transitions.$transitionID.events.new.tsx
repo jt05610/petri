@@ -3,18 +3,21 @@ import { redirect } from "@remix-run/node";
 import { requireUserId } from "~/session.server";
 import invariant from "tiny-invariant";
 import { getUserById } from "~/models/user.server";
+import type { EventInput} from "~/models/net.transition.event.server";
 import { addEvent, EventFieldSchema, EventInputSchema } from "~/models/net.transition.event.server";
-import { Form, useActionData } from "@remix-run/react";
+import { Form, useActionData, useSubmit } from "@remix-run/react";
 import { parse } from "@conform-to/zod";
 import { badRequest } from "~/util/request.server";
-import { useForm } from "@conform-to/react";
+import { useFieldList, useForm } from "@conform-to/react";
 import FormContent from "~/lib/layouts/form";
+import type { FormEvent } from "react";
 import { Suspense, useState } from "react";
-import  Modal  from "~/lib/components/modal";
+import Modal from "~/lib/components/modal";
 
 export const action = async ({ params, request }: LoaderArgs) => {
-  invariant(params.eventID, "eventID not found");
+  invariant(params.transitionID, "transitionID not found");
   let formData = await request.formData();
+  formData.set("transitionID", params.transitionID);
   const submission = parse(formData, {
     schema: EventInputSchema
   });
@@ -26,7 +29,7 @@ export const action = async ({ params, request }: LoaderArgs) => {
   return redirect(`/nets/${params.netID}/events/${newEvent.id}`);
 };
 
-export const loader = async ({ params, request }: LoaderArgs) => {
+export const loader = async ({ request }: LoaderArgs) => {
   const authorID = await requireUserId(request);
   const user = await getUserById(authorID);
   if (!user) {
@@ -39,12 +42,11 @@ export const loader = async ({ params, request }: LoaderArgs) => {
 export default function Event() {
   const [isOpen, setIsOpen] = useState(true); // handle modal open state
   const lastSubmission = useActionData<typeof action>();
-  const [form, { name, description, fields }] = useForm({
+  const [form, { name, description, fields }] = useForm<EventInput>({
     lastSubmission,
-    onValidate({ formData }) {
-      return parse(formData, { schema: EventInputSchema });
-    }
   });
+  const fieldsList = useFieldList(form.ref, fields);
+  const submit = useSubmit();
 
   if (!isOpen) return null; // if not open, do not render modal and content
 
@@ -52,10 +54,14 @@ export default function Event() {
     // if not open then we want to show a button to reopen the modal
     <Suspense fallback={<div>Loading...</div>}>
       {isOpen ? (
-
         // if open then we want to show the modal
         <Modal isOpen={isOpen} setIsOpen={setIsOpen} name={"New event"}>
-          <Form method={"post"} {...form.props}>
+          <Form className={`flex flex-col`} method={"post"} {...form.props} onSubmit={(e: FormEvent) => {
+            const formData = new FormData(e.target as HTMLFormElement);
+            console.log(formData);
+            submit(formData, { method: "post", replace: true });
+          }
+          }>
             <FormContent fields={[
               {
                 type: "text",
@@ -75,46 +81,20 @@ export default function Event() {
                 content: fields.form,
                 error: fields.error,
                 arraySchema: EventFieldSchema,
-                arrayFields: [
-                  {
-                    name: "name",
-                    type: "text",
-                    content: fields.form,
-                    error: fields.error
-                  },
-                  {
-                    name: "type",
-                    type: "select",
-                    content: fields.form,
-                    error: fields.error,
-                    options: [
-                      { value: "string", display: "String" },
-                      { value: "number", display: "Number" },
-                      { value: "boolean", display: "Boolean" },
-                      { value: "date", display: "Date" },
-                      { value: "time", display: "Time" },
-                      ],
-                  },
-                  {
-                    name: "description",
-                    type: "textarea",
-                    content: fields.form,
-                    error: fields.error
-                  },
-                ]
+                arrayFields: fieldsList,
               }
             ]} />
           </Form>
         </Modal>
 
-      ) :(
+      ) : (
         <button
           type="button"
           onClick={() => setIsOpen(true)}
         >
           Open Modal
         </button>
-        )}
+      )}
 
     </Suspense>
 

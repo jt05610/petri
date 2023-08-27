@@ -1,5 +1,5 @@
 import type { LoaderArgs, ActionArgs } from "@remix-run/node";
-import { json, redirect } from "@remix-run/node";
+import { json } from "@remix-run/node";
 import { requireUserId } from "~/session.server";
 import invariant from "tiny-invariant";
 import { getNet } from "~/models/net.server";
@@ -12,7 +12,7 @@ export const action = async ({ params, request }: ActionArgs) => {
   invariant(params.netID, "netID not found");
   const user = await getUserById(userID);
   invariant(user, "User not found");
-  return redirect("/control/" + params.netID);
+  console.log("user", user);
 };
 
 export const loader = async ({ params, request }: LoaderArgs) => {

@@ -19,24 +19,6 @@ query Sessions($runID: ID!) {
     }
 }
 
-query Session($id: ID!) {
-    session(sessionID: $id) {
-        id,
-        userID,
-        runID,
-        active,
-        createdAt,
-        updatedAt,
-        marking,
-        parameters,
-        events {
-            name,
-            timestamp,
-            data,
-        }
-    }
-}
-
 query CurrentStep($id: ID!) {
     currentStep(sessionID: $id)
 }
@@ -68,5 +50,12 @@ query Devices($filter: String) {
             id,
             name
         }
+    }
+}
+
+query DeviceMarkings($input: DeviceMarkingsInput!) {
+    deviceMarkings(input: $input) {
+        deviceID,
+        marking
     }
 }

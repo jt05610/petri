@@ -7,6 +7,10 @@ generator client {
   provider = "prisma-client-js"
 }
 
+generator db {
+  provider = "go run github.com/steebchen/prisma-client-go"
+}
+
 enum UserRole {
   NONE
   ADMIN
@@ -154,17 +158,18 @@ enum Language {
 }
 
 model Instance {
-  id        String   @id @default(cuid())
-  author    User     @relation(fields: [authorID], references: [id])
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id        String    @id @default(cuid())
+  author    User      @relation(fields: [authorID], references: [id])
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
   authorID  String
   language  Language
   name      String
-  device    Device   @relation(fields: [deviceId], references: [id])
+  device    Device    @relation(fields: [deviceId], references: [id])
   deviceId  String
   addr      String
   data      Datum[]
+  sessions  Session[]
 }
 
 model Device {
@@ -231,21 +236,33 @@ model Datum {
   session    Session  @relation(fields: [sessionID], references: [id])
   sessionID  String
   value      Json?
-  history    Json[]
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
   event      Event    @relation(fields: [eventId], references: [id])
   eventId    String
 }
 
+enum SessionState {
+  NONE
+  RUNNING
+  PAUSED
+  STOPPED
+}
+
 model Session {
-  id        String   @id @default(cuid())
-  user      User     @relation(fields: [userID], references: [id])
+  id        String       @id @default(cuid())
+  user      User         @relation(fields: [userID], references: [id])
   userID    String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  run       Run      @relation(fields: [runID], references: [id])
-  deleted   Boolean  @default(false)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  startedAt DateTime?
+  stoppedAt DateTime?
+  pausedAt  DateTime[]
+  resumedAt DateTime[]
+  run       Run          @relation(fields: [runID], references: [id])
+  instances Instance[]
+  state     SessionState @default(NONE)
+  deleted   Boolean      @default(false)
   runID     String
   data      Datum[]
 }

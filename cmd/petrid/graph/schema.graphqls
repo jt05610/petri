@@ -1,11 +1,11 @@
 type Query {
     activeSessions: [Session!]!
-    session(sessionID: ID!): Session!
     sessions(runID: ID!): [Session!]!
     currentStep(sessionID: ID!): Int!
     eventHistory(sessionID: ID!): [Event!]!
     instances(runID: ID!): [Instance!]!
     devices(filter: String): [Device!]!
+    deviceMarkings(input: DeviceMarkingsInput!): [DeviceMarking!]!
 }
 
 input PlaceMarkInput {
@@ -42,6 +42,7 @@ type Device {
     id: ID!
     name: String!
     instances: [Instance!]!
+    marking: JSON!
 }
 
 type Instance {
@@ -84,11 +85,6 @@ input NewSessionInput {
     instances: [DeviceInstanceInput!]!
 }
 
-type HandleResult {
-    message: String!
-    errors: [String]
-}
-
 input StartSessionInput {
     sessionID: ID!
     parameters: JSON
@@ -97,7 +93,17 @@ input StartSessionInput {
 type Mutation {
     newSession(input: NewSessionInput!): Session!
     stopSession(sessionID: ID!): Session!
-    deleteSession(sessionID: ID!): HandleResult!
+    pauseSession(sessionID: ID!): Session!
+    resumeSession(sessionID: ID!): Session!
+}
+
+input DeviceMarkingsInput {
+    instances: [DeviceInstanceInput!]!
+}
+
+type DeviceMarking {
+    deviceID: ID!
+    marking: JSON!
 }
 
 type Subscription {

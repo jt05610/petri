@@ -1,0 +1,312 @@
+innerdevice:
+    id: cllu47ad80013jgtky3jg0kie
+    authorid: cllu47abx0000jgtkganbjccj
+    name: two position three way valve
+    description: A two position three way valve.
+    createdat: 2023-08-28T00:01:58.845Z
+    updatedat: 2023-08-28T00:01:58.845Z
+relationsdevice:
+    author: null
+    instances: []
+    nets:
+        - innernet:
+            id: cllu47acj0002jgtkz4bfi8tz
+            name: two position three way valve
+            description: A two position three way valve.
+            initialmarking:
+                - 1
+                - 0
+                - 0
+                - 0
+                - 0
+            createdat: 2023-08-28T00:01:58.819Z
+            updatedat: 2023-08-28T00:01:58.93Z
+            authorid: cllu47abx0000jgtkganbjccj
+            parentid: cllu47afl007xjgtk9cpu2g6t
+          relationsnet:
+            author: null
+            arcs:
+                - innerarc:
+                    id: cllu47acz000fjgtksvbmbrwc
+                    netid: cllu47acj0002jgtkz4bfi8tz
+                    fromplace: true
+                    placeid: cllu47acj0003jgtkuneqeil8
+                    transitionid: cllu47acj000ajgtkghshonxr
+                    createdat: 2023-08-28T00:01:58.835Z
+                    updatedat: 2023-08-28T00:01:58.835Z
+                  relationsarc:
+                    net: null
+                    place: null
+                    transition: null
+                - innerarc:
+                    id: cllu47ad1000hjgtkpznfnysz
+                    netid: cllu47acj0002jgtkz4bfi8tz
+                    fromplace: false
+                    placeid: cllu47acj0003jgtkuneqeil8
+                    transitionid: cllu47acj0008jgtkefpivgje
+                    createdat: 2023-08-28T00:01:58.837Z
+                    updatedat: 2023-08-28T00:01:58.837Z
+                  relationsarc:
+                    net: null
+                    place: null
+                    transition: null
+                - innerarc:
+                    id: cllu47ad1000jjgtk4zpphrl4
+                    netid: cllu47acj0002jgtkz4bfi8tz
+                    fromplace: true
+                    placeid: cllu47acj0004jgtkrybydwit
+                    transitionid: cllu47acj0008jgtkefpivgje
+                    createdat: 2023-08-28T00:01:58.838Z
+                    updatedat: 2023-08-28T00:01:58.838Z
+                  relationsarc:
+                    net: null
+                    place: null
+                    transition: null
+                - innerarc:
+                    id: cllu47ad2000ljgtkdavfllun
+                    netid: cllu47acj0002jgtkz4bfi8tz
+                    fromplace: false
+                    placeid: cllu47acj0004jgtkrybydwit
+                    transitionid: cllu47acj000ajgtkghshonxr
+                    createdat: 2023-08-28T00:01:58.839Z
+                    updatedat: 2023-08-28T00:01:58.839Z
+                  relationsarc:
+                    net: null
+                    place: null
+                    transition: null
+                - innerarc:
+                    id: cllu47ad3000njgtkxpc80yl4
+                    netid: cllu47acj0002jgtkz4bfi8tz
+                    fromplace: true
+                    placeid: cllu47acj0005jgtklw6wn13r
+                    transitionid: cllu47acj000cjgtkbh8q1qkz
+                    createdat: 2023-08-28T00:01:58.84Z
+                    updatedat: 2023-08-28T00:01:58.84Z
+                  relationsarc:
+                    net: null
+                    place: null
+                    transition: null
+                - innerarc:
+                    id: cllu47ad4000pjgtkddxafn2n
+                    netid: cllu47acj0002jgtkz4bfi8tz
+                    fromplace: true
+                    placeid: cllu47acj0003jgtkuneqeil8
+                    transitionid: cllu47acj000cjgtkbh8q1qkz
+                    createdat: 2023-08-28T00:01:58.84Z
+                    updatedat: 2023-08-28T00:01:58.84Z
+                  relationsarc:
+                    net: null
+                    place: null
+                    transition: null
+                - innerarc:
+                    id: cllu47ad5000rjgtkj5m0oukh
+                    netid: cllu47acj0002jgtkz4bfi8tz
+                    fromplace: false
+                    placeid: cllu47acj0003jgtkuneqeil8
+                    transitionid: cllu47acj000cjgtkbh8q1qkz
+                    createdat: 2023-08-28T00:01:58.841Z
+                    updatedat: 2023-08-28T00:01:58.841Z
+                  relationsarc:
+                    net: null
+                    place: null
+                    transition: null
+                - innerarc:
+                    id: cllu47ad5000tjgtkqes1q9wq
+                    netid: cllu47acj0002jgtkz4bfi8tz
+                    fromplace: false
+                    placeid: cllu47acj0006jgtk8tfnty3z
+                    transitionid: cllu47acj000cjgtkbh8q1qkz
+                    createdat: 2023-08-28T00:01:58.842Z
+                    updatedat: 2023-08-28T00:01:58.842Z
+                  relationsarc:
+                    net: null
+                    place: null
+                    transition: null
+                - innerarc:
+                    id: cllu47ad6000vjgtkgk5wbac3
+                    netid: cllu47acj0002jgtkz4bfi8tz
+                    fromplace: true
+                    placeid: cllu47acj0005jgtklw6wn13r
+                    transitionid: cllu47acj000djgtkyhqzapy7
+                    createdat: 2023-08-28T00:01:58.842Z
+                    updatedat: 2023-08-28T00:01:58.842Z
+                  relationsarc:
+                    net: null
+                    place: null
+                    transition: null
+                - innerarc:
+                    id: cllu47ad6000xjgtkfiziu71h
+                    netid: cllu47acj0002jgtkz4bfi8tz
+                    fromplace: true
+                    placeid: cllu47acj0004jgtkrybydwit
+                    transitionid: cllu47acj000djgtkyhqzapy7
+                    createdat: 2023-08-28T00:01:58.843Z
+                    updatedat: 2023-08-28T00:01:58.843Z
+                  relationsarc:
+                    net: null
+                    place: null
+                    transition: null
+                - innerarc:
+                    id: cllu47ad7000zjgtk0jvfo7cz
+                    netid: cllu47acj0002jgtkz4bfi8tz
+                    fromplace: false
+                    placeid: cllu47acj0004jgtkrybydwit
+                    transitionid: cllu47acj000djgtkyhqzapy7
+                    createdat: 2023-08-28T00:01:58.843Z
+                    updatedat: 2023-08-28T00:01:58.843Z
+                  relationsarc:
+                    net: null
+                    place: null
+                    transition: null
+                - innerarc:
+                    id: cllu47ad70011jgtki6j8h4zc
+                    netid: cllu47acj0002jgtkz4bfi8tz
+                    fromplace: false
+                    placeid: cllu47acj0007jgtk4ovb2ywf
+                    transitionid: cllu47acj000djgtkyhqzapy7
+                    createdat: 2023-08-28T00:01:58.844Z
+                    updatedat: 2023-08-28T00:01:58.844Z
+                  relationsarc:
+                    net: null
+                    place: null
+                    transition: null
+            places:
+                - innerplace:
+                    id: cllu47acj0003jgtkuneqeil8
+                    name: Position A
+                    description: The valve is in position A.
+                    createdat: 2023-08-28T00:01:58.819Z
+                    updatedat: 2023-08-28T00:01:58.819Z
+                    bound: 1
+                  relationsplace:
+                    arcs: []
+                    nets: []
+                    interfaces: []
+                - innerplace:
+                    id: cllu47acj0004jgtkrybydwit
+                    name: Position B
+                    description: The valve is in position B.
+                    createdat: 2023-08-28T00:01:58.819Z
+                    updatedat: 2023-08-28T00:01:58.819Z
+                    bound: 1
+                  relationsplace:
+                    arcs: []
+                    nets: []
+                    interfaces: []
+                - innerplace:
+                    id: cllu47acj0005jgtklw6wn13r
+                    name: Flow main
+                    description: Fluid is flowing through the main port.
+                    createdat: 2023-08-28T00:01:58.819Z
+                    updatedat: 2023-08-28T00:01:58.819Z
+                    bound: 1
+                  relationsplace:
+                    arcs: []
+                    nets: []
+                    interfaces: []
+                - innerplace:
+                    id: cllu47acj0006jgtk8tfnty3z
+                    name: Flow A
+                    description: Fluid is flowing through port A.
+                    createdat: 2023-08-28T00:01:58.819Z
+                    updatedat: 2023-08-28T00:01:58.819Z
+                    bound: 1
+                  relationsplace:
+                    arcs: []
+                    nets: []
+                    interfaces: []
+                - innerplace:
+                    id: cllu47acj0007jgtk4ovb2ywf
+                    name: Flow B
+                    description: Fluid is flowing through port B.
+                    createdat: 2023-08-28T00:01:58.819Z
+                    updatedat: 2023-08-28T00:01:58.819Z
+                    bound: 1
+                  relationsplace:
+                    arcs: []
+                    nets: []
+                    interfaces: []
+            transitions:
+                - innertransition:
+                    id: cllu47acj0008jgtkefpivgje
+                    condition: null
+                    description: Position A was opened.
+                    name: A opened
+                    createdat: 2023-08-28T00:01:58.819Z
+                    updatedat: 2023-08-28T00:01:58.819Z
+                  relationstransition:
+                    arcs: []
+                    events:
+                        - innerevent:
+                            id: cllu47acj0009jgtkqfyhlzax
+                            name: Open A
+                            description: Open port A.
+                            createdat: 2023-08-28T00:01:58.819Z
+                            updatedat: 2023-08-28T00:01:58.819Z
+                            placeinterfaceid: null
+                            transitioninterfaceid: null
+                          relationsevent:
+                            transitions: []
+                            fields: []
+                            commands: []
+                            data: []
+                            transitioninterface: null
+                    nets: []
+                    interfaces: []
+                - innertransition:
+                    id: cllu47acj000ajgtkghshonxr
+                    condition: null
+                    description: Position B was opened.
+                    name: B opened
+                    createdat: 2023-08-28T00:01:58.819Z
+                    updatedat: 2023-08-28T00:01:58.819Z
+                  relationstransition:
+                    arcs: []
+                    events:
+                        - innerevent:
+                            id: cllu47acj000bjgtkk4z3l4i3
+                            name: Open B
+                            description: Open port B.
+                            createdat: 2023-08-28T00:01:58.819Z
+                            updatedat: 2023-08-28T00:01:58.819Z
+                            placeinterfaceid: null
+                            transitioninterfaceid: null
+                          relationsevent:
+                            transitions: []
+                            fields: []
+                            commands: []
+                            data: []
+                            transitioninterface: null
+                    nets: []
+                    interfaces: []
+                - innertransition:
+                    id: cllu47acj000cjgtkbh8q1qkz
+                    condition: null
+                    description: Fluid flowed through port A.
+                    name: Flowed through A
+                    createdat: 2023-08-28T00:01:58.819Z
+                    updatedat: 2023-08-28T00:01:58.819Z
+                  relationstransition:
+                    arcs: []
+                    events: []
+                    nets: []
+                    interfaces: []
+                - innertransition:
+                    id: cllu47acj000djgtkyhqzapy7
+                    condition: null
+                    description: Fluid flowed through port B.
+                    name: Flowed through B
+                    createdat: 2023-08-28T00:01:58.819Z
+                    updatedat: 2023-08-28T00:01:58.819Z
+                  relationstransition:
+                    arcs: []
+                    events: []
+                    nets: []
+                    interfaces: []
+            parent: null
+            children: []
+            devices: []
+            placeinterfaces: []
+            transitioninterfaces: []
+            runs: []
+    actions: []

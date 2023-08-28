@@ -15,7 +15,7 @@ var testCases = []struct {
 		name:   "workCoordinate",
 		buffer: []byte("<Alarm|MPos:0.000,0.000,0.000|F:0|WCO:0.000,0.000,-16.275>\n"),
 		expect: &grbl.Status{
-			Alarm: true,
+			Alarm: grbl.Alarm,
 			MachinePosition: &grbl.Position{
 				X: 0,
 				Y: 0,
@@ -38,7 +38,7 @@ var testCases = []struct {
 		name:   "0v",
 		buffer: []byte("<Alarm|MPos:0.000,0.000,0.000|F:0|Ov:100,100,100>\n"),
 		expect: &grbl.Status{
-			Alarm: true,
+			Alarm: grbl.Alarm,
 			MachinePosition: &grbl.Position{
 				X: 0,
 				Y: 0,
@@ -60,7 +60,7 @@ var testCases = []struct {
 		name:   "F",
 		buffer: []byte("<Alarm|MPos:0.000,0.000,0.000|F:0>\n"),
 		expect: &grbl.Status{
-			Alarm: true,
+			Alarm: grbl.Alarm,
 			MachinePosition: &grbl.Position{
 				X: 0,
 				Y: 0,

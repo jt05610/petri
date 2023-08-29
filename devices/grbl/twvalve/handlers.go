@@ -10,6 +10,6 @@ func (d *TwoPositionThreeWayValve) OpenA(ctx context.Context, req *OpenARequest)
 }
 
 func (d *TwoPositionThreeWayValve) OpenB(ctx context.Context, req *OpenBRequest) (*OpenBResponse, error) {
-	d.txCh <- []byte("M3\n")
+	//d.txCh <- []byte("M3\n")
 	return &OpenBResponse{}, nil
 }

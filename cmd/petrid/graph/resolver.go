@@ -2,9 +2,9 @@ package graph
 
 import (
 	"context"
+	"errors"
 	"github.com/jt05610/petri/amqp/client"
 	"github.com/jt05610/petri/cmd/petrid/graph/model"
-	"github.com/jt05610/petri/control"
 	"github.com/jt05610/petri/prisma"
 	"github.com/jt05610/petri/prisma/db"
 	"time"
@@ -19,7 +19,12 @@ type Resolver struct {
 	*prisma.RunClient
 	*prisma.NetClient
 	*client.Controller
-	eventCh <-chan *control.Event
+	sessionEvents map[string][]*model.Event
+	seenEvents    map[string]int
+	recordCtx     context.Context
+	recordCancel  context.CancelFunc
+	runCtx        context.Context
+	runCancel     context.CancelFunc
 }
 
 func NewResolver(cl *db.PrismaClient, controller *client.Controller) *Resolver {
@@ -28,7 +33,9 @@ func NewResolver(cl *db.PrismaClient, controller *client.Controller) *Resolver {
 		RunClient:     &prisma.RunClient{PrismaClient: cl},
 		NetClient:     &prisma.NetClient{PrismaClient: cl},
 		Controller:    controller,
-		eventCh:       controller.Data(),
+		sessionEvents: make(map[string][]*model.Event),
+		runCtx:        context.Background(),
+		recordCtx:     context.Background(),
 	}
 	return r
 }
@@ -55,4 +62,31 @@ func (r *Resolver) eventHistory(ctx context.Context, sessionID string) ([]*model
 		}
 	}
 	return dModel, nil
+}
+
+func (r *Resolver) start(sessionId string) *model.Event {
+	r.runCtx, r.runCancel = context.WithCancel(r.runCtx)
+	r.Start(r.runCtx)
+	return &model.Event{
+		Name: "start",
+		Data: nil,
+	}
+}
+
+func (r *Resolver) stopRecording() {
+	r.recordCancel()
+	r.runCancel()
+}
+
+func (r *Resolver) newEvents(sessionID string) ([]*model.Event, error) {
+	events, found := r.sessionEvents[sessionID]
+	if !found {
+		return nil, errors.New("session not found")
+	}
+	if len(events) <= r.seenEvents[sessionID] {
+		return nil, nil
+	}
+	newEvents := events[r.seenEvents[sessionID]:]
+	r.seenEvents[sessionID] = len(events)
+	return newEvents, nil
 }

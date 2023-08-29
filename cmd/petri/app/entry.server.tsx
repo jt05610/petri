@@ -14,8 +14,13 @@ import { renderToPipeableStream } from "react-dom/server";
 import { ApolloClient, ApolloProvider, createHttpLink, InMemoryCache } from "@apollo/client";
 import { loadErrorMessages, loadDevMessages } from "@apollo/client/dev";
 import { getDataFromTree } from "@apollo/client/react/ssr";
+import invariant from "tiny-invariant";
 
 const ABORT_DELAY = 5_000;
+
+const gqlURL = process.env.GRAPHQL_URL;
+
+invariant(gqlURL, "GraphQL URL not found");
 
 export default function handleRequest(
   request: Request,
@@ -98,7 +103,7 @@ async function handleBrowserRequest(
   const client = new ApolloClient({
     ssrMode: true,
     link: createHttpLink({
-      uri: "http://localhost:4000/api/",
+      uri: gqlURL,
       headers: makeHeaders(),
       credentials: request.credentials ?? "same-origin"
     }),

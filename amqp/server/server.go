@@ -53,7 +53,7 @@ func (s *Server) route(data *control.Command) (*control.Event, error) {
 			Event:   ev,
 			Topic:   "event",
 			Marking: make(map[string]int),
-			From:    "",
+			From:    s.instanceID,
 		}
 	}()
 	if err := s.Handle(context.Background(), data.Event); err != nil {
@@ -61,7 +61,7 @@ func (s *Server) route(data *control.Command) (*control.Event, error) {
 		return &control.Event{
 			Event:   data.Event,
 			Topic:   "error",
-			From:    "",
+			From:    s.instanceID,
 			Marking: s.MarkingMap(),
 		}, err
 	}

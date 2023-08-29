@@ -9,6 +9,7 @@ import type { EventDetails } from "~/models/net.transition.event.server";
 import type { Event } from "@prisma/client";
 import Timeline from "~/lib/components/timeline";
 import { PetriNetActionType, PetriNetContext } from "~/lib/context/petrinet";
+import  cloneDeep  from "lodash/cloneDeep";
 
 export const makeZodSchema = (fields: {
   id: string
@@ -84,7 +85,7 @@ export function SystemControl(props: {}) {
         value: `${data[field.name]}` ?? ""
       };
     });
-
+    const oldMarking = cloneDeep(net.petriNet.marking);
     const newMarking = net.petriNet.net.handleEvent(net.petriNet.marking, event.id);
 
     net.dispatch({
@@ -98,8 +99,8 @@ export function SystemControl(props: {}) {
       eventID: event.id,
       deviceId: deviceID,
       eventFields: event.fields,
-      input: net.petriNet.markingHistory[net.petriNet.markingHistory.length - 2],
-      output: net.petriNet.markingHistory[net.petriNet.markingHistory.length - 1],
+      input: oldMarking,
+      output: newMarking,
       constants
     };
 
@@ -117,7 +118,7 @@ export function SystemControl(props: {}) {
       <div className={"w-full"}>
         <div className={"flex h-full w-full flex-row space-x-2 p-2 overflow-y-scroll"}>
           <div className={"flex w-full flex-col space-y-2"}>
-            {net && net.petriNet.net.childDeviceEvents(net.petriNet.marking).map((
+            {net && net.petriNet.net.deviceEvents(net.petriNet.marking).map((
               {
                 id,
                 name,

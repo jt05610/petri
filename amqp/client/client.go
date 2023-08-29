@@ -46,6 +46,12 @@ type Controller struct {
 	Net             *labeled.Net
 	Known           map[string]map[string]*Instance
 	exchange        string
+	stepCh          chan struct{}
+}
+
+type WaitFor struct {
+	From string
+	Name string
 }
 
 func (c *Controller) Close() {
@@ -210,31 +216,19 @@ func (c *Controller) Start(ctx context.Context) {
 			default:
 				step := c.StepQueue[0]
 				c.logger.Info("Starting step", zap.String("step", step.Name))
+				inst := c.Routes[step.Device.ID]
+				if inst == nil {
+					log.Fatalf("Instance for device %s not found", step.Device.ID)
+				}
 				err := c.startStep(ctx, step, step.ParameterMap())
 				if err != nil {
 					log.Println(err)
 				}
-				done := <-c.dataCh
-				err = c.Net.Handle(ctx, done.Event)
-				if err != nil {
-					log.Println(err)
+				data := <-c.dataCh
+				if data.From == inst.ID && data.Name == step.Event.Name {
+					c.logger.Info("Received event", zap.String("event", data.Name))
 				}
-				marking := c.Net.MarkingMap()
-				for id, v := range done.Marking {
-					expectMarking, found := marking[id]
-					if !found {
-						log.Fatalf("Marking for place with id %s not found", id)
-					}
-					if expectMarking != v {
-						placeName := ""
-						for _, p := range c.Net.Places {
-							if p.ID == id {
-								placeName = p.Name
-							}
-						}
-						log.Fatalf("Marking for place %s (id: %s) is %d, expected %d", placeName, id, marking[id], v)
-					}
-				}
+
 				c.StepQueue = c.StepQueue[1:]
 				c.CurrentStep++
 				if len(c.StepQueue) == 0 {
@@ -268,7 +262,6 @@ func (c *Controller) startStep(ctx context.Context, step *sequence.Step, data ma
 		}
 		close(done)
 	}()
-
 	select {
 	case <-done:
 		return sendErr
@@ -276,10 +269,6 @@ func (c *Controller) startStep(ctx context.Context, step *sequence.Step, data ma
 		log.Printf("Timed out sending %s to %s", cmd.Name, cmd.To)
 		return ctx.Err()
 	}
-}
-
-func (c *Controller) Data() <-chan *control.Event {
-	return c.dataCh
 }
 
 func (c *Controller) registerInstance(deviceID, instanceID string, marking control.Marking) {
@@ -339,12 +328,17 @@ func (c *Controller) Listen(ctx context.Context) {
 				data, err := c.event.Load(ctx, d)
 				if err != nil {
 					log.Println(err)
+					if err.Error() == "invalid routing key" {
+						log.Println(data)
+						panic(err)
+					}
 					continue
 				}
 				if data.Topic == "device" {
 					go c.registerInstance(data.Name, data.From, data.Marking)
 					continue
 				}
+				fmt.Printf("Received %s from %s\n", data.Name, data.From)
 				c.dataCh <- data
 			}
 		}

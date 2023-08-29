@@ -8,8 +8,16 @@ import (
 )
 
 type TwoPositionThreeWayValve struct {
-	txCh chan []byte
-	rxCh <-chan []byte
+	txCh   chan []byte
+	rxCh   <-chan []byte
+	status *grbl.Status
+}
+
+func (d *TwoPositionThreeWayValve) UpdateStatus(status grbl.StatusUpdate) {
+	if upd, ok := status.(*grbl.Status); ok {
+		d.status = upd
+		return
+	}
 }
 
 func (d *TwoPositionThreeWayValve) Listen(ctx context.Context) error {
@@ -27,7 +35,7 @@ func (d *TwoPositionThreeWayValve) Listen(ctx context.Context) error {
 					fmt.Print(string(msg))
 					panic(err)
 				}
-				fmt.Printf("update: %+v\n", upd)
+				d.UpdateStatus(upd)
 				buf.Reset()
 			}
 		}

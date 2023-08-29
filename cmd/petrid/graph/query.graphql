@@ -31,6 +31,14 @@ query EventHistory($id: ID!) {
     }
 }
 
+query NewEvents($id: ID!) {
+    newEvents(sessionID: $id) {
+        name,
+        timestamp,
+        data,
+    }
+}
+
 query Instances($id: ID!) {
     instances(runID: $id) {
         id,

@@ -15,6 +15,28 @@ import (
 	"github.com/jt05610/petri/prisma/db"
 )
 
+// StartSession is the resolver for the startSession field.
+func (r *mutationResolver) StartSession(ctx context.Context, input model.StartSessionInput) (*model.Event, error) {
+	session, err := r.SessionClient.Load(ctx, input.SessionID)
+	if err != nil {
+		return nil, err
+	}
+	sequence, err := r.RunClient.Load(ctx, session.RunID)
+	if err != nil {
+		return nil, err
+	}
+	r.Sequence = sequence
+	err = r.Sequence.ApplyParameters(input.Parameters)
+	if err != nil {
+		return nil, err
+	}
+	err = r.DevicesReady()
+	if err != nil {
+		return nil, err
+	}
+	return r.start(input.SessionID), nil
+}
+
 // NewSession is the resolver for the newSession field.
 func (r *mutationResolver) NewSession(ctx context.Context, input model.NewSessionInput) (*model.Session, error) {
 	run, err := r.RunClient.Load(ctx, input.SequenceID)
@@ -209,40 +231,9 @@ func (r *queryResolver) DeviceMarkings(ctx context.Context, input model.DeviceMa
 	return ret, nil
 }
 
-// StartSession is the resolver for the startSession field.
-func (r *subscriptionResolver) StartSession(ctx context.Context, input model.StartSessionInput) (<-chan *model.Event, error) {
-	sequence, err := r.RunClient.Load(ctx, input.SessionID)
-	if err != nil {
-		return nil, err
-	}
-	r.Sequence = sequence
-	err = r.Sequence.ApplyParameters(input.Parameters)
-	if err != nil {
-		return nil, err
-	}
-	err = r.DevicesReady()
-	if err != nil {
-		return nil, err
-	}
-	ret := make(chan *model.Event)
-	go func() {
-		defer close(ret)
-		select {
-		case <-ctx.Done():
-			return
-		case data := <-r.eventCh:
-			_, err := r.AddData(ctx, input.SessionID, data)
-			if err != nil {
-				return
-			}
-			ret <- &model.Event{
-				Name:      data.Name,
-				Data:      data.Data,
-				Timestamp: time.Now().Format(time.RFC3339Nano),
-			}
-		}
-	}()
-	return ret, nil
+// NewEvents is the resolver for the newEvents field.
+func (r *queryResolver) NewEvents(ctx context.Context, sessionID string) ([]*model.Event, error) {
+	return r.newEvents(sessionID)
 }
 
 // Mutation returns generated.MutationResolver implementation.
@@ -251,9 +242,5 @@ func (r *Resolver) Mutation() generated.MutationResolver { return &mutationResol
 // Query returns generated.QueryResolver implementation.
 func (r *Resolver) Query() generated.QueryResolver { return &queryResolver{r} }
 
-// Subscription returns generated.SubscriptionResolver implementation.
-func (r *Resolver) Subscription() generated.SubscriptionResolver { return &subscriptionResolver{r} }
-
 type mutationResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }
-type subscriptionResolver struct{ *Resolver }

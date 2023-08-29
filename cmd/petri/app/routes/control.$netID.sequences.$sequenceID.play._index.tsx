@@ -73,7 +73,16 @@ export default function PlaySequence() {
         sequenceID: z.string(),
         userID: z.string(),
         instances: z.preprocess((instStrings) => {
-          const instanceStrings = instStrings as string[];
+          // instStrings can either be one or many strings, so we need to check if it is a single string and convert to an array of 1 if so
+          const instanceStrings: string[] = [];
+          if (typeof instStrings === "string") {
+            instanceStrings.push(instStrings);
+          } else {
+            const strings = instStrings as string[];
+            strings.forEach((string) => {
+              instanceStrings.push(string);
+            })
+          }
           return instanceStrings.map((instString) => {
             return JSON.parse(instString.toString()) as DeviceInstanceInput;
           });

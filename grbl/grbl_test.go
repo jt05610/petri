@@ -116,14 +116,14 @@ func TestParse(t *testing.T) {
 					if e.Override == nil {
 						t.Fatalf("expected override nil, got %v", s.Override)
 					}
-					if s.Override.X != e.Override.X {
-						t.Fatalf("expected override x %v, got %v", e.Override.X, s.Override.X)
+					if s.Override.Rapid != e.Override.Rapid {
+						t.Fatalf("expected override x %v, got %v", e.Override.Rapid, s.Override.Rapid)
 					}
-					if s.Override.Y != e.Override.Y {
-						t.Fatalf("expected override y %v, got %v", e.Override.Y, s.Override.Y)
+					if s.Override.Feed != e.Override.Feed {
+						t.Fatalf("expected override y %v, got %v", e.Override.Feed, s.Override.Feed)
 					}
-					if s.Override.Z != e.Override.Z {
-						t.Fatalf("expected override z %v, got %v", e.Override.Z, s.Override.Z)
+					if s.Override.Spindle != e.Override.Spindle {
+						t.Fatalf("expected override z %v, got %v", e.Override.Spindle, s.Override.Spindle)
 					}
 				}
 

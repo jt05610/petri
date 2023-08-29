@@ -30,17 +30,19 @@ type Active struct {
 	Spindle bool
 }
 
+type Override struct {
+	Rapid   byte
+	Feed    byte
+	Spindle byte
+}
+
 type Status struct {
 	Alarm           State
 	Active          *Active
 	MachinePosition *Position
 	Feed            float64
 	WorkPosition    *Position
-	Override        *struct {
-		X float64
-		Y float64
-		Z float64
-	}
+	*Override
 }
 
 func (s *Status) IsStatusUpdate() {}
@@ -230,19 +232,29 @@ func (p *Parser) parsePosition() *Position {
 	}
 }
 
-func (p *Parser) parseOverride() *struct {
-	X float64
-	Y float64
-	Z float64
-} {
-	return &struct {
-		X float64
-		Y float64
-		Z float64
-	}{
-		X: p.parseFloat(),
-		Y: p.parseFloat(),
-		Z: p.parseFloat(),
+func (p *Parser) parseByte() uint8 {
+	pos, tok, lit := p.lexer.Lex()
+	switch tok {
+	case Newline:
+		panic(p.errorf(pos, "unexpected newline"))
+	case Colon, Comma:
+		return p.parseByte()
+	}
+	if tok != Float {
+		panic(p.errorf(pos, "expected float, got %q", lit))
+	}
+	f, err := strconv.ParseUint(lit, 10, 8)
+	if err != nil {
+		panic(p.errorf(pos, "expected float, got %q", lit))
+	}
+	return uint8(f)
+}
+
+func (p *Parser) parseOverride() *Override {
+	return &Override{
+		Rapid:   p.parseByte(),
+		Feed:    p.parseByte(),
+		Spindle: p.parseByte(),
 	}
 }
 

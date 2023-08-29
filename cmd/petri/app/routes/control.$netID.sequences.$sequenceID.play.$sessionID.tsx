@@ -4,21 +4,25 @@ import type { RunSessionDetails } from "~/models/net.run.session.server";
 import { getRunSession } from "~/models/net.run.session.server";
 import invariant from "tiny-invariant";
 import { requireUser } from "~/session.server";
-import { Form, useLoaderData } from "@remix-run/react";
+import { useLoaderData } from "@remix-run/react";
 import Player from "~/lib/components/player";
-import type { DeviceInstanceInput } from "~/models/__generated__/graphql";
-import { DeviceMarkingsDocument } from "~/models/__generated__/graphql";
-import type { FormEvent, ReactNode } from "react";
+import type { StartSessionInput } from "~/models/__generated__/graphql";
+import {
+  DeviceMarkingsDocument, NewEventsDocument,
+  PauseSessionDocument, ResumeSessionDocument,
+  StartDocument, StopSessionDocument
+} from "~/models/__generated__/graphql";
+import type { ReactNode } from "react";
 import { Suspense, useRef } from "react";
-import { parse } from "@conform-to/zod";
-import { z } from "zod";
 import type { Parameter } from "~/models/net.run.session.data.server";
 import { RunSessionActionType, RunSessionContext, RunSessionProvider } from "~/lib/context/session";
-import { useQuery } from "@apollo/client";
+import { useMutation, useQuery } from "@apollo/client";
 import { useContextSelector } from "use-context-selector";
 import type { Marking, PetriNet } from "~/util/petrinet";
 import { PetriNetContext } from "~/lib/context/petrinet";
 import { PlayIcon } from "@heroicons/react/24/solid";
+import { SessionState } from "@prisma/client";
+import { PauseIcon, StopIcon } from "@heroicons/react/24/outline";
 
 export const loader = async ({ params, request }: LoaderArgs) => {
   const { sessionID } = params;
@@ -29,6 +33,7 @@ export const loader = async ({ params, request }: LoaderArgs) => {
   const runDevices = details.run.steps.map(({ action }) => action.device).filter((device, index, self) => {
     return self.findIndex((d) => d.id === device.id) === index;
   });
+  console.log(runDevices)
   return json({ session: details, runParams, runDevices });
 };
 
@@ -111,10 +116,11 @@ type ControlButtonProps = {
   disabled: boolean
   color: "red" | "green" | "blue" | "yellow"
   children: ReactNode
+  onClick: () => void
 }
 
 
-export function ControlButton({ submit, disabled, color, children }: ControlButtonProps) {
+export function ControlButton({ submit, disabled, color, children, onClick }: ControlButtonProps) {
   const setColor = (color: "red" | "green" | "blue" | "yellow") => {
     switch (color) {
       case "red":
@@ -129,9 +135,9 @@ export function ControlButton({ submit, disabled, color, children }: ControlButt
   };
   return (
     <button
-      type={`${submit ? "submit" : "button"}`}
       className={`rounded-full px-2 py-1 text-white ${setColor(color)}`}
       disabled={disabled}
+      onClick={onClick}
     >
       {children}
     </button>
@@ -142,6 +148,7 @@ export function ControlButton({ submit, disabled, color, children }: ControlButt
 export default function PlaySequence() {
   const petriNet = useContextSelector(PetriNetContext, (context) => context?.petriNet);
   const { session, runParams, runDevices } = useLoaderData<typeof loader>();
+  const activeSession = useContextSelector(RunSessionContext, (context) => context?.session);
   const dispatch = useContextSelector(RunSessionContext, (context) => context?.dispatch);
   const deviceMarkings = useQuery(DeviceMarkingsDocument, {
     variables: {
@@ -172,36 +179,87 @@ export default function PlaySequence() {
     }
   });
 
+  const [start] = useMutation(
+    StartDocument, {});
+
+  const [pause] = useMutation(
+    PauseSessionDocument, {});
+
+  const [stop] = useMutation(
+    StopSessionDocument, {});
+
+  useQuery(
+    NewEventsDocument, {
+      variables: {
+        id: session.id
+      },
+      onCompleted: (data) => {
+        if (data.newEvents.length === 0) return;
+        if (!dispatch) return;
+        dispatch(
+          {
+            type: RunSessionActionType.Step
+          }
+        );
+      },
+      pollInterval: 1000
+    });
+
+  const [resume] = useMutation(
+    ResumeSessionDocument, {}
+  );
+
+  async function handlePause() {
+    const res = pause({ variables: { input: session.id } }).then((res) => {
+      return res.data?.pauseSession;
+    });
+    if (!res) return;
+    if (!dispatch) return;
+    dispatch(
+      {
+        type: RunSessionActionType.Pause
+      });
+  }
+
+  async function handleResume() {
+    const res = resume({ variables: { input: session.id } }).then((res) => {
+      return res.data?.resumeSession;
+    });
+    if (!res) return;
+    if (!dispatch) return;
+    dispatch(
+      {
+        type: RunSessionActionType.Resume
+      });
+  }
+
+  async function handleStop() {
+    const res = stop({ variables: { input: session.id } }).then((res) => {
+      return res.data?.stopSession;
+    });
+    if (!res) return;
+    if (!dispatch) return;
+    dispatch(
+      {
+        type: RunSessionActionType.Stop
+      });
+  }
+
   const paramRecord = useRef<Record<string, any>>({});
 
-  async function handleStart(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const formData = new FormData(event.currentTarget);
-    formData.set("parameters", JSON.stringify(paramRecord.current));
+  async function handleStart() {
+    console.log("start");
+    const submission: StartSessionInput = {
+      sessionID: session.id,
+      parameters: paramRecord.current
+    };
 
-    const submission = parse(formData, {
-      schema: z.object({
-        sequenceID: z.string(),
-        userID: z.string(),
-        parameters: z.preprocess((s) => JSON.parse(s as string), z.record(z.any()).optional()),
-        instances: z.preprocess((instStrings) => {
-          const instanceStrings = instStrings as string[];
-          return instanceStrings.map((instString) => {
-            return JSON.parse(instString.toString()) as DeviceInstanceInput;
-          });
-        }, z.array(z.object({
-          deviceID: z.string(),
-          instanceID: z.string()
-        })))
-      })
+    const ok = await start({ variables: { input: submission } }).then((res) => {
+      return res.data?.startSession;
     });
-    if (!submission.value || submission.intent !== "submit") {
-      console.log(submission.error);
-      return;
-    }
-    console.log(submission.value);
-
+    if (!ok) return;
   }
+
 
   return (
     <Suspense fallback={<div>Loading...</div>}>
@@ -223,18 +281,44 @@ export default function PlaySequence() {
             }
             <div className={"flex flex-col w-full space-y-2"}>
               <div className={"flex flex-row space-x-2 justify-end"}>
-                <Form onSubmit={handleStart}>
+                <ControlButton
+                  disabled={activeSession?.status === SessionState.RUNNING}
+                  color={"green"}
+                  aria-label={"Start the sequence"}
+                  onClick={handleStart}
+                >
+                  <PlayIcon className={"h-5 w-5"} />
+                </ControlButton>
+                {activeSession?.status === SessionState.RUNNING ? (
                   <ControlButton
-                    submit
-                    disabled={false}
-                    color={"green"}
-                    aria-label={"Start the sequence"}
+                    disabled={activeSession?.status !== SessionState.RUNNING}
+                    color={"yellow"}
+                    aria-label={"Pause the sequence"}
+                    onClick={handlePause}
+                  >
+                    <PauseIcon className={"h-5 w-5"} />
+                  </ControlButton>
+                ) : activeSession?.status === SessionState.PAUSED ? (
+                  <ControlButton
+                    disabled={activeSession?.status !== SessionState.PAUSED}
+                    color={"blue"}
+                    aria-label={"Resume the sequence"}
+                    onClick={handleResume}
                   >
                     <PlayIcon className={"h-5 w-5"} />
                   </ControlButton>
-                </Form>
-                <Player devices={runDevices} />
+                ) : null
+                }
+                <ControlButton
+                  disabled={activeSession?.status !== SessionState.RUNNING}
+                  color={"red"}
+                  aria-label={"Stop the sequence"}
+                  onClick={handleStop}
+                >
+                  <StopIcon className={"h-5 w-5"} />
+                </ControlButton>
               </div>
+              <Player devices={runDevices} />
             </div>
           </div>
         </RunSessionProvider>

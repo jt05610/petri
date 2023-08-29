@@ -9,9 +9,10 @@ import { startTransition, StrictMode } from "react";
 import { hydrateRoot } from "react-dom/client";
 import { ApolloClient, ApolloProvider, InMemoryCache } from "@apollo/client";
 
+
 startTransition(() => {
   const client = new ApolloClient({
-    uri: "http://localhost:4000/api/",
+    uri: "https://localhost/api/",
     cache: new InMemoryCache().restore(window.__APOLLO_STATE__)
   });
 

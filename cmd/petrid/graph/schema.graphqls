@@ -6,6 +6,7 @@ type Query {
     instances(runID: ID!): [Instance!]!
     devices(filter: String): [Device!]!
     deviceMarkings(input: DeviceMarkingsInput!): [DeviceMarking!]!
+    newEvents(sessionID: ID!): [Event!]!
 }
 
 input PlaceMarkInput {
@@ -91,6 +92,7 @@ input StartSessionInput {
 }
 
 type Mutation {
+    startSession(input: StartSessionInput!): Event!
     newSession(input: NewSessionInput!): Session!
     stopSession(sessionID: ID!): Session!
     pauseSession(sessionID: ID!): Session!
@@ -104,8 +106,4 @@ input DeviceMarkingsInput {
 type DeviceMarking {
     deviceID: ID!
     marking: JSON!
-}
-
-type Subscription {
-    startSession(input: StartSessionInput!): Event!
 }

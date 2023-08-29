@@ -212,11 +212,22 @@ func (n *Net) AddNotification(name string, transition *petri.Transition, Getter 
 
 func (n *Net) Handle(ctx context.Context, event *Event) error {
 	handler, err := n.route(event.Name)
+	newEvents := make([]*Event, 0)
 	if err != nil {
 		return err
 	}
 	ev, err := handler(ctx, event)
-	n.eventCh <- ev
+	if err != nil {
+		return err
+	}
+	if ev != nil {
+		newEvents = append(newEvents, ev)
+	}
+	t := n.EventMap[event.Name]
+	err = n.Fire(t.Transition)
+	if err != nil {
+		return err
+	}
 	av := n.Available()
 	nCold := 0
 	for _, hot := range n.hot {
@@ -229,27 +240,30 @@ func (n *Net) Handle(ctx context.Context, event *Event) error {
 			if !n.hot[t.Name] {
 				continue
 			}
-			err := n.Fire(t)
+			err = n.Fire(t)
+			if err != nil {
+				return err
+			}
 			if nn, ok := n.notifications[t.Name]; ok {
 				for _, h := range nn {
 					d, err := h.Getter(ctx)
 					if err != nil {
 						return err
 					}
-					n.eventCh <- &Event{
+					newEvents = append(newEvents, &Event{
 						Name: h.Name,
 						Data: d,
-					}
+					})
 				}
 			}
-			if err != nil {
-				return err
-			}
+		}
+		if err != nil {
+			return err
 		}
 		av = n.Available()
 	}
-	if err != nil {
-		return err
+	for _, ev := range newEvents {
+		n.eventCh <- ev
 	}
 	return nil
 }

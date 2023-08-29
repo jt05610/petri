@@ -146,7 +146,6 @@ export class PetriNet {
 
   placeName(placeID: string): string {
     const place = this.allPlaces.find(place => place.id === placeID);
-    console.log("place found", placeID, place)
     if (!place) {
       const possiblePlaces = this.allPlaces.map(place => place.id).join(", ");
       throw new Error(placeID + " does not exist. Possible places: " + possiblePlaces);
@@ -216,8 +215,24 @@ export class PetriNet {
     });
   }
 
-  childDeviceEvents(marking: Marking): DeviceWithEvents[] {
+  deviceEvents(marking: Marking): DeviceWithEvents[] {
     let ret: DeviceWithEvents[] = [];
+    if (this.net.devices) {
+      for (let device of this.net.devices) {
+        if (!device.instances) {
+          continue;
+        }
+        ret.push({
+          id: device.id,
+          name: device.name,
+          instances: device.instances,
+          events: this.net.transitions.flatMap(({ events }) => events!.map(event => ({
+            ...event,
+            enabled: this.enabledTransitions(marking).some(transition => transition.events && transition.events.some(e => e.id === event.id))
+          })))
+        });
+      }
+    }
     for (let child of this.net.children) {
       if (child.devices) {
         child.devices.forEach(device => {

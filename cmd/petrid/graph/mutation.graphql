@@ -31,3 +31,23 @@ mutation PauseSession($input: ID!) {
         }
     }
 }
+
+mutation ResumeSession($input: ID!) {
+    resumeSession(sessionID: $input) {
+        id
+        createdAt
+        updatedAt
+        events {
+            name
+            timestamp
+            data
+        }
+    }
+}
+mutation Start($input: StartSessionInput!) {
+    startSession(input: $input) {
+        name,
+        timestamp,
+        data
+    }
+}

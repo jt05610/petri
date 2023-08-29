@@ -27,6 +27,12 @@ func (c *SessionClient) ListSessions(ctx context.Context, runID string) ([]db.Se
 	).Exec(ctx)
 }
 
+func (c *SessionClient) Load(ctx context.Context, sessionID string) (*db.SessionModel, error) {
+	return c.Session.FindUnique(
+		db.Session.ID.Equals(sessionID),
+	).Exec(ctx)
+}
+
 func (c *SessionClient) ActiveSessions(ctx context.Context) ([]db.SessionModel, error) {
 	return c.Session.FindMany(
 		db.Session.State.Equals(db.SessionStateRUNNING),
@@ -34,25 +40,17 @@ func (c *SessionClient) ActiveSessions(ctx context.Context) ([]db.SessionModel, 
 }
 
 func (c *SessionClient) CreateSession(ctx context.Context, runID, userID string, instances []string) (*db.SessionModel, error) {
+	instanceQueries := make([]db.InstanceWhereParam, len(instances))
+	for i, instance := range instances {
+		instanceQueries[i] = db.Instance.ID.Equals(instance)
+	}
 	session, err := c.Session.CreateOne(
 		db.Session.User.Link(db.User.ID.Equals(userID)),
 		db.Session.Run.Link(db.Run.ID.Equals(runID)),
+		db.Session.Instances.Link(instanceQueries...),
 	).Exec(ctx)
 	if err != nil {
 		return nil, err
-	}
-	for _, instance := range instances {
-		_, err := c.Instance.FindUnique(
-			db.Instance.ID.Equals(instance),
-		).Update(
-			db.Instance.Sessions.Link(
-				db.Session.ID.Equals(session.ID),
-			),
-		).Exec(ctx)
-
-		if err != nil {
-			return nil, err
-		}
 	}
 	return session, nil
 }

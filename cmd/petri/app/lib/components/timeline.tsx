@@ -5,6 +5,7 @@ import type {
 import { RecordRunGridView } from "~/lib/components/displayGrid";
 import { useState } from "react";
 import { PetriNetContext } from "~/lib/context/petrinet";
+import { useNavigate } from "@remix-run/react";
 
 
 type RunViewProps = {
@@ -29,7 +30,7 @@ type TimelineProps = {
 export default function Timeline({ sequence }: TimelineProps) {
   const petriNet = useContextSelector(PetriNetContext, (context) => context?.petriNet);
   const [name, setName] = useState("");
-
+  const navigate = useNavigate();
 
   async function handleSubmit() {
     await fetch("sequences/new", {
@@ -39,6 +40,7 @@ export default function Timeline({ sequence }: TimelineProps) {
       },
       body: JSON.stringify({ ...sequence, name: name })
     }).then((res) => res.json()).then((res) => {
+      navigate(`./sequences/${res.id}`);
       console.log("response", res);
     });
   }

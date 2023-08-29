@@ -17,10 +17,17 @@ import (
 //go:embed device.yaml
 var deviceYaml embed.FS
 
-func main() {
-	logger, err := zap.NewProduction()
-	failOnError(err, "Error creating logger")
-	err = godotenv.Load()
+type Environment struct {
+	URI        string
+	Exchange   string
+	DeviceID   string
+	InstanceID string
+	SerialPort string
+	Baud       int
+}
+
+func LoadEnv(logger *zap.Logger) *Environment {
+	err := godotenv.Load()
 	failOnError(err, "Error loading .env file")
 
 	logger.Info("Starting 🐰 server")
@@ -41,20 +48,6 @@ func main() {
 	if !ok {
 		logger.Fatal("INSTANCE_ID not set")
 	}
-	conn, err := amqp.Dial(uri)
-	failOnError(err, "Failed to connect to RabbitMQ")
-	logger.Info("Connected to RabbitMQ", zap.String("uri", uri))
-	defer func() {
-		err := conn.Close()
-		failOnError(err, "Failed to close connection")
-	}()
-	ch, err := conn.Channel()
-	failOnError(err, "Failed to open a channel")
-	logger.Info("Opened channel")
-	defer func() {
-		err := ch.Close()
-		failOnError(err, "Failed to close channel")
-	}()
 	serPort, found := os.LookupEnv("SERIAL_PORT")
 	if !found {
 		logger.Fatal("SERIAL_PORT not set")
@@ -67,7 +60,36 @@ func main() {
 	if err != nil {
 		logger.Fatal("Failed to parse baud", zap.Error(err))
 	}
-	port, err := OpenPort(serPort, int(baudInt))
+	return &Environment{
+		URI:        uri,
+		Exchange:   exchange,
+		DeviceID:   deviceID,
+		InstanceID: instanceID,
+		SerialPort: serPort,
+		Baud:       int(baudInt),
+	}
+}
+
+func main() {
+	logger, err := zap.NewProduction()
+	failOnError(err, "Error creating logger")
+	env := LoadEnv(logger)
+	conn, err := amqp.Dial(env.URI)
+	failOnError(err, "Failed to connect to RabbitMQ")
+	logger.Info("Connected to RabbitMQ", zap.String("uri", env.URI))
+	defer func() {
+		err := conn.Close()
+		failOnError(err, "Failed to close connection")
+	}()
+	ch, err := conn.Channel()
+	failOnError(err, "Failed to open a channel")
+	logger.Info("Opened channel")
+	defer func() {
+		err := ch.Close()
+		failOnError(err, "Failed to close channel")
+	}()
+
+	port, err := OpenPort(env.SerialPort, env.Baud)
 	defer func() {
 		err := port.Close()
 		failOnError(err, "Failed to close port")
@@ -75,7 +97,7 @@ func main() {
 	if err != nil {
 		logger.Fatal("Failed to open port", zap.Error(err))
 	}
-	txCh := make(chan []byte)
+	txCh := make(chan []byte, 100)
 	if err != nil {
 		logger.Fatal("Failed to set read timeout", zap.Error(err))
 	}
@@ -94,20 +116,8 @@ func main() {
 		}
 	}()
 	txCh <- []byte("$X\n")
-	_, err = d.OpenB(context.Background(), nil)
-	if err != nil {
-		logger.Fatal("Failed to open B", zap.Error(err))
-	}
-	logger.Info("Opened B")
-	time.Sleep(5 * time.Second)
-	_, err = d.OpenA(context.Background(), nil)
-	if err != nil {
-		logger.Fatal("Failed to open A", zap.Error(err))
-	}
-	logger.Info("Opened A")
-
 	dev := d.load()
-	srv := server.New(dev.Nets[0], ch, exchange, deviceID, instanceID, dev.EventMap(), d.Handlers())
+	srv := server.New(dev.Nets[0], ch, env.Exchange, env.DeviceID, env.InstanceID, dev.EventMap(), d.Handlers())
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	c := make(chan os.Signal, 1)

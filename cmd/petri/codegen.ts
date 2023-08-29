@@ -1,7 +1,8 @@
 import type { CodegenConfig } from "@graphql-codegen/cli";
 
+
 const config: CodegenConfig = {
-  schema: "http://localhost:8081/graphql",
+  schema: "../petrid/graph/**/*.graphqls",
   documents: ["../petrid/graph/**/*.graphql"],
   generates: {
     "./app/models/__generated__/": {

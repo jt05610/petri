@@ -5,29 +5,24 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"strings"
 	"unicode"
 )
 
 type Position struct {
-	X float64
-	Y float64
-	Z float64
+	X float32
+	Y float32
+	Z float32
 }
 
 type StatusUpdate interface {
 	IsStatusUpdate()
 }
 
-type State string
-
-const (
-	Alarm State = "Alarm"
-	Idle  State = "Idle"
-	Run   State = "Run"
-)
-
 type Active struct {
 	Spindle bool
+	Flood   bool
+	Mist    bool
 }
 
 type Override struct {
@@ -37,10 +32,12 @@ type Override struct {
 }
 
 type Status struct {
-	Alarm           State
+	State           string
+	Error           *int
+	Alarm           *int
 	Active          *Active
 	MachinePosition *Position
-	Feed            float64
+	Feed            float32
 	WorkPosition    *Position
 	*Override
 }
@@ -61,7 +58,8 @@ type StatusType string
 type Token int
 
 const (
-	Newline Token = iota
+	Return Token = iota
+	Newline
 	OpenAngle
 	CloseAngle
 	Colon
@@ -72,6 +70,7 @@ const (
 )
 
 var tokens = []string{
+	Return:     "RETURN",
 	Newline:    "NEWLINE",
 	OpenAngle:  "<",
 	CloseAngle: ">",
@@ -107,6 +106,8 @@ func (l *Lexer) Lex() (int, Token, string) {
 		switch r {
 		case '\n':
 			return l.pos, Newline, Newline.String()
+		case '\r':
+			return l.pos, Return, Return.String()
 		case '<':
 			return l.pos, OpenAngle, OpenAngle.String()
 		case '>':
@@ -205,7 +206,7 @@ func (p *Parser) errorf(pos int, format string, args ...interface{}) error {
 	return fmt.Errorf("%d: %s", pos, fmt.Sprintf(format, args...))
 }
 
-func (p *Parser) parseFloat() float64 {
+func (p *Parser) parseFloat() float32 {
 	pos, tok, lit := p.lexer.Lex()
 	switch tok {
 	case Newline:
@@ -216,11 +217,11 @@ func (p *Parser) parseFloat() float64 {
 	if tok != Float {
 		panic(p.errorf(pos, "expected float, got %q", lit))
 	}
-	f, err := strconv.ParseFloat(lit, 64)
+	f, err := strconv.ParseFloat(lit, 32)
 	if err != nil {
 		panic(p.errorf(pos, "expected float, got %q", lit))
 	}
-	return f
+	return float32(f)
 
 }
 
@@ -269,16 +270,51 @@ func (p *Parser) parseString() string {
 	if tok != Identifier {
 		panic(p.errorf(pos, "expected identifier, got %q", lit))
 	}
-	return lit
+	return strings.TrimSuffix(lit, "\r")
 }
+
 func (p *Parser) parseActive() *Active {
 	s := p.parseString()
 	ret := &Active{}
-	if s == "S" {
-		ret.Spindle = true
+	charMap := map[string]func(){
+		"S": func() {
+			ret.Spindle = true
+		},
+		"F": func() {
+			ret.Flood = true
+		},
+		"M": func() {
+			ret.Mist = true
+		},
 	}
+	for _, c := range s {
+		f, ok := charMap[string(c)]
+		if !ok {
+			panic(p.errorf(p.lexer.pos, "unknown identifier %q", c))
+		}
+		f()
+	}
+
 	return ret
 
+}
+
+func (p *Parser) parseInt() int {
+	pos, tok, lit := p.lexer.Lex()
+	switch tok {
+	case Newline:
+		panic(p.errorf(pos, "unexpected newline"))
+	case Colon, Comma:
+		return p.parseInt()
+	}
+	if tok != Float {
+		panic(p.errorf(pos, "expected float, got %q", lit))
+	}
+	f, err := strconv.ParseInt(lit, 10, 32)
+	if err != nil {
+		panic(p.errorf(pos, "expected float, got %q", lit))
+	}
+	return int(f)
 }
 
 func (p *Parser) parseStatusUpdate(s *Status) (*Status, error) {
@@ -287,8 +323,18 @@ func (p *Parser) parseStatusUpdate(s *Status) (*Status, error) {
 		switch tok {
 		case Identifier:
 			switch lit {
-			case "Alarm", "Idle", "Run":
-				s.Alarm = State(lit)
+			case "Idle", "Run", "Hold", "Home":
+				s.State = strings.ToLower(lit)
+				s.Alarm = nil
+				s.Error = nil
+			case "Error":
+				s.State = "error"
+				s.Error = new(int)
+				*s.Error = p.parseInt()
+			case "Alarm":
+				s.State = "alarm"
+				s.Alarm = new(int)
+				*s.Alarm = p.parseInt()
 			case "A":
 				s.Active = p.parseActive()
 			case "MPos":
@@ -302,9 +348,9 @@ func (p *Parser) parseStatusUpdate(s *Status) (*Status, error) {
 			default:
 				return nil, p.errorf(pos, "unknown identifier %q", lit)
 			}
-		case Bar, Comma, Colon:
+		case Bar, Comma, Colon, CloseAngle:
 			continue
-		case CloseAngle:
+		case Return:
 			return s, nil
 		}
 
@@ -313,21 +359,43 @@ func (p *Parser) parseStatusUpdate(s *Status) (*Status, error) {
 
 var IllegalIdentifier = fmt.Errorf("illegal identifier")
 
-func (p *Parser) Parse() (StatusUpdate, error) {
-	status := &Status{}
+type Error int
+
+func (e Error) IsStatusUpdate() {}
+
+type Alarm int
+
+func (a Alarm) IsStatusUpdate() {}
+
+func (p *Parser) parseError() (Error, error) {
+	return Error(p.parseInt()), nil
+}
+
+func (p *Parser) parseAlarm() (Alarm, error) {
+	return Alarm(p.parseInt()), nil
+}
+
+func (p *Parser) Parse() (ret StatusUpdate, err error) {
+	status := new(Status)
 	for {
 		pos, tok, lit := p.lexer.Lex()
 		switch tok {
+		case Return:
+			continue
 		case Newline:
-			return status, nil
+			return ret, err
 		case OpenAngle:
-			return p.parseStatusUpdate(status)
+			ret, err = p.parseStatusUpdate(status)
 		case Identifier:
 			switch lit {
 			case "ok":
-				return &Ack{}, nil
+				ret = &Ack{}
+			case "error":
+				return p.parseError()
+			case "alarm":
+				return p.parseAlarm()
 			default:
-				return nil, IllegalIdentifier
+				return nil, fmt.Errorf("unknown identifier %q", lit)
 			}
 		default:
 			return nil, p.errorf(pos, "expected identifier, got %q", lit)

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/jt05610/petri/control"
+	"github.com/jt05610/petri/env"
 	"github.com/jt05610/petri/labeled"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"strings"
@@ -92,4 +93,31 @@ func (a *EventService) Load(_ context.Context, data amqp.Delivery) (*control.Eve
 		return res, nil
 	}
 	return res, json.Unmarshal(data.Body, &res.Data)
+}
+
+type Connection struct {
+	*amqp.Connection
+	*amqp.Channel
+}
+
+func (c *Connection) Close() error {
+	if c.Channel != nil {
+		err := c.Channel.Close()
+		if err != nil {
+			return err
+		}
+	}
+	return c.Connection.Close()
+}
+
+func Dial(environ *env.Environment) (*Connection, error) {
+	conn, err := amqp.Dial(environ.URI)
+	if err != nil {
+		return nil, err
+	}
+	ch, err := conn.Channel()
+	if err != nil {
+		return nil, err
+	}
+	return &Connection{conn, ch}, nil
 }

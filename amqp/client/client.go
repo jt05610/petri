@@ -220,7 +220,7 @@ func (c *Controller) Start(ctx context.Context) {
 				if inst == nil {
 					log.Fatalf("Instance for device %s not found", step.Device.ID)
 				}
-				err := c.startStep(ctx, step, step.ParameterMap())
+				err := c.startStep(ctx, step)
 				if err != nil {
 					log.Println(err)
 				}
@@ -228,31 +228,24 @@ func (c *Controller) Start(ctx context.Context) {
 				if data.From == inst.ID && data.Name == step.Event.Name {
 					c.logger.Info("Received event", zap.String("event", data.Name))
 				}
-
-				c.StepQueue = c.StepQueue[1:]
-				c.CurrentStep++
-				if len(c.StepQueue) == 0 {
+				if len(c.StepQueue) == 1 {
 					c.logger.Info("Sequence complete", zap.String("sequence", c.Sequence.Name))
 					return
 				}
+				c.StepQueue = c.StepQueue[1:]
+				c.CurrentStep++
 			}
 		}
 	}()
 }
 
-func (c *Controller) startStep(ctx context.Context, step *sequence.Step, data map[string]interface{}) error {
+func (c *Controller) startStep(ctx context.Context, step *sequence.Step) error {
 	to, found := c.Routes[step.Device.ID]
 	if !found {
 		return errors.New("device not found")
 	}
-	cmd := &control.Command{
-		To:    to.ID,
-		Event: step.Event,
-	}
-	err := step.ApplyParameters(data)
-	if err != nil {
-		return err
-	}
+	cmd := step.Command(to.ID)
+	fmt.Printf("Sending %s to %s with data %v\n", cmd.Name, cmd.To, cmd.Data)
 	done := make(chan struct{})
 	var sendErr error
 	go func() {

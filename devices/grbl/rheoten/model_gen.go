@@ -5,20 +5,21 @@ import (
 	"fmt"
 	"github.com/jt05610/petri/control"
 	"github.com/jt05610/petri/device"
+	proto "github.com/jt05610/petri/grbl/proto/v1"
 	"github.com/jt05610/petri/labeled"
 	"github.com/jt05610/petri/yaml"
 	"log"
-	"os"
+	"strconv"
 )
 
-func NewTwoPositionThreeWayValve(f *os.File) *TwoPositionThreeWayValve {
-	d := &TwoPositionThreeWayValve{
-		File: f,
+func NewTenPortRheodyneValve(client proto.GRBLClient) *TenPortRheodyneValve {
+	d := &TenPortRheodyneValve{
+		GRBLClient: client,
 	}
 	return d
 }
 
-func (d *TwoPositionThreeWayValve) load() *device.Device {
+func (d *TenPortRheodyneValve) load() *device.Device {
 	srv := yaml.Service{}
 	df, err := deviceYaml.Open("device.yaml")
 	if err != nil {
@@ -45,12 +46,30 @@ func (r *OpenARequest) FromEvent(event *labeled.Event) error {
 	if event.Name != "open_a" {
 		return fmt.Errorf("expected event name open_a, got %s", event.Name)
 	}
+	if event.Data["delay"] != nil {
+		ds := event.Data["delay"].(string)
+		d, err := strconv.ParseFloat(ds, 64)
+		if err != nil {
+			return err
+		}
+		r.Delay = d
+	}
+
 	return nil
 }
 
 func (r *OpenAResponse) Event() *labeled.Event {
 	ret := &labeled.Event{
 		Name: "open_a",
+		Fields: []*labeled.Field{
+			{
+				Name: "delay",
+				Type: "number",
+			},
+		},
+		Data: map[string]interface{}{
+			"delay": r.Delay,
+		},
 	}
 
 	return ret
@@ -63,6 +82,10 @@ func (r *OpenAResponse) FromEvent(event *labeled.Event) error {
 	return nil
 }
 
+type OpenBData struct {
+	Delay float64 `json:"delay"`
+}
+
 func (r *OpenBRequest) Event() *labeled.Event {
 	return &labeled.Event{
 		Name: "open_b",
@@ -73,12 +96,30 @@ func (r *OpenBRequest) FromEvent(event *labeled.Event) error {
 	if event.Name != "open_b" {
 		return fmt.Errorf("expected event name open_b, got %s", event.Name)
 	}
+	if event.Data["delay"] != nil {
+		ds := event.Data["delay"].(string)
+		d, err := strconv.ParseFloat(ds, 64)
+		if err != nil {
+			return err
+		}
+		r.Delay = d
+	}
+
 	return nil
 }
 
 func (r *OpenBResponse) Event() *labeled.Event {
 	ret := &labeled.Event{
 		Name: "open_b",
+		Fields: []*labeled.Field{
+			{
+				Name: "delay",
+				Type: "number",
+			},
+		},
+		Data: map[string]interface{}{
+			"delay": r.Delay,
+		},
 	}
 
 	return ret
@@ -91,7 +132,7 @@ func (r *OpenBResponse) FromEvent(event *labeled.Event) error {
 	return nil
 }
 
-func (d *TwoPositionThreeWayValve) Handlers() control.Handlers {
+func (d *TenPortRheodyneValve) Handlers() control.Handlers {
 	return control.Handlers{
 
 		"open_a": func(ctx context.Context, data *labeled.Event) (*labeled.Event, error) {

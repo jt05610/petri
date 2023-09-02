@@ -1,11 +1,12 @@
-import type { ReactNode } from "react";
+import type { MutableRefObject, ReactNode } from "react";
 import type { ConstantInput, RunDetails, RunInputDisplay } from "~/models/net.run.server";
 import { useContextSelector } from "use-context-selector";
 import { RecordRunContext, RunActionType } from "~/context";
 import { BackspaceIcon } from "@heroicons/react/24/outline";
 import { PetriNetContext } from "~/lib/context/petrinet";
-import type { Parameter } from "~/models/net.run.session.data.server";
+import type { ParameterWithValue } from "~/lib/context/session";
 import { RunSessionContext, RunSessionActionType } from "~/lib/context/session";
+import { Suspense } from "react";
 
 type GridHeaderItemProps = {
   col: number
@@ -51,18 +52,16 @@ function GridHeaderCell({ children, row }: GridRowProps) {
 }
 
 type ActionParamViewProps = {
-  deviceID: string
-  actionIndex: number
   fields: {
     [key: string]: string
   }
   constants: ConstantInput[]
+  parameters?: Record<string, ParameterWithValue>
+  paramRef: MutableRefObject<Record<string, Record<number, Record<string, ParameterWithValue>>>>
 }
 
-function DeviceEditParamView({ deviceID, actionIndex, constants, fields }: ActionParamViewProps) {
-  const paramValues = useContextSelector(RunSessionContext, v => v?.session.parameters[deviceID][actionIndex]);
+function DeviceEditParamView({ constants, fields, parameters, paramRef }: ActionParamViewProps) {
   const dispatch = useContextSelector(RunSessionContext, v => v?.dispatch);
-
   return (
     <table className="table-auto w-full">
       <thead>
@@ -80,7 +79,8 @@ function DeviceEditParamView({ deviceID, actionIndex, constants, fields }: Actio
           </tr>
         );
       })}
-      {paramValues && Object.values(paramValues).map((param, i) => {
+      {parameters && dispatch && Object.values(parameters).map((param, i) => {
+          console.log("param:", param);
           return (
             <tr key={i} className={"text-xs font-medium"}>
               <td>{param.parameter.fieldName}</td>
@@ -91,7 +91,8 @@ function DeviceEditParamView({ deviceID, actionIndex, constants, fields }: Actio
                       type={"checkbox"}
                       value={param.value ? "true" : "false"}
                       onChange={(e) => {
-                        dispatch!({
+                        paramRef.current[param.parameter.deviceID][param.parameter.order][param.parameter.fieldID].value = e.target.value;
+                        dispatch({
                           type: RunSessionActionType.ChangeParameter,
                           payload: {
                             parameter: param.parameter,
@@ -106,13 +107,14 @@ function DeviceEditParamView({ deviceID, actionIndex, constants, fields }: Actio
                       type={"text"}
                       value={param.value as string}
                       onChange={(e) => {
-                        dispatch!({
+                        dispatch({
                           type: RunSessionActionType.ChangeParameter,
                           payload: {
                             parameter: param.parameter,
                             value: e.target.value
                           }
                         });
+                        paramRef.current[param.parameter.deviceID][param.parameter.order][param.parameter.fieldID].value = e.target.value;
                       }
                       }
                     />
@@ -191,10 +193,12 @@ type ActionDetailsProps = {
     [key: string]: string
   }
   constants: ConstantInput[]
+  parameters?: Record<string, ParameterWithValue>
   playback?: boolean
+  paramRef?: MutableRefObject<Record<string, Record<number, Record<string, ParameterWithValue>>>>
 }
 
-function ActionDetails({ deviceID, index, color, name, constants, fields, playback }: ActionDetailsProps) {
+function ActionDetails({ deviceID, index, color, name, constants, fields, parameters, playback, paramRef }: ActionDetailsProps) {
   const deviceEventColors = {
     teal: "bg-teal-400/20 dark:bg-cyan-600/50 border-teal-700/10 dark:border-cyan-500 text-teal-600 dark:text-cyan-100",
     yellow: "bg-yellow-400/20 dark:bg-amber-600/50 border-yellow-700/10 dark:border-amber-500 text-yellow-600 dark:text-amber-100",
@@ -208,15 +212,14 @@ function ActionDetails({ deviceID, index, color, name, constants, fields, playba
   return (
     <div className={`relative m-1 p-2 text-sm rounded-lg flex flex-col max-w-lg ${deviceEventColors[color]}`}>
       <span className="w-full text-sm font-medium">{name}</span>
-      {constants.length > 0 && (
+      {(constants.length > 0 || parameters) && (
         playback ?
-          <DeviceEditParamView deviceID={deviceID} constants={constants} fields={fields} actionIndex={index} /> :
+          <DeviceEditParamView fields={fields} constants={constants} parameters={parameters} paramRef={paramRef!} /> :
           <DeviceEditConstantView constants={constants} fields={fields} actionIndex={index} />
       )}
     </div>
   );
 }
-
 
 type RunGridViewProps = {
   nCols: number;
@@ -228,73 +231,80 @@ type RunGridViewProps = {
       ]:
       number;
   },
-  parameters?: Parameter[];
+  paramRef?: MutableRefObject<Record<string, Record<number, Record<string, ParameterWithValue>>>>
 }
 
-export default function RunGridView({ nCols, nRows, deviceNames, sequence }: RunGridViewProps) {
-
+export default function RunGridView({ nCols, nRows, deviceNames, sequence, paramRef }: RunGridViewProps) {
   const session = useContextSelector(RunSessionContext, (context) => context!.session);
   const petriNet = useContextSelector(PetriNetContext, (context) => context!.petriNet.net);
   return (
-    <div className="not-prose relative bg-slate-50 rounded-xl overflow-hidden dark:bg-slate-800/25">
-      <h2>Progress: {`${session.currentStep} of ${sequence.steps.length}`}</h2>
-      <div
-        className="absolute inset-0 bg-grid-slate-100 [mask-image:linear-gradient(0deg,#fff,rgba(255,255,255,0.6))] dark:bg-grid-slate-700/25 dark:[mask-image:linear-gradient(0deg,rgba(255,255,255,0.1),rgba(255,255,255,0.5))]"></div>
-      <div className="relative rounded-xl overflow-auto">
-        <div className="mx-4 bg-white dark:bg-slate-800 shadow-xl overflow-hidden">
+    <Suspense fallback={<div>Loading...</div>}>
+      {session && (
+
+        <div className="not-prose relative bg-slate-50 rounded-xl overflow-hidden dark:bg-slate-800/25">
+          <h2>Progress: {`${session.currentStep} of ${sequence.steps.length}`}</h2>
           <div
-            className={`overflow-scroll grid  grid-cols-${nCols + 1} grid-rows-${nRows + 1}`}>
-            {Array.from({ length: nRows + 1 }).map((_, row) => {
-              return Array.from({ length: nCols + 1 }).map((_, col) => {
-                  if (row === 0) {
-                    return (
-                      <GridHeaderItem key={`${row}.${col}`} col={col + 1} />
-                    );
-                  }
-                  if (col === 0) {
-                    return (
-                      <GridHeaderCell key={`${row}.${col}`} row={row + 1}>
-                        {deviceNames[row - 1]}
-                      </GridHeaderCell>
-                    );
-                  }
-                  if (sequence.steps[col - 1] !== undefined) {
-                    const { action } = sequence.steps[col - 1];
-                    // loop through the session markings keys and if the deviceID matches the key of the marking, then the index of the marking is the row we want
-                    const intendedRow = Object.keys(session.markings).findIndex((key) => key === action.device.id) + 1;
-                    if (row === intendedRow) {
-                      const color = colorFromIndex(petriNet!.deviceIndexFromID(action.device.id));
-                      return (
-                        <GridCell key={`${row}.${col}`}>
-                          <ActionDetails
-                            deviceID={action.device.id}
-                            index={col - 1}
-                            color={color}
-                            name={action.event.name}
-                            constants={action.constants}
-                            playback
-                            fields={action.event.fields.map((field) => field.id).reduce((acc, id, i) => {
-                                acc[id] = action.event.fields[i].name;
-                                return acc;
-                              }, {} as {
-                                [key: string]: string
-                              }
-                            )}
-                          />
-                        </GridCell>
-                      );
+            className="absolute inset-0 bg-grid-slate-100 [mask-image:linear-gradient(0deg,#fff,rgba(255,255,255,0.6))] dark:bg-grid-slate-700/25 dark:[mask-image:linear-gradient(0deg,rgba(255,255,255,0.1),rgba(255,255,255,0.5))]"></div>
+          <div className="relative rounded-xl overflow-auto">
+            <div className="mx-4 bg-white dark:bg-slate-800 shadow-xl overflow-hidden">
+              <div
+                className={`overflow-scroll grid  grid-cols-${nCols + 1} grid-rows-${nRows + 1}`}>
+                {Array.from({ length: nRows + 1 }).map((_, row) => {
+                  return Array.from({ length: nCols + 1 }).map((_, col) => {
+                      if (row === 0) {
+                        return (
+                          <GridHeaderItem key={`${row}.${col}`} col={col + 1} />
+                        );
+                      }
+                      if (col === 0) {
+                        return (
+                          <GridHeaderCell key={`${row}.${col}`} row={row + 1}>
+                            {deviceNames[row - 1]}
+                          </GridHeaderCell>
+                        );
+                      }
+                      if (sequence.steps[col - 1] !== undefined) {
+                        const { action } = sequence.steps[col - 1];
+                        // loop through the session markings keys and if the deviceID matches the key of the marking, then the index of the marking is the row we want
+                        const intendedRow = Object.keys(session.markings).findIndex((key) => key === action.device.id) + 1;
+                        if (row === intendedRow) {
+                          const color = colorFromIndex(petriNet!.deviceIndexFromID(action.device.id));
+                          return (
+                            <GridCell key={`${row}.${col}`}>
+                              <ActionDetails
+                                paramRef={paramRef}
+                                deviceID={action.device.id}
+                                index={col - 1}
+                                color={color}
+                                name={action.event.name}
+                                constants={action.constants}
+                                parameters={session.parameters && session.parameters[action.device.id] && session.parameters[action.device.id][col - 1] && session.parameters[action.device.id][col - 1]}
+                                playback
+                                fields={action.event.fields.map((field) => field.id).reduce((acc, id, i) => {
+                                    acc[id] = action.event.fields[i].name;
+                                    return acc;
+                                  }, {} as {
+                                    [key: string]: string
+                                  }
+                                )}
+                              />
+                            </GridCell>
+                          );
+                        }
+                      }
+                      return <GridCell key={`${row}.${col}`} />;
                     }
-                  }
-                  return <GridCell key={`${row}.${col}`} />;
+                  );
+                })
                 }
-              );
-            })
-            }
+              </div>
+            </div>
           </div>
+          <div
+            className="absolute inset-0 pointer-events-none border border-black/5 rounded-xl dark:border-white/5"></div>
         </div>
-      </div>
-      <div className="absolute inset-0 pointer-events-none border border-black/5 rounded-xl dark:border-white/5"></div>
-    </div>
+      )}
+    </Suspense>
   );
 }
 

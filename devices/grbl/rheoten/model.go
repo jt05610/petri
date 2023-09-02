@@ -2,7 +2,7 @@ package main
 
 import proto "github.com/jt05610/petri/grbl/proto/v1"
 
-type TwoPositionThreeWayValve struct {
+type TenPortRheodyneValve struct {
 	proto.GRBLClient
 }
 

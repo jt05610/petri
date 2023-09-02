@@ -24,6 +24,7 @@ func ErrMissingParameter(f *Field, e *Event) error {
 }
 
 type Field struct {
+	ID   string
 	Name string
 	Type FieldType
 }

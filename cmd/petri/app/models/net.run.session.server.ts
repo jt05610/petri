@@ -68,7 +68,7 @@ export type RunSessionDetails = Pick<Session, "id"> & {
         event: (Pick<Event, "id" | "name" | "description"> & {
           fields: Pick<Field, "id" | "name" | "type">[]
         }),
-        device: Pick<Device, "id" | "name">
+        device: Pick<Device, "id" | "name">,
         constants: (Pick<Constant, "id" | "value"> & { field: Pick<Field, "id" | "name" | "type"> })[]
       })
     }[]

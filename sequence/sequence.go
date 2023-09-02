@@ -6,6 +6,8 @@ import (
 	"github.com/jt05610/petri/device"
 	"github.com/jt05610/petri/labeled"
 	"github.com/jt05610/petri/marked"
+	"strconv"
+	"strings"
 )
 
 type Constant struct {
@@ -23,27 +25,45 @@ type Action struct {
 
 func (a *Action) ParameterMap() map[string]interface{} {
 	ret := make(map[string]interface{})
-	for _, p := range a.Parameters {
-		ret[p.Field.Name] = p.Value
+	for n, p := range a.Parameters {
+		ret[n] = p.Value
+	}
+	for _, c := range a.Constants {
+		ret[fLower(c.Name)] = c.Value
 	}
 	return ret
 }
 
 func (a *Action) ApplyParameters(params map[string]interface{}) error {
 	for _, p := range a.Parameters {
-		if val, ok := params[p.Field.Name]; ok {
-			p.Value = val
+		if val, ok := params[p.Field.ID]; ok {
+			vm, ok := val.(map[string]interface{})
+			if !ok {
+				return labeled.ErrMissingParameter(p.Field, a.Event)
+			}
+			if v, ok := vm["value"]; ok {
+				p.Value = v.(string)
+				a.setParams++
+			} else {
+				return labeled.ErrMissingParameter(p.Field, a.Event)
+			}
+
 		} else {
 			return labeled.ErrMissingParameter(p.Field, a.Event)
 		}
 	}
+	a.Event.Data = a.ParameterMap()
 	return nil
+}
+
+func fLower(s string) string {
+	return strings.ToLower(s[:1]) + s[1:]
 }
 
 func (a *Action) ExtractParameters() {
 	a.Parameters = make(map[string]*Parameter, len(a.Constants))
 	for _, f := range a.Event.Fields {
-		a.Parameters[f.Name] = &Parameter{
+		a.Parameters[fLower(f.Name)] = &Parameter{
 			Field: f,
 		}
 	}
@@ -54,6 +74,14 @@ func (a *Action) ExtractParameters() {
 
 type Step struct {
 	*Action
+}
+
+func (s *Step) Command(to string) *control.Command {
+	ev := s.Event
+	return &control.Command{
+		Event: ev,
+		To:    to,
+	}
 }
 
 type Sequence struct {
@@ -75,10 +103,24 @@ func (s *Sequence) ApplyNet(net *marked.Net) error {
 }
 
 func (s *Sequence) ApplyParameters(params map[string]interface{}) error {
-	for _, step := range s.Steps {
-		err := step.ApplyParameters(params)
-		if err != nil {
-			return err
+	for _, dev := range s.Devices() {
+		p, found := params[dev.ID]
+		if !found {
+			continue
+		}
+		pm, ok := p.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		for i, step := range s.Steps {
+			if stepParams, found := pm[strconv.Itoa(i)]; !found {
+				continue
+			} else {
+				err := step.ApplyParameters(stepParams.(map[string]interface{}))
+				if err != nil {
+					return err
+				}
+			}
 		}
 	}
 	return nil
@@ -108,7 +150,7 @@ func (s *Sequence) Events() []*labeled.Event {
 
 type Parameter struct {
 	Field *labeled.Field
-	Value interface{}
+	Value string
 }
 
 type Config struct {

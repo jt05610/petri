@@ -1,4 +1,4 @@
-import { PrismaClient} from "@prisma/client";
+import { PrismaClient } from "@prisma/client";
 import type { Net, Place, Transition } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
@@ -593,7 +593,15 @@ async function seed() {
               events: {
                 create: [{
                   name: "Open A",
-                  description: "Open port A."
+                  description: "Open port A.",
+                  fields: {
+                    create: [
+                      {
+                        name: "Delay",
+                        type: "number"
+                      }
+                    ]
+                  }
                 }]
               }
             },
@@ -603,7 +611,15 @@ async function seed() {
               events: {
                 create: [{
                   name: "Open B",
-                  description: "Open port B."
+                  description: "Open port B.",
+                  fields: {
+                    create: [
+                      {
+                        name: "Delay",
+                        type: "number"
+                      }
+                    ]
+                  }
                 }]
               }
             },
@@ -747,7 +763,7 @@ async function seed() {
     const placeID = places.find(place => place.name === placeName)?.id;
     const transitionID = transitions.find(transition => transition.name === transitionName)?.id;
     if (placeID && transitionID) {
-      return await prisma.arc.create({
+      return prisma.arc.create({
         data: {
           netID,
           placeID,

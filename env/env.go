@@ -5,7 +5,6 @@ import (
 	"go.uber.org/zap"
 	"log"
 	"os"
-	"strconv"
 )
 
 type Environment struct {
@@ -13,8 +12,7 @@ type Environment struct {
 	Exchange   string
 	DeviceID   string
 	InstanceID string
-	SerialPort string
-	Baud       int
+	RPCAddress string
 }
 
 func LoadEnv(logger *zap.Logger) *Environment {
@@ -39,25 +37,16 @@ func LoadEnv(logger *zap.Logger) *Environment {
 	if !ok {
 		logger.Fatal("INSTANCE_ID not set")
 	}
-	serPort, found := os.LookupEnv("SERIAL_PORT")
+	rpcAddr, found := os.LookupEnv("RPC_ADDRESS")
 	if !found {
-		logger.Fatal("SERIAL_PORT not set")
-	}
-	baud, found := os.LookupEnv("SERIAL_BAUD")
-	if !found {
-		logger.Fatal("SERIAL_BAUD not set")
-	}
-	baudInt, err := strconv.ParseInt(baud, 10, 64)
-	if err != nil {
-		logger.Fatal("Failed to parse baud", zap.Error(err))
+		logger.Fatal("RPC_ADDRESS not set")
 	}
 	return &Environment{
 		URI:        uri,
 		Exchange:   exchange,
 		DeviceID:   deviceID,
 		InstanceID: instanceID,
-		SerialPort: serPort,
-		Baud:       int(baudInt),
+		RPCAddress: rpcAddr,
 	}
 }
 

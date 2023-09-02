@@ -3,27 +3,31 @@ import { RunContext } from "~/lib/context/run";
 import RunGridView from "~/lib/components/displayGrid";
 import type { RunDetails } from "~/models/net.run.server";
 import type { Device } from "@prisma/client";
+import { MutableRefObject } from "react";
+import { ParameterWithValue } from "~/lib/context/session";
 
 type RunViewProps = {
   minCols: number
   minRows: number
   sequence: RunDetails
+  paramRef?: MutableRefObject<Record<string, Record<number, Record<string, ParameterWithValue>>>>
   devices: Pick<Device, "id" | "name">[]
 }
 
-export function RunView({ minCols, minRows, devices, sequence }: RunViewProps) {
+export function RunView({ minCols, minRows, devices, sequence, paramRef }: RunViewProps) {
   return (
     <div className="mt-4 -mb-3">
-      <RunGridView nCols={minCols} nRows={minRows} deviceNames={devices.map((d) => d.name)} sequence={sequence} />
+      <RunGridView nCols={minCols} nRows={minRows} deviceNames={devices.map((d) => d.name)} sequence={sequence} paramRef={paramRef} />
     </div>
   );
 }
 
 type PlayerProps = {
   devices: Pick<Device, "id" | "name">[]
+  paramRef: MutableRefObject<Record<string, Record<number, Record<string, ParameterWithValue>>>>
 }
 
-export default function Player({ devices }: PlayerProps) {
+export default function Player({ devices, paramRef }: PlayerProps) {
   const sequence = useContextSelector(RunContext, (context) => context?.run);
   /*
     useEffect(() => {
@@ -85,6 +89,7 @@ export default function Player({ devices }: PlayerProps) {
           minRows={5}
           devices={devices}
           sequence={sequence}
+          paramRef={paramRef}
         />
       }
     </div>

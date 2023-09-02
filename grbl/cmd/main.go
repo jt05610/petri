@@ -9,6 +9,8 @@ import (
 	"github.com/jt05610/petri/grbl"
 	proto "github.com/jt05610/petri/grbl/proto/v1"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
+	"net"
 	"os"
 	"strconv"
 	"sync/atomic"
@@ -74,7 +76,23 @@ func (s *Server) do(cmd []byte, synchronous bool, check func(state *proto.State)
 }
 
 func (s *Server) Home(ctx context.Context, req *proto.HomeRequest) (*proto.Response, error) {
-	s.txChan <- []byte("$H\n")
+	if req.Axis == nil {
+		s.txChan <- []byte("$H\n")
+	} else {
+		if v, ok := req.Axis.(*proto.HomeRequest_X); ok {
+			if v.X {
+				s.txChan <- []byte("$HX\n")
+			}
+		} else if v, ok := req.Axis.(*proto.HomeRequest_Y); ok {
+			if v.Y {
+				s.txChan <- []byte("$HY\n")
+			}
+		} else if v, ok := req.Axis.(*proto.HomeRequest_Z); ok {
+			if v.Z {
+				s.txChan <- []byte("$HZ\n")
+			}
+		}
+	}
 	// wait for state to be homing, then idle again
 	homingSeen := false
 	idleSeen := false
@@ -464,6 +482,7 @@ func getVal(name string, s *string) error {
 }
 
 type Environment struct {
+	Port         int
 	SerialPort   string
 	Baud         int
 	StartupBlock string
@@ -474,6 +493,7 @@ func load() *Environment {
 		"SERIAL_PORT":   new(string),
 		"SERIAL_BAUD":   new(string),
 		"STARTUP_BLOCK": new(string),
+		"PORT":          new(string),
 	}
 	for k, v := range vals {
 		err := getVal(k, v)
@@ -482,6 +502,7 @@ func load() *Environment {
 		}
 	}
 	baud, err := strconv.ParseInt(*vals["SERIAL_BAUD"], 10, 64)
+	port, err := strconv.ParseInt(*vals["PORT"], 10, 64)
 	if err != nil {
 		panic(err)
 	}
@@ -489,6 +510,7 @@ func load() *Environment {
 		SerialPort:   *vals["SERIAL_PORT"],
 		Baud:         int(baud),
 		StartupBlock: *vals["STARTUP_BLOCK"],
+		Port:         int(port),
 	}
 }
 
@@ -524,57 +546,29 @@ func main() {
 	for !s.cts.Load() {
 
 	}
-	zVal := float32(-12)
-	feed := float32(500)
-	_, err = s.Move(ctx, &proto.MoveRequest{
-		Z:     &zVal,
-		Speed: &feed,
-	})
-	if err != nil {
-		logger.Fatal("Failed to move", zap.Error(err))
-	}
-	resp, err := s.SpindleOn(ctx, &proto.SpindleOnRequest{})
-	if err != nil {
-		logger.Fatal("Failed to turn on spindle", zap.Error(err))
-	}
-	logger.Info("Spindle on", zap.Any("resp", resp))
-	resp, err = s.MistOn(ctx, &proto.MistOnRequest{})
-	if err != nil {
-		logger.Fatal("Failed to turn on mist", zap.Error(err))
-	}
-	logger.Info("Mist on", zap.Any("resp", resp))
-	resp, err = s.CoolantOff(ctx, &proto.CoolantOffRequest{})
-	if err != nil {
-		logger.Fatal("Failed to turn off coolant", zap.Error(err))
-	}
-	logger.Info("Coolant off", zap.Any("resp", resp))
-	resp, err = s.SpindleOff(ctx, &proto.SpindleOffRequest{})
-	if err != nil {
-		logger.Fatal("Failed to turn off spindle", zap.Error(err))
-	}
-	logger.Info("spindle off", zap.Any("resp", resp))
-	resp, err = s.FloodOn(ctx, &proto.FloodOnRequest{})
-	if err != nil {
-		logger.Fatal("Failed to turn on flood", zap.Error(err))
-	}
-
+	resp, err := s.FloodOn(ctx, &proto.FloodOnRequest{})
 	logger.Info("Flood on", zap.Any("resp", resp))
 	resp, err = s.CoolantOff(ctx, &proto.CoolantOffRequest{})
 	if err != nil {
 		logger.Fatal("Failed to turn off coolant", zap.Error(err))
 	}
 	logger.Info("Coolant off", zap.Any("resp", resp))
-
-	newTarget := float32(0)
-	newSpeed := float32(500)
-	_, err = s.Move(ctx, &proto.MoveRequest{
-		Z:     &newTarget,
-		Speed: &newSpeed,
-	})
-
 	if err != nil {
 		logger.Fatal("Failed to move", zap.Error(err))
 	}
-	logger.Info("Moved", zap.Any("resp", resp))
+	lis, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", environ.Port))
+	if err != nil {
+		logger.Fatal("Failed to listen", zap.Error(err))
+	}
+	opts := make([]grpc.ServerOption, 0)
+	grpcServer := grpc.NewServer(opts...)
+	proto.RegisterGRBLServer(grpcServer, s)
+	logger.Info("Starting grpc server", zap.Int("port", environ.Port))
+	go func() {
+		err := grpcServer.Serve(lis)
+		if err != nil {
+			logger.Fatal("Failed to serve grpc", zap.Error(err))
+		}
+	}()
 	<-ctx.Done()
 }

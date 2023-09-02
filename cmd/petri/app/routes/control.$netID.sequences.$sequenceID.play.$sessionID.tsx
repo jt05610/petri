@@ -12,9 +12,9 @@ import {
   PauseSessionDocument, ResumeSessionDocument,
   StartDocument, StopSessionDocument
 } from "~/models/__generated__/graphql";
-import type { ReactNode } from "react";
-import { Suspense, useRef } from "react";
+import { useRef, type ReactNode, Suspense } from "react";
 import type { Parameter } from "~/models/net.run.session.data.server";
+import type { ParameterWithValue } from "~/lib/context/session";
 import { RunSessionActionType, RunSessionContext, RunSessionProvider } from "~/lib/context/session";
 import { useMutation, useQuery } from "@apollo/client";
 import { useContextSelector } from "use-context-selector";
@@ -29,12 +29,12 @@ export const loader = async ({ params, request }: LoaderArgs) => {
   invariant(sessionID, "sessionID is required");
   await requireUser(request);
   const details = await getRunSession({ id: sessionID });
-  const runParams = getParameters(details.run);
+  const parameters = getParameters(details.run);
   const runDevices = details.run.steps.map(({ action }) => action.device).filter((device, index, self) => {
     return self.findIndex((d) => d.id === device.id) === index;
   });
-  console.log(runDevices)
-  return json({ session: details, runParams, runDevices });
+  console.log(runDevices);
+  return json({ session: details, runParams: toParameterRecord(parameters), runDevices });
 };
 
 type EventConstant = {
@@ -42,6 +42,26 @@ type EventConstant = {
   order: number
   constants: RunSessionDetails["run"]["steps"][0]["action"]["constants"]
   deviceID: string
+}
+
+
+function toParameterRecord(parameters: Record<string, Parameter[]>): Record<string, Record<number, Record<string, ParameterWithValue>>> {
+  const pr: Record<string, Record<number, Record<string, ParameterWithValue>>> = {};
+  Object.entries(parameters).forEach(([deviceID, parameters]) => {
+      pr[deviceID] = {};
+      parameters.forEach((param) => {
+        pr[deviceID][param.order] = {
+          ...pr[deviceID][param.order],
+          [param.fieldID]: {
+            parameter: param,
+            value: ""
+          }
+        };
+      });
+    }
+  );
+  console.log("param record", pr);
+  return pr;
 }
 
 function getParameters(run: RunSessionDetails["run"]): Record<string, Parameter[]> {
@@ -54,11 +74,13 @@ function getParameters(run: RunSessionDetails["run"]): Record<string, Parameter[
       constants: action.constants
     };
   });
+  console.log(eventConstants);
   const params: Record<string, Parameter[]> = {};
   eventConstants.forEach(({ order, event, constants, deviceID }) => {
     event.fields.forEach((field) => {
       const constant = constants.find((constant) => constant.field.id === field.id);
       if (constant) return;
+      console.log(event);
       if (!params[deviceID]) params[deviceID] = [];
       params[deviceID].push({
         order,
@@ -70,6 +92,7 @@ function getParameters(run: RunSessionDetails["run"]): Record<string, Parameter[
       });
     });
   });
+  console.log("params", params);
   return params;
 }
 
@@ -149,6 +172,7 @@ export default function PlaySequence() {
   const petriNet = useContextSelector(PetriNetContext, (context) => context?.petriNet);
   const { session, runParams, runDevices } = useLoaderData<typeof loader>();
   const activeSession = useContextSelector(RunSessionContext, (context) => context?.session);
+  const paramRef = useRef<Record<string, Record<number, Record<string, ParameterWithValue>>>>(runParams);
   const dispatch = useContextSelector(RunSessionContext, (context) => context?.dispatch);
   const deviceMarkings = useQuery(DeviceMarkingsDocument, {
     variables: {
@@ -178,6 +202,7 @@ export default function PlaySequence() {
       console.log(mr);
     }
   });
+
 
   const [start] = useMutation(
     StartDocument, {});
@@ -245,15 +270,13 @@ export default function PlaySequence() {
       });
   }
 
-  const paramRecord = useRef<Record<string, any>>({});
-
   async function handleStart() {
     console.log("start");
     const submission: StartSessionInput = {
       sessionID: session.id,
-      parameters: paramRecord.current
+      parameters: paramRef.current
     };
-
+    console.log("submitting", submission);
     const ok = await start({ variables: { input: submission } }).then((res) => {
       return res.data?.startSession;
     });
@@ -263,14 +286,13 @@ export default function PlaySequence() {
 
   return (
     <Suspense fallback={<div>Loading...</div>}>
-      {session && deviceMarkings.data &&
+      {session && deviceMarkings.data && runParams &&
         <RunSessionProvider session={session} devices={deviceMarkings.data.deviceMarkings}
                             parameters={runParams}>
           <div className={"flex flex-col h-screen w-full items-center justify-items-center"}>
             {session && runParams && runDevices && petriNet &&
               runDevices.map((device) => {
                 return (
-
                   <DeviceCard
                     key={device.id}
                     device={device}
@@ -318,7 +340,7 @@ export default function PlaySequence() {
                   <StopIcon className={"h-5 w-5"} />
                 </ControlButton>
               </div>
-              <Player devices={runDevices} />
+              <Player devices={runDevices} paramRef={paramRef} />
             </div>
           </div>
         </RunSessionProvider>

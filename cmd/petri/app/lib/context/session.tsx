@@ -20,7 +20,7 @@ export enum RunSessionActionType {
 }
 
 
-type ParameterWithValue = {
+export type ParameterWithValue = {
   parameter: Parameter
   value: string | number | boolean
 }
@@ -32,7 +32,7 @@ type RunSessionAction = {
 }
 
 type RunSessionState = {
-  parameters: Record<string, Record<number, Record<string, ParameterWithValue>>>
+  parameters?: Record<string, Record<number, Record<string, ParameterWithValue>>>
   status: SessionState
   startedAt: Date | string | null
   stoppedAt: Date | string | null
@@ -94,6 +94,7 @@ function sessionReducer(state: RunSessionState, action: RunSessionAction): RunSe
         data: [...state.data, datum]
       };
     case RunSessionActionType.ChangeParameter:
+      if (!state.parameters) return state;
       const { parameter, value } = action.payload as ParameterWithValue;
       const { deviceID, fieldID, order } = parameter;
       return {
@@ -124,7 +125,7 @@ type RunSessionProviderProps = {
   session: RunSessionDetails
   devices: DeviceMarking[]
   children: ReactNode
-  parameters: Record<string, Parameter[]>
+  parameters?: Record<string, Record<number, Record<string, ParameterWithValue>>>
 }
 
 function toMarkingRecord(devices: DeviceMarking[]): Record<string, Marking> {
@@ -136,27 +137,10 @@ function toMarkingRecord(devices: DeviceMarking[]): Record<string, Marking> {
   return mr;
 }
 
-function toParameterRecord(parameters: Record<string, Parameter[]>): Record<string, Record<number, Record<string, ParameterWithValue>>> {
-  const pr: Record<string, Record<number, Record<string, ParameterWithValue>>> = {};
-  Object.entries(parameters).forEach(([deviceID, parameters]) => {
-      pr[deviceID] = {};
-      parameters.forEach((param) => {
-        pr[deviceID][param.order] = {
-          ...pr[deviceID][param.order],
-          [param.fieldID]: {
-            parameter: param,
-            value: ""
-          }
-        };
-      });
-    }
-  );
-  return pr;
-}
 
 export function RunSessionProvider({ session, devices, children, parameters }: RunSessionProviderProps) {
   const [runSession, dispatch] = useReducer<Reducer<RunSessionState, RunSessionAction>>(sessionReducer, {
-    parameters: toParameterRecord(parameters),
+    parameters: parameters,
     status: session.state,
     startedAt: session.startedAt,
     stoppedAt: session.stoppedAt,
@@ -165,7 +149,7 @@ export function RunSessionProvider({ session, devices, children, parameters }: R
     currentStep: 0,
     data: session.data
   });
-
+  console.log(runSession.parameters);
   return (
     <RunSessionContext.Provider value={{ session: runSession, dispatch }}>
       {children}

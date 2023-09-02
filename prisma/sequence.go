@@ -111,6 +111,7 @@ func ToDevice(d *db.DeviceModel) *device.Device {
 
 func ToField(f *db.FieldModel) *labeled.Field {
 	return &labeled.Field{
+		ID:   f.ID,
 		Name: f.Name,
 		Type: labeled.FieldType(f.Type),
 	}

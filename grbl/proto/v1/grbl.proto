@@ -113,7 +113,12 @@ message StateStreamResponse {
 }
 
 message HomeRequest {
-
+  oneof axis {
+    bool all = 1;
+    bool X = 2;
+    bool Y = 3;
+    bool Z = 4;
+  }
 }
 
 // X-axis -- syringe pump

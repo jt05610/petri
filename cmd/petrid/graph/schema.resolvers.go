@@ -26,6 +26,8 @@ func (r *mutationResolver) StartSession(ctx context.Context, input model.StartSe
 		return nil, err
 	}
 	r.Sequence = sequence
+	r.Sequence.ExtractParameters()
+	fmt.Println("parameters", input.Parameters)
 	err = r.Sequence.ApplyParameters(input.Parameters)
 	if err != nil {
 		return nil, err

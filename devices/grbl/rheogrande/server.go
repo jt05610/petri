@@ -38,7 +38,7 @@ func main() {
 	}()
 	client, err := rpcClient(environ)
 	failOnError(err, "Failed to connect to GRBL")
-	d := NewTwoPositionThreeWayValve(client)
+	d := NewSixPortRheodyneValve(client)
 	dev := d.load()
 	srv := server.New(dev.Nets[0], conn.Channel, environ.Exchange, environ.DeviceID, environ.InstanceID, dev.EventMap(), d.Handlers())
 	ctx, cancel := context.WithCancel(context.Background())

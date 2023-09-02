@@ -12,14 +12,14 @@ import (
 	"strconv"
 )
 
-func NewTwoPositionThreeWayValve(client proto.GRBLClient) *TwoPositionThreeWayValve {
-	d := &TwoPositionThreeWayValve{
+func NewSixPortRheodyneValve(client proto.GRBLClient) *SixPortRheodyneValve {
+	d := &SixPortRheodyneValve{
 		GRBLClient: client,
 	}
 	return d
 }
 
-func (d *TwoPositionThreeWayValve) load() *device.Device {
+func (d *SixPortRheodyneValve) load() *device.Device {
 	srv := yaml.Service{}
 	df, err := deviceYaml.Open("device.yaml")
 	if err != nil {
@@ -34,10 +34,6 @@ func (d *TwoPositionThreeWayValve) load() *device.Device {
 		log.Fatal(err)
 	}
 	return ret
-}
-
-type OpenAData struct {
-	Delay float64 `json:"delay"`
 }
 
 func (r *OpenARequest) Event() *labeled.Event {
@@ -58,6 +54,7 @@ func (r *OpenARequest) FromEvent(event *labeled.Event) error {
 		}
 		r.Delay = d
 	}
+
 	return nil
 }
 
@@ -107,6 +104,7 @@ func (r *OpenBRequest) FromEvent(event *labeled.Event) error {
 		}
 		r.Delay = d
 	}
+
 	return nil
 }
 
@@ -134,7 +132,7 @@ func (r *OpenBResponse) FromEvent(event *labeled.Event) error {
 	return nil
 }
 
-func (d *TwoPositionThreeWayValve) Handlers() control.Handlers {
+func (d *SixPortRheodyneValve) Handlers() control.Handlers {
 	return control.Handlers{
 
 		"open_a": func(ctx context.Context, data *labeled.Event) (*labeled.Event, error) {

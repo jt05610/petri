@@ -1,9 +1,11 @@
 package serial
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"go.bug.st/serial"
-	"strings"
+	"io"
 	"sync"
 	"time"
 )
@@ -11,7 +13,7 @@ import (
 type Port struct {
 	port serial.Port
 	mu   sync.RWMutex
-	rxCh chan []byte
+	rxCh chan io.Reader
 	txCh chan []byte
 }
 
@@ -21,24 +23,6 @@ func ListPorts() ([]string, error) {
 		return nil, err
 	}
 	return ports, nil
-}
-
-func (p *Port) Do(ctx context.Context, lines string) error {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	splitLines := strings.Split(lines, "\n")
-	for _, line := range splitLines {
-		p.txCh <- []byte(line + "\n")
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case msg := <-p.rxCh:
-			if strings.Contains(string(msg), "ok") {
-				continue
-			}
-		}
-	}
-	return nil
 }
 
 func OpenPort(port string, baud int) (*Port, error) {
@@ -71,24 +55,18 @@ func ReadPort(port serial.Port, data []byte) (int, error) {
 	return port.Read(data)
 }
 
-func (p *Port) ChannelPort(ctx context.Context, writeCh <-chan []byte) (<-chan []byte, error) {
-	p.rxCh = make(chan []byte, 1024) // Buffer size can be adjusted as per your requirement
+func (p *Port) ChannelPort(ctx context.Context, writeCh <-chan []byte) (<-chan io.Reader, error) {
+	p.rxCh = make(chan io.Reader, 100) // Buffer size can be adjusted as per your requirement
 	go func() {
+		scanner := bufio.NewScanner(p.port)
 		for {
 			select {
 			case <-ctx.Done():
 				return
 			default:
-			}
-			buf := make([]byte, 128)
-			n, err := p.port.Read(buf)
-			if err != nil {
-				panic(err)
-			}
-			if n > 0 {
-				p.rxCh <- buf[:n]
-			} else {
-				continue
+				if scanner.Scan() {
+					p.rxCh <- bytes.NewBuffer(scanner.Bytes())
+				}
 			}
 		}
 	}()

@@ -1,0 +1,209 @@
+// messages we need to send
+syntax = "proto3";
+
+option go_package = "v1/grbl";
+
+message Position {
+  // xyz position in mm
+  float x = 1;
+  // xyz position in mm
+  float y = 2;
+  // xyz position in mm
+  float z = 3;
+}
+
+message Offsets {
+  // byte value, range 0-255
+  optional uint32 feed = 1;
+  // byte value, range 0-255
+  optional uint32 rapid = 2;
+  // byte value, range 0-255
+  optional uint32 spindle = 3;
+}
+
+enum Peripheral {
+  None = 0;
+  Spindle = 1;
+  Mist = 2;
+  Flood = 3;
+}
+
+enum AlarmCode {
+  AlarmCode_NoAlarm = 0;         // No alarm
+  AlarmCode_HardLimit = 1;       // Hard limit has been triggered. Machine position is likely lost due to sudden halt. Re-homing is highly recommended.
+  AlarmCode_SoftLimit = 2;       // Soft limit alarm. G-code motion target exceeds machine travel. Machine position retained. Alarm may be safely unlocked.
+  AlarmCode_Abort = 3;           // Reset while in motion. Machine position is likely lost due to sudden halt. Re-homing is highly recommended. May be due to issuing g-code commands that exceed the limit of the machine.
+  AlarmCode_ProbeFail = 4;       // Probe fail. The probe is not in the expected initial state before starting probe cycle when G38.2 and G38.3 is not triggered, and G38.4 and G38.5 is triggered. Your bit is likely making contact with the touch plate or the circuit is completed before the bit is moving. Move the bit away from the touch plate.
+  AlarmCode_ProbeFail2 = 5;      // Probe fail. The probe did not contact the workpiece within the programmed travel for G38.2 and G38.4. Your bit is too far away from the touch plate. Move the bit closer, it should be within 6-12mm (1/4 -1/2in) away.
+  AlarmCode_HomingFail = 6;      // Homing fail. The active homing cycle was reset.
+  AlarmCode_HomingFail2 = 7;     // Homing fail. Safety door was opened during homing cycle.
+  AlarmCode_HomingFail3 = 8;     // Homing fail. Pull off travel failed to clear limit switch. The machine is within the limit switches range when it tries to move away. Try increasing pull-off setting or check wiring.
+  AlarmCode_HomingFail4 = 9;     // Homing fail. Could not find limit switch within search distances. Try increasing max travel, decreasing pull-off distance, or check wiring. The limit switch wasn’t triggered in the distances expected. If your z-axis is moving away from the switch when homing, check your firmware and confirm you have the correct profile for your machine.
+}
+
+message Alarm {
+  // alarm code
+  optional AlarmCode alarm = 1;
+  // alarm message
+  optional string message = 2;
+}
+
+enum ErrorCode {
+  ErrorCode_NoError = 0;                  // No error
+  ErrorCode_ExpectedCommandLetter = 1;    // G-code words consist of a letter and a value. Letter was not found.
+  ErrorCode_BadNumberFormat = 2;          // Missing the expected G-code word value or numeric value format is not valid.
+  ErrorCode_InvalidStatement = 3;         // Grbl ‘$’ system command was not recognized or supported.
+  ErrorCode_NegativeValue = 4;            // Negative value received for expected positive value.
+  ErrorCode_HomingCycleFailure = 5;       // Homing cycle failure due to homing not enabled in settings.
+  ErrorCode_MinStepPulseTime = 6;         // Minimum step pulse time less than 3μsec.
+  ErrorCode_EEPROMReadFailure = 7;        // An EEPROM read failed. Default values are used instead.
+  ErrorCode_NotIdle = 8;                  // Grbl ‘$’ command cannot be used unless Grbl is idle.
+  ErrorCode_GCodeLock = 9;                // G-code commands are locked out during alarm or jog state.
+  ErrorCode_HomingNotEnabled = 10;        // Soft limits cannot be enabled without also enabling homing.
+  ErrorCode_LineOverflow = 11;            // The maximum character limit per line exceeded. The received command line was not executed.
+  ErrorCode_MaxStepRateExceeded = 12;     // Grbl ‘$’ setting value causing the step rate to exceed the maximum supported.
+  ErrorCode_SafetyDoorDetected = 13;      // Safety door detected as opened and door state initiated.
+  ErrorCode_LineLengthLimitExceeded = 14; // Build info or startup line exceeded EEPROM line length limit. Line not stored.
+  ErrorCode_TravelExceeded = 15;          // Jog target exceeds machine travel. Jog command is ignored.
+  ErrorCode_InvalidJogCommand = 16;       // Jog command has no ‘=’ or contains prohibited g-code.
+  ErrorCode_LaserModeRequiresPWM = 17;    // Laser mode requires PWM output.
+  ErrorCode_UnsupportedCommand = 20;      // Unsupported or invalid G-code command found.
+  ErrorCode_ModalGroupViolation = 21;     // More than one G-code command from same modal group found in block.
+  ErrorCode_UndefinedFeedRate = 22;       // Feed rate has not yet been set or is undefined.
+  ErrorCode_InvalidGCode23 = 23;          // G-code command in block requires an integer value.
+  ErrorCode_InvalidGCode24 = 24;          // More than one G-code command that requires axis words found in block.
+  ErrorCode_InvalidGCode25 = 25;          // Repeated G-code word found in block.
+  ErrorCode_InvalidGCode26 = 26;          // No axis words found in block for G-code command or current modal state which requires them.
+  ErrorCode_InvalidGCode27 = 27;          // Line number value is invalid.
+  ErrorCode_InvalidGCode28 = 28;          // G-code command is missing a required value word.
+  ErrorCode_InvalidGCode29 = 29;          // G59.x work coordinate systems are not supported.
+  ErrorCode_InvalidGCode30 = 30;          // G53 only allowed with G0 and G1 motion modes.
+  ErrorCode_InvalidGCode31 = 31;          // Axis words found in block when no command or current modal state uses them.
+  ErrorCode_InvalidGCode32 = 32;          // G2 and G3 arcs require at least one in-plane axis word.
+  ErrorCode_InvalidGCode33 = 33;          // Motion command target is invalid.
+  ErrorCode_InvalidGCode34 = 34;          // Arc radius value is invalid.
+  ErrorCode_InvalidGCode35 = 35;          // G2 and G3 arcs require at least one in-plane offset word.
+  ErrorCode_InvalidGCode36 = 36;          // Unused value words found in block.
+  ErrorCode_InvalidGCode37 = 37;          // G43.1 dynamic tool length offset is not assigned to the configured tool length axis.
+  ErrorCode_InvalidGCode38 = 38;          // Tool number is greater than the maximum supported value.
+}
+
+message Error {
+  // error code
+  optional ErrorCode error = 1;
+  // error message
+  optional string message = 2;
+}
+
+message State {
+  Position position = 1;
+  float feed = 2;
+  optional Offsets offsets = 3;
+  optional Alarm alarm = 4;
+  optional Error error = 5;
+  repeated Peripheral active = 6;
+}
+
+message StateStreamRequest {
+}
+
+message StateStreamResponse {
+  State state = 1;
+  string timestamp = 2;
+}
+
+message HomeRequest {
+  oneof axis {
+    bool all = 1;
+    bool X = 2;
+    bool Y = 3;
+    bool Z = 4;
+  }
+}
+
+// X-axis -- syringe pump
+// Y-axis -- syringe pump
+// Z-axis -- 6-port rheodyne valve
+
+message MoveRequest {
+  // xyz position in mm
+  optional float x = 1;
+  // xyz position in mm
+  optional float y = 2;
+  // xyz position in mm
+  optional float z = 3;
+  // speed in mm/min
+  optional float speed = 4;
+}
+
+message MoveResponse {
+  string message = 1;
+}
+
+// M3 -- switch 3-way valve to position b
+
+message SpindleOnRequest {
+  // speed in rpm
+  optional int32 speed = 1;
+}
+
+message SpindleOnResponse {
+  string message = 1;
+}
+
+// M5 -- switch 3-way valve to position a
+
+message SpindleOffRequest {
+}
+
+message SpindleOffResponse {
+  string message = 1;
+}
+
+// M7 -- switch 10-port rheodyne to position B
+
+message MistOnRequest {
+}
+
+message MistOnResponse {
+  string message = 1;
+}
+
+// M8 -- switch 10-port rheodyne to position A
+message FloodOnRequest {
+}
+
+message FloodOnResponse {
+  string message = 1;
+}
+// M9 -- have to call after M7 or M8 to write high to the pins again. The valve is actuated on a falling edge.
+message CoolantOffRequest {
+}
+
+message CoolantOffResponse {
+  string message = 1;
+}
+
+message Response {
+  string message = 1;
+  oneof response {
+    State state = 2;
+    MoveResponse move = 3;
+    SpindleOnResponse spindleOn = 4;
+    SpindleOffResponse spindleOff = 5;
+    MistOnResponse mistOn = 6;
+    FloodOnResponse floodOn = 7;
+    CoolantOffResponse coolantOff = 8;
+  }
+}
+
+service GRBL {
+  rpc Home(HomeRequest) returns (Response) {}
+  rpc StateStream(StateStreamRequest) returns (stream StateStreamResponse) {}
+  rpc Move(MoveRequest) returns (Response) {}
+  rpc SpindleOn(SpindleOnRequest) returns (Response) {}
+  rpc SpindleOff(SpindleOffRequest) returns (Response) {}
+  rpc MistOn(MistOnRequest) returns (Response) {}
+  rpc FloodOn(FloodOnRequest) returns (Response) {}
+  rpc CoolantOff(CoolantOffRequest) returns (Response) {}
+}

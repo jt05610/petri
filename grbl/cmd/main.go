@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"io"
+	"math"
 	"net"
 	"os"
 	"strconv"
@@ -48,6 +49,9 @@ func (s *Server) do(cmd []byte, synchronous bool, check func(state *proto.State)
 	if synchronous {
 		for {
 			status := s.currentState()
+			if s.cts.Load() && check(status) {
+				return nil
+			}
 			if status == nil {
 				continue
 			}
@@ -66,9 +70,7 @@ func (s *Server) do(cmd []byte, synchronous bool, check func(state *proto.State)
 					}
 				}
 			}
-			if s.cts.Load() && check(status) {
-				return nil
-			}
+
 		}
 	}
 	return nil
@@ -203,28 +205,35 @@ func goToMsg(pos *proto.MoveRequest) []byte {
 	}
 	bld.WriteString("\n")
 	ret := bld.Bytes()
-	fmt.Println(string(ret))
+	fmt.Println("writing: ", string(ret))
 	return ret
+}
+
+const threshold = 0.02
+
+func floatEqual(a, b float32) bool {
+	return math.Abs(float64(a-b)) <= threshold
 }
 
 func (s *Server) Move(ctx context.Context, req *proto.MoveRequest) (*proto.Response, error) {
 	err := s.do(goToMsg(req), true, func(state *proto.State) bool {
 		if req.X != nil {
-			if state.Position.X != *req.X {
-				return false
+			fmt.Printf("Comparing %v to %v\n", state.Position.X, *req.X)
+			if floatEqual(state.Position.X, *req.X) && s.machineStatus.Load().State == "idle" {
+				return true
 			}
 		}
 		if req.Y != nil {
-			if state.Position.Y != *req.Y {
-				return false
+			if floatEqual(state.Position.Y, *req.Y) {
+				return true
 			}
 		}
 		if req.Z != nil {
-			if state.Position.Z != *req.Z {
-				return false
+			if floatEqual(state.Position.Z, *req.Z) {
+				return true
 			}
 		}
-		return true
+		return false
 	})
 	if err != nil {
 		return nil, err
@@ -388,11 +397,9 @@ func (s *Server) Listen(ctx context.Context) error {
 				s.logger.Error("Failed to read message", zap.Error(err))
 				continue
 			}
-			s.logger.Debug("Received message", zap.String("msg", string(bb)))
 			buf := bytes.NewBuffer(bb)
 			parser := grbl.NewParser(buf)
 			upd, err := parser.Parse()
-			s.logger.Debug("Received message", zap.Any("update", upd))
 			if err != nil {
 				// write back to the buffer so that we can try again
 				s.logger.Error("Failed to parse message", zap.Error(err))
@@ -491,7 +498,7 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go s.runHeartbeat(ctx)
-	// _, err = s.Home(ctx, &proto.HomeRequest{})
+	_, err = s.Home(ctx, &proto.HomeRequest{})
 	s.txChan <- []byte("G55\n")
 	if err != nil {
 		logger.Fatal("Failed to home", zap.Error(err))

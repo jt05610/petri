@@ -1,86 +1,32 @@
-package grbl_test
+package marlin_test
 
 import (
 	"bytes"
-	"github.com/jt05610/petri/grbl"
+	"github.com/jt05610/petri/marlin"
 	"testing"
 )
 
 var testCases = []struct {
 	name   string
 	buffer []byte
-	expect grbl.StatusUpdate
+	expect marlin.StatusUpdate
 }{
 	{
-		name:   "workCoordinate",
-		buffer: []byte("<Alarm|MPos:0.000,0.000,0.000|F:0|WCO:0.000,0.000,-16.275>\n"),
-		expect: &grbl.Status{
+		name:   "pos upd",
+		buffer: []byte("X:0.00 Y:0.00 Z:0.00 E:0.00 Count X:0 Y:0 Z:0"),
+		expect: &marlin.Status{
 			Alarm: nil,
 			State: "alarm",
-			MachinePosition: &grbl.Position{
+			Position: &marlin.Position{
 				X: 0,
 				Y: 0,
 				Z: 0,
 			},
 			Feed: 0,
-			WorkPosition: &grbl.Position{
+			WorkPosition: &marlin.Position{
 				X: 0,
 				Y: 0,
 				Z: -16.275,
-			},
-		},
-	},
-	{
-		name:   "ok",
-		buffer: []byte("ok\n"),
-		expect: &grbl.Ack{},
-	},
-	{
-		name:   "0v",
-		buffer: []byte("<Alarm|MPos:0.000,0.000,0.000|F:0|Ov:100,100,100>\n"),
-		expect: &grbl.Status{
-			Alarm: nil,
-			MachinePosition: &grbl.Position{
-				X: 0,
-				Y: 0,
-				Z: 0,
-			},
-			Feed: 0,
-			Override: &grbl.Override{
-				Rapid:   100,
-				Feed:    100,
-				Spindle: 100,
-			},
-		},
-	},
-	{
-		name:   "F",
-		buffer: []byte("<Alarm|MPos:0.000,0.000,0.000|F:0>\n"),
-		expect: &grbl.Status{
-			State: "alarm",
-			Alarm: nil,
-			MachinePosition: &grbl.Position{
-				X: 0,
-				Y: 0,
-				Z: 0,
-			},
-			Feed: 0,
-		},
-	},
-	{
-		name:   "Pn",
-		buffer: []byte("<Idle|MPos:0.000,0.000,0.000|F:0|Pn:X|WCO:0.000,0.000,0.000>\n"),
-		expect: &grbl.Status{
-			State: "alarm",
-			Alarm: nil,
-			MachinePosition: &grbl.Position{
-				X: 0,
-				Y: 0,
-				Z: 0,
-			},
-			Feed: 0,
-			LimitPins: &grbl.LimitPins{
-				X: true,
 			},
 		},
 	},
@@ -88,7 +34,7 @@ var testCases = []struct {
 
 func TestParse(t *testing.T) {
 	for _, tc := range testCases {
-		p := grbl.NewParser(bytes.NewReader(tc.buffer))
+		p := marlin.NewParser(bytes.NewReader(tc.buffer))
 		u, err := p.Parse()
 		if err != nil {
 			t.Fatal(err)
@@ -96,22 +42,22 @@ func TestParse(t *testing.T) {
 		if u == nil {
 			t.Fatal("nil status")
 		}
-		if s, ok := u.(*grbl.Status); ok {
-			if e, ok := tc.expect.(*grbl.Status); ok {
+		if s, ok := u.(*marlin.Status); ok {
+			if e, ok := tc.expect.(*marlin.Status); ok {
 				if s.Alarm != e.Alarm {
 					t.Fatalf("expected alarm %v, got %v", e.Alarm, s.Alarm)
 				}
 				if s.Feed != e.Feed {
 					t.Fatalf("expected feed %v, got %v", e.Feed, s.Feed)
 				}
-				if s.MachinePosition.X != e.MachinePosition.X {
-					t.Fatalf("expected machine position x %v, got %v", e.MachinePosition.X, s.MachinePosition.X)
+				if s.Position.X != e.Position.X {
+					t.Fatalf("expected machine position x %v, got %v", e.Position.X, s.Position.X)
 				}
-				if s.MachinePosition.Y != e.MachinePosition.Y {
-					t.Fatalf("expected machine position y %v, got %v", e.MachinePosition.Y, s.MachinePosition.Y)
+				if s.Position.Y != e.Position.Y {
+					t.Fatalf("expected machine position y %v, got %v", e.Position.Y, s.Position.Y)
 				}
-				if s.MachinePosition.Z != e.MachinePosition.Z {
-					t.Fatalf("expected machine position z %v, got %v", e.MachinePosition.Z, s.MachinePosition.Z)
+				if s.Position.Z != e.Position.Z {
+					t.Fatalf("expected machine position z %v, got %v", e.Position.Z, s.Position.Z)
 				}
 				if s.WorkPosition != nil {
 					if e.WorkPosition == nil {
@@ -147,7 +93,7 @@ func TestParse(t *testing.T) {
 			}
 
 		} else {
-			if _, ok := tc.expect.(*grbl.Ack); !ok {
+			if _, ok := tc.expect.(*marlin.Ack); !ok {
 				t.Fatalf("expected ack, got %T", tc.expect)
 			}
 		}

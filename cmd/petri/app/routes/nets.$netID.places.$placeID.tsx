@@ -9,7 +9,7 @@ import { Form, NavLink, Outlet, useLoaderData } from "@remix-run/react";
 export const action = async ({ params }: LoaderArgs) => {
   invariant(params.placeID, "placeID not found");
   await deletePlace({id: params.placeID});
-  return redirect(`/design/${params.netID}/places`);
+  return redirect(`/nets/${params.netID}/places`);
 }
 
 export const loader = async ({ params, request }: LoaderArgs) => {

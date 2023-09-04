@@ -53,7 +53,7 @@ func main() {
 		err := ch.Close()
 		failOnError(err, "Failed to close channel")
 	}()
-	d := NewMixing_valve()
+	d := NewMixingValve()
 	dev := d.load()
 	srv := server.New(dev.Nets[0], ch, exchange, deviceID, instanceID, dev.EventMap(), d.Handlers())
 	ctx, cancel := context.WithCancel(context.Background())

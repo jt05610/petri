@@ -23,13 +23,16 @@ type Action struct {
 	Event *labeled.Event
 }
 
+func fLower(s string) string {
+	return strings.ToLower(s[:1]) + s[1:]
+}
 func (a *Action) ParameterMap() map[string]interface{} {
 	ret := make(map[string]interface{})
-	for n, p := range a.Parameters {
-		ret[n] = p.Value
+	for _, p := range a.Parameters {
+		ret[fLower(p.Field.Name)] = p.Value
 	}
 	for _, c := range a.Constants {
-		ret[fLower(c.Name)] = c.Value
+		ret[c.Field.Name] = c.Value
 	}
 	return ret
 }
@@ -55,15 +58,10 @@ func (a *Action) ApplyParameters(params map[string]interface{}) error {
 	a.Event.Data = a.ParameterMap()
 	return nil
 }
-
-func fLower(s string) string {
-	return strings.ToLower(s[:1]) + s[1:]
-}
-
 func (a *Action) ExtractParameters() {
 	a.Parameters = make(map[string]*Parameter, len(a.Constants))
 	for _, f := range a.Event.Fields {
-		a.Parameters[fLower(f.Name)] = &Parameter{
+		a.Parameters[f.ID] = &Parameter{
 			Field: f,
 		}
 	}
@@ -116,7 +114,13 @@ func (s *Sequence) ApplyParameters(params map[string]interface{}) error {
 			if stepParams, found := pm[strconv.Itoa(i)]; !found {
 				continue
 			} else {
-				err := step.ApplyParameters(stepParams.(map[string]interface{}))
+				sp := stepParams.(map[string]interface{})
+				for _, c := range step.Constants {
+					sp[c.Field.ID] = map[string]interface{}{
+						"value": c.Value,
+					}
+				}
+				err := step.ApplyParameters(sp)
 				if err != nil {
 					return err
 				}

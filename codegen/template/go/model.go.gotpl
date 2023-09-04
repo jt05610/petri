@@ -1,6 +1,6 @@
 package main
 
-type {{pascal .Name}} struct {
+type {{pascalFromSnake .Name}} struct {
 }
 
 {{range .Device.Events}}

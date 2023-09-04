@@ -8,9 +8,10 @@ import (
 	"github.com/jt05610/petri/labeled"
 	"github.com/jt05610/petri/yaml"
 	"log"
+	"strconv"
 )
 
-func New{{pascal .Device.Name}}() *{{pascal .Device.Name}}{
+func New{{pascalFromSnake .Device.Name}}() *{{pascalFromSnake .Device.Name}}{
     d := &{{pascal .Device.Name}}{}
     return d
 }
@@ -33,12 +34,6 @@ func (d *{{pascal .Device.Name}}) load() *device.Device {
 }
 
 {{range .Device.Events}}
-    {{- if .Fields}}
-type {{pascalFromSnake .Name}}Data struct {
-        {{range .Fields}}{{pascalFromSnake .Name}} {{langType .Type}} `json:"{{snake .Name}}"`
-        {{end}}
-}
-    {{- end}}
 
 func (r *{{pascalFromSnake .Name}}Request) Event() *labeled.Event {
 	return &labeled.Event{
@@ -51,12 +46,27 @@ func (r *{{pascalFromSnake .Name}}Request) FromEvent(event *labeled.Event) error
 		return fmt.Errorf("expected event name {{snake .Name}}, got %s", event.Name)
 	}
     {{- if .Fields}}
-	data, ok := event.Data.(*{{pascalFromSnake .Name}}Data)
-	if !ok {
-	    return fmt.Errorf("expected data type {{pascalFromSnake .Name}}Data, got %T", event.Data)
-	}
         {{- range .Fields}}
-	r.{{pascalFromSnake .Name}} = data.{{pascalFromSnake .Name}}
+    if event.Data["{{snake .Name}}"] != nil {
+        ds := event.Data["{{snake .Name}}"].(string)
+        {{if eq .Type "string"}}
+        r.{{pascalFromSnake .Name}} = ds
+        {{else if eq .Type "number"}}
+        d, err := strconv.ParseFloat(ds, 64)
+        if err != nil {
+            return err
+        }
+        r.{{pascalFromSnake .Name}} = d
+        {{else if eq .Type "boolean"}}
+        d, err := strconv.ParseBool(ds)
+        if err != nil {
+            return err
+        }
+        r.{{pascalFromSnake .Name}} = d
+        {{else}}
+        r.{{pascalFromSnake .Name}} = ds
+        {{end -}}
+    }
         {{end -}}
     {{end}}
 	return nil
@@ -73,8 +83,8 @@ func (r *{{pascalFromSnake .Name}}Response) Event() *labeled.Event {
             },
         {{end -}}
         },
-        Data: &{{pascalFromSnake .Name}}Data{
-            {{range .Fields}}{{pascalFromSnake .Name}}: r.{{pascalFromSnake .Name}},
+        Data: map[string]interface{}{
+            {{range .Fields}}"{{.Name}}": r.{{pascalFromSnake .Name}},
             {{end -}}
         },
     {{end -}}

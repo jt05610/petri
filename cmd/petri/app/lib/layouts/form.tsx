@@ -156,11 +156,11 @@ const FieldComponent = forwardRef((props: FieldComponentProps, ref: Ref<HTMLInpu
         </select>
       );
     case "checkbox":
-      return <input defaultChecked={field.content === "true"} type={field.type} {...baseProps} ref={
+      return <input  type={field.type} {...baseProps} ref={
         inputRef && inputRef as Ref<HTMLInputElement>
       } />;
     case "radio":
-      return <input defaultChecked={field.content === "true"} type={field.type} {...baseProps} ref={
+      return <input type={field.type} {...baseProps} ref={
         inputRef && inputRef as Ref<HTMLInputElement>} />;
     case "number":
       return <input defaultValue={field.content as number} type={field.type} {...baseProps} ref={

@@ -4,9 +4,12 @@ import { isRouteErrorResponse, NavLink, Outlet, useLoaderData, useRouteError } f
 import invariant from "tiny-invariant";
 import { getNet } from "~/models/net.server";
 import { requireUserId } from "~/session.server";
-import { useMemo } from "react";
-import { PetriNet } from "~/util/petrinet";
+import { useMemo, useState } from "react";
 import { LabeledNet } from "~/lib/components/labeledNet";
+import { Listbox } from "@headlessui/react";
+import { useContextSelector } from "use-context-selector";
+import { NetsContext } from "~/lib/context/nets";
+import { PetriNet } from "~/util/petrinet";
 
 
 export const loader = async ({ params, request }: LoaderArgs) => {
@@ -20,6 +23,35 @@ export const loader = async ({ params, request }: LoaderArgs) => {
 
   return json({ net: net });
 };
+
+type NetDropdownProps = {
+  value: string[]
+  setValue: (value: string[]) => void
+  options?: string[]
+}
+
+function NetDropdown({ value, setValue, options }: NetDropdownProps) {
+  return (
+    <Listbox value={value} onChange={setValue} multiple>
+      <Listbox.Button>
+        {value.map((v) => (
+          <span key={v}>{v}</span>
+        ))}
+      </Listbox.Button>
+      <Listbox.Options>
+        {options?.map((option) => (
+          <Listbox.Option key={option} value={option}>
+            {({ selected }) => (
+              <div className={"flex flex-row w-full items-start justify-right text-right space-x-1"}>
+                <span>{option}</span>
+              </div>
+            )}
+          </Listbox.Option>
+        ))}
+      </Listbox.Options>
+    </Listbox>
+  );
+}
 
 type LinkListProps = {
   routes: {
@@ -43,29 +75,30 @@ function LinkList(props: LinkListProps) {
 
 export default function NetDetailsPage() {
   const data = useLoaderData<typeof loader>();
+  const nets = useContextSelector(NetsContext, (context) => context);
+  const [insertNets, setInsertNets] = useState<string[]>([]);
   const petriNet = useMemo(() => {
     return new PetriNet(data.net);
   }, [data.net]);
   return (
-    <div className={"flex flex-col w-full h-full space-y-2"}>
-      <div className="flex flex-col w-full h-5/6 items-center">
-        <LabeledNet net={petriNet} />
-      </div>
-      <div className={"flex flex-row w-full h-1/4 bg-slate-100 dark:bg-slate-700 space-y-1 p-2"}>
-        <div className={"flex flex-col w-1/3 h-full space-y-1"}>
+    <div className={"flex flex-row space-y-2"}>
+      <LabeledNet net={petriNet} />
+      <div className={"flex flex-col bg-slate-100 dark:bg-slate-700 space-y-1 p-2"}>
+        <div className={"flex flex-col "}>
           <h3 className="text-lg font-bold">{data.net.name}</h3>
-          <p className="py-6 text-md">{data.net.description}</p>
+          <p className="text-md">{data.net.description}</p>
         </div>
-        <div className={"flex flex-col w-2/3 space-y-1"}>
-          <div>
-            <LinkList btnClass={"text-white p-2"} routes={[
-              { name: "Places", path: "places" },
-              { name: "Transitions", path: "transitions" },
-              { name: "Arcs", path: "arcs" },
-              { name: "Sequence", path: `/control/${data.net.id}/record` },
-              { name: "Devices", path: "devices" }
-            ]} />
-          </div>
+        <NetDropdown value={insertNets} setValue={setInsertNets} options={nets?.map((net) => {
+          return net.id;
+        })} />
+        <div>
+          <LinkList btnClass={"text-white p-2"} routes={[
+            { name: "Places", path: "places" },
+            { name: "Transitions", path: "transitions" },
+            { name: "Arcs", path: "arcs" },
+            { name: "Sequence", path: `/control/${data.net.id}/record` },
+            { name: "Devices", path: "devices" }
+          ]} />
           <div className={"overflow-auto h-full"}>
             <Outlet />
           </div>

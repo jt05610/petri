@@ -1,4 +1,4 @@
-package grbl
+package marlin
 
 import (
 	"bufio"
@@ -13,10 +13,17 @@ type Position struct {
 	X float32
 	Y float32
 	Z float32
+	E float32
 }
 
 type StatusUpdate interface {
 	IsStatusUpdate()
+}
+
+type Count struct {
+	X int
+	Y int
+	Z int
 }
 
 type Active struct {
@@ -38,15 +45,12 @@ type LimitPins struct {
 }
 
 type Status struct {
-	State           string
-	Error           *int
-	Alarm           *int
-	Active          *Active
-	MachinePosition *Position
-	Feed            float32
-	WorkPosition    *Position
-	Override        *Override
-	LimitPins       *LimitPins
+	State    string
+	Error    *int
+	Alarm    *int
+	Active   *Active
+	Position *Position
+	Count    *Count
 }
 
 func (s *Status) IsStatusUpdate() {}
@@ -66,6 +70,7 @@ type Token int
 
 const (
 	Return Token = iota
+	Space
 	Newline
 	OpenAngle
 	CloseAngle
@@ -78,6 +83,7 @@ const (
 
 var tokens = []string{
 	Return:     "RETURN",
+	Space:      "SPACE",
 	Newline:    "NEWLINE",
 	OpenAngle:  "<",
 	CloseAngle: ">",
@@ -111,6 +117,8 @@ func (l *Lexer) Lex() (int, Token, string) {
 			return l.pos, Newline, Newline.String()
 		}
 		switch r {
+		case ' ':
+			return l.pos, Space, Space.String()
 		case '\n':
 			return l.pos, Newline, Newline.String()
 		case '\r':
@@ -218,7 +226,7 @@ func (p *Parser) parseFloat() float32 {
 	switch tok {
 	case Newline:
 		panic(p.errorf(pos, "unexpected newline"))
-	case Colon, Comma:
+	case Colon:
 		return p.parseFloat()
 	}
 	if tok != Float {
@@ -233,53 +241,32 @@ func (p *Parser) parseFloat() float32 {
 }
 
 func (p *Parser) parsePosition() *Position {
-	return &Position{
-		X: p.parseFloat(),
-		Y: p.parseFloat(),
-		Z: p.parseFloat(),
-	}
-}
-
-func (p *Parser) parseByte() uint8 {
-	pos, tok, lit := p.lexer.Lex()
-	switch tok {
-	case Newline:
-		panic(p.errorf(pos, "unexpected newline"))
-	case Colon, Comma:
-		return p.parseByte()
-	}
-	if tok != Float {
-		panic(p.errorf(pos, "expected float, got %q", lit))
-	}
-	f, err := strconv.ParseUint(lit, 10, 8)
-	if err != nil {
-		panic(p.errorf(pos, "expected float, got %q", lit))
-	}
-	return uint8(f)
-}
-
-func (p *Parser) parseOverride() *Override {
-	ret := &Override{}
-	idx := map[int]*uint8{
-		0: &ret.Rapid,
-		1: &ret.Feed,
-		2: &ret.Spindle,
-	}
-	for i := 0; i < 3; i++ {
+	ret := new(Position)
+	for i := 0; i < 4; i++ {
 		pos, tok, lit := p.lexer.Lex()
 		switch tok {
-		case Colon, Comma:
+		case Newline:
+			panic(p.errorf(pos, "unexpected newline"))
+		case Colon, Space:
 			continue
-		case Float:
-			f, err := strconv.ParseUint(lit, 10, 8)
-			if err != nil {
-				panic(p.errorf(pos, "expected float, got %q", lit))
-			}
-			*idx[i] = uint8(f)
-		default:
+		}
+		if tok != Float {
 			panic(p.errorf(pos, "expected float, got %q", lit))
 		}
-
+		f, err := strconv.ParseFloat(lit, 32)
+		if err != nil {
+			panic(p.errorf(pos, "expected float, got %q", lit))
+		}
+		switch i {
+		case 0:
+			ret.X = float32(f)
+		case 1:
+			ret.Y = float32(f)
+		case 2:
+			ret.Z = float32(f)
+		case 3:
+			ret.E = float32(f)
+		}
 	}
 	return ret
 }
@@ -296,32 +283,6 @@ func (p *Parser) parseString() string {
 		panic(p.errorf(pos, "expected identifier, got %q", lit))
 	}
 	return strings.TrimSuffix(lit, "\r")
-}
-
-func (p *Parser) parseActive() *Active {
-	s := p.parseString()
-	ret := &Active{}
-	charMap := map[string]func(){
-		"S": func() {
-			ret.Spindle = true
-		},
-		"F": func() {
-			ret.Flood = true
-		},
-		"M": func() {
-			ret.Mist = true
-		},
-	}
-	for _, c := range s {
-		f, ok := charMap[string(c)]
-		if !ok {
-			panic(p.errorf(p.lexer.pos, "unknown identifier %q", c))
-		}
-		f()
-	}
-
-	return ret
-
 }
 
 func (p *Parser) parseInt() int {
@@ -342,65 +303,50 @@ func (p *Parser) parseInt() int {
 	return int(f)
 }
 
-func (p *Parser) parseLimitPins(s *Status) *LimitPins {
-	s.LimitPins = &LimitPins{}
-	for {
+func (p *Parser) parseCount() *Count {
+	ret := new(Count)
+	for i := 0; i < 3; i++ {
 		pos, tok, lit := p.lexer.Lex()
 		switch tok {
-		case Identifier:
-			switch lit {
-			case "X":
-				s.LimitPins.X = true
-			case "Y":
-				s.LimitPins.Y = true
-			case "Z":
-				s.LimitPins.Z = true
-			default:
-				panic(p.errorf(pos, "unknown identifier %q", lit))
-			}
-		case Comma, Colon:
+		case Newline:
+			panic(p.errorf(pos, "unexpected newline"))
+		case Colon, Comma:
 			continue
-		case Bar:
-			return s.LimitPins
-		case CloseAngle:
-			p.lexer.backup()
-			return s.LimitPins
+		}
+		if tok != Float {
+			panic(p.errorf(pos, "expected float, got %q", lit))
+		}
+		f, err := strconv.ParseInt(lit, 10, 32)
+		if err != nil {
+			panic(p.errorf(pos, "expected float, got %q", lit))
+		}
+		switch i {
+		case 0:
+			ret.X = int(f)
+		case 1:
+			ret.Y = int(f)
+		case 2:
+			ret.Z = int(f)
 		}
 	}
+	return ret
 }
-
 func (p *Parser) parseStatusUpdate(s *Status) (*Status, error) {
 	for {
 		pos, tok, lit := p.lexer.Lex()
 		switch tok {
 		case Identifier:
 			switch lit {
-			case "Idle", "Run", "Hold", "Home":
-				s.State = strings.ToLower(lit)
-				s.Alarm = nil
-				s.Error = nil
-			case "Error":
-				s.State = "error"
-			case "Alarm":
-				s.State = "alarm"
-			case "A":
-				s.Active = p.parseActive()
-			case "MPos":
-				s.MachinePosition = p.parsePosition()
-			case "F":
-				s.Feed = p.parseFloat()
-			case "WCO":
-				s.WorkPosition = p.parsePosition()
-			case "Ov":
-				s.Override = p.parseOverride()
-			case "Pn":
-				s.LimitPins = p.parseLimitPins(s)
+			case "X":
+				s.Position = p.parsePosition()
+			case "Count":
+				s.Count = p.parseCount()
 			default:
 				return nil, p.errorf(pos, "unknown identifier %q", lit)
 			}
-		case Bar, Comma, Colon:
+		case Bar, Comma, Colon, Space:
 			continue
-		case CloseAngle:
+		case Newline:
 			return s, nil
 		}
 

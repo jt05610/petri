@@ -204,8 +204,8 @@ export type NetListItem = {
   id: Net["id"];
   authorID: Net["authorID"];
   name: Net["name"];
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: Date | string;
+  updatedAt: Date | string;
 }
 
 export async function getNetListItems({ authorID }: {

@@ -9,7 +9,7 @@ import { Form, NavLink, Outlet, useLoaderData } from "@remix-run/react";
 export const action = async ({ params }: LoaderArgs) => {
   invariant(params.transitionID, "transitionID not found");
   await deleteTransition({id: params.transitionID});
-  return redirect(`/design/${params.netID}/transitions`);
+  return redirect(`/nets/${params.netID}/transitions`);
 }
 
 export const loader = async ({ params, request }: LoaderArgs) => {

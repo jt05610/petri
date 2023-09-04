@@ -45,6 +45,7 @@ func (s *Server) do(cmd []byte, synchronous bool, check func(state *proto.State)
 	for !s.cts.Load() {
 	}
 	s.txChan <- cmd
+	s.cts.Store(false)
 	if synchronous {
 		for {
 			status := s.currentState()
@@ -76,22 +77,23 @@ func (s *Server) do(cmd []byte, synchronous bool, check func(state *proto.State)
 
 func (s *Server) Home(ctx context.Context, req *proto.HomeRequest) (*proto.Response, error) {
 	if req.Axis == nil {
-		s.txChan <- []byte("$H\n")
+		s.txChan <- []byte("G28\n")
 	} else {
 		if v, ok := req.Axis.(*proto.HomeRequest_X); ok {
 			if v.X {
-				s.txChan <- []byte("$HX\n")
+				s.txChan <- []byte("G28 X\n")
 			}
 		} else if v, ok := req.Axis.(*proto.HomeRequest_Y); ok {
 			if v.Y {
-				s.txChan <- []byte("$HY\n")
+				s.txChan <- []byte("G28 Y\n")
 			}
 		} else if v, ok := req.Axis.(*proto.HomeRequest_Z); ok {
 			if v.Z {
-				s.txChan <- []byte("$HZ\n")
+				s.txChan <- []byte("G28 Z\n")
 			}
 		}
 	}
+
 	// wait for state to be homing, then idle again
 	homingSeen := false
 	idleSeen := false
@@ -111,8 +113,6 @@ func (s *Server) Home(ctx context.Context, req *proto.HomeRequest) (*proto.Respo
 	return &proto.Response{}, nil
 }
 
-const waitFor = " unlock]"
-
 func New(port *serial.Port, logger *zap.Logger) *Server {
 	buf := new(bytes.Buffer)
 	txCh := make(chan []byte, 100)
@@ -121,25 +121,6 @@ func New(port *serial.Port, logger *zap.Logger) *Server {
 		panic(err)
 	}
 	ctx, can := context.WithCancel(context.Background())
-	for waiting := true; waiting; {
-		select {
-		case <-ctx.Done():
-			panic("context cancelled")
-		case msgRdr := <-rxCh:
-			msg, err := io.ReadAll(msgRdr)
-			if err != nil {
-				panic(err)
-			}
-			logger.Debug("Received message", zap.String("msg", string(msg)))
-			if bytes.Contains(msg, []byte(waitFor)) {
-				txCh <- []byte("$X\n")
-			}
-			if bytes.Contains(msg, []byte("[MSG:Caution: Unlocked]")) {
-				waiting = false
-			}
-		}
-	}
-
 	s := &Server{
 		Parser:        grbl.NewParser(buf),
 		port:          port,
@@ -151,7 +132,6 @@ func New(port *serial.Port, logger *zap.Logger) *Server {
 		txChan:        txCh,
 		listenCancel:  can,
 	}
-	s.cts.Store(false)
 	go func() {
 		err := s.Listen(ctx)
 		if err != nil {
@@ -317,7 +297,7 @@ func (s *Server) CoolantOff(ctx context.Context, req *proto.CoolantOffRequest) (
 }
 
 var (
-	HeartbeatMsg = "?\n"
+	HeartbeatMsg = "M114 R\n"
 )
 
 func (s *Server) UpdateStatus(status grbl.StatusUpdate) {
@@ -403,28 +383,6 @@ func (s *Server) Listen(ctx context.Context) error {
 	}
 }
 
-func (s *Server) runHeartbeat(ctx context.Context) {
-	ticker := time.NewTicker(300 * time.Millisecond)
-	errCount := 3
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			errCount = 3
-			if !s.cts.Load() {
-				errCount--
-				if errCount == 0 {
-					s.logger.Fatal("Failed to receive ack")
-				}
-				continue
-			}
-			s.cts.Store(false)
-			s.txChan <- []byte(HeartbeatMsg)
-		}
-	}
-}
-
 func getVal(name string, s *string) error {
 	v, found := os.LookupEnv(name)
 	if !found {
@@ -467,6 +425,28 @@ func load() *Environment {
 	}
 }
 
+func (s *Server) runHeartbeat(ctx context.Context) {
+	ticker := time.NewTicker(300 * time.Millisecond)
+	errCount := 3
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			errCount = 3
+			if !s.cts.Load() {
+				errCount--
+				if errCount == 0 {
+					s.logger.Fatal("Failed to receive ack")
+				}
+				continue
+			}
+			s.cts.Store(false)
+			s.txChan <- []byte(HeartbeatMsg)
+		}
+	}
+}
+
 func main() {
 	logger, err := zap.NewDevelopment()
 	if err != nil {
@@ -492,15 +472,6 @@ func main() {
 	defer cancel()
 	go s.runHeartbeat(ctx)
 	// _, err = s.Home(ctx, &proto.HomeRequest{})
-	s.txChan <- []byte("G55\n")
-	if err != nil {
-		logger.Fatal("Failed to home", zap.Error(err))
-	}
-	for !s.cts.Load() {
-
-	}
-	resp, err := s.FloodOn(ctx, &proto.FloodOnRequest{})
-	logger.Info("Flood on", zap.Any("resp", resp))
 	lis, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", environ.Port))
 	if err != nil {
 		logger.Fatal("Failed to listen", zap.Error(err))

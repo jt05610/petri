@@ -12,7 +12,7 @@ import { ApolloClient, ApolloProvider, InMemoryCache } from "@apollo/client";
 
 startTransition(() => {
   const client = new ApolloClient({
-    uri: "https://localhost/api/",
+    uri: "http://sop-4470a-1.ucdenver.pvt:4000/api/",
     cache: new InMemoryCache().restore(window.__APOLLO_STATE__)
   });
 

@@ -15,6 +15,7 @@ import {
 } from "@heroicons/react/24/outline";
 import type { ReactNode } from "react";
 import { useState } from "react";
+import { NetsProvider } from "~/lib/context/nets";
 
 export const loader = async ({ request }: LoaderArgs) => {
   const authorID = await requireUserId(request);
@@ -113,7 +114,15 @@ export default function NetsPage() {
           )}
         </Sidebar>
         <div className="flex-1 p-6">
-          <Outlet />
+          {data.netListItems && data.netListItems.length > 0 ? (
+            <NetsProvider nets={data.netListItems}>
+              <Outlet />
+            </NetsProvider>
+          ) : (
+            <Outlet />
+          )
+          }
+
         </div>
       </main>
     </div>

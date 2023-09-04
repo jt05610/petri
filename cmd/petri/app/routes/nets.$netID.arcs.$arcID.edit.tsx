@@ -9,7 +9,6 @@ import { parse } from "@conform-to/zod";
 import { badRequest } from "~/util/request.server";
 import { useForm } from "@conform-to/react";
 import FormContent from "~/lib/layouts/form";
-import { useState } from "react";
 import { listTransitions } from "~/models/net.transition.server";
 import { listPlaces } from "~/models/net.place.server";
 
@@ -17,6 +16,7 @@ export const action = async ({ params, request }: LoaderArgs) => {
   invariant(params.arcID, "arcID not found");
   let formData = await request.formData();
   formData.append("id", params.arcID);
+  console.log(formData);
   const submission = parse(formData, {
     schema: ArcUpdateFormSchema
   });
@@ -25,7 +25,7 @@ export const action = async ({ params, request }: LoaderArgs) => {
   }
 
   await updateArc(submission.value);
-  return redirect(`/design/${params.netID}/arcs/${params.arcID}`);
+  return redirect(`/nets/${params.netID}/arcs/${params.arcID}`);
 };
 
 export const loader = async ({ params, request }: LoaderArgs) => {
@@ -46,11 +46,12 @@ export const loader = async ({ params, request }: LoaderArgs) => {
 export default function Arc() {
   const lastSubmission = useActionData<typeof action>();
   const { arc, places, transitions } = useLoaderData<typeof loader>();
-  const [changed, setChanged] = useState(false);
   const [form, { fromPlace, placeID, transitionID }] = useForm({
     lastSubmission,
     onValidate({ formData }) {
-      setChanged(false);
+      console.log("formData", formData);
+      console.log("schema", ArcUpdateFormSchema);
+
       return parse(formData, { schema: ArcUpdateFormSchema });
     }
   });
@@ -58,8 +59,8 @@ export default function Arc() {
   return (
     <div className={"rounded-lg border-2 p-2 "}>
       <h2 className={"text-lg font-semibold"}>Update</h2>
-      <Form method={"post"} {...form.props} onChange={() => setChanged(true)}>
-        <FormContent activeButton={changed} fields={[
+      <Form method={"post"} {...form.props} >
+        <FormContent fields={[
           {
             name: placeID.name,
             type: "select",
@@ -77,7 +78,7 @@ export default function Arc() {
           {
             type: "checkbox",
             name: fromPlace.name,
-            content: arc.fromPlace.toString(),
+            content: fromPlace.form,
             error: fromPlace.error
           }
         ]} />

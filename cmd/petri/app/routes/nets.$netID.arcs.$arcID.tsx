@@ -9,7 +9,7 @@ import { Form, NavLink, Outlet, useLoaderData } from "@remix-run/react";
 export const action = async ({ params }: LoaderArgs) => {
   invariant(params.arcID, "arcID not found");
   await deleteArc({ id: params.arcID });
-  return redirect(`/design/${params.netID}/arcs`);
+  return redirect(`/nets/${params.netID}/arcs`);
 };
 
 export const loader = async ({ params, request }: LoaderArgs) => {

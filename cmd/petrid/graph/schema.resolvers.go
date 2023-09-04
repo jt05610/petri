@@ -27,7 +27,6 @@ func (r *mutationResolver) StartSession(ctx context.Context, input model.StartSe
 	}
 	r.Sequence = sequence
 	r.Sequence.ExtractParameters()
-	fmt.Println("parameters", input.Parameters)
 	err = r.Sequence.ApplyParameters(input.Parameters)
 	if err != nil {
 		return nil, err
@@ -229,7 +228,6 @@ func (r *queryResolver) DeviceMarkings(ctx context.Context, input model.DeviceMa
 			Marking:  r.Routes[device.DeviceID].Marking.JSON(),
 		})
 	}
-	fmt.Printf("DeviceMarkings: %v\n", ret)
 	return ret, nil
 }
 

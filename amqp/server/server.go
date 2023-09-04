@@ -186,6 +186,7 @@ func (s *Server) Listen(ctx context.Context) {
 					event, err := s.route(data)
 					failOnError(err, "Failed to handle data")
 					resp, err := s.cmd.Flush(ctx, event.Event, s.MarkingMap())
+					log.Printf("Sending response %v", resp)
 					err = s.ch.PublishWithContext(ctx,
 						s.exchange,
 						event.RoutingKey(),

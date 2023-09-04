@@ -1,0 +1,275 @@
+innerdevice:
+    id: cllu47aez0064jgtkpgsc5pm9
+    authorid: cllu47abx0000jgtkganbjccj
+    name: mixing_valve
+    description: A mixing valve.
+    createdat: 2023-08-28T00:01:58.907Z
+    updatedat: 2023-08-28T00:01:58.907Z
+relationsdevice:
+    author: null
+    instances: []
+    nets:
+        - innernet:
+            id: cllu47aeq005bjgtkieizv1tz
+            name: mixing_valve
+            description: A mixing valve.
+            initialmarking:
+                - 1
+                - 0
+                - 0
+                - 0
+            createdat: 2023-08-28T00:01:58.899Z
+            updatedat: 2023-08-28T00:01:58.93Z
+            authorid: cllu47abx0000jgtkganbjccj
+            parentid: cllu47afl007xjgtk9cpu2g6t
+          relationsnet:
+            author: null
+            arcs:
+                - innerarc:
+                    id: cllu47aev005qjgtkqn885o29
+                    netid: cllu47aeq005bjgtkieizv1tz
+                    fromplace: true
+                    placeid: cllu47aeq005cjgtk6t1fa7vm
+                    transitionid: cllu47aer005gjgtk72xy6bis
+                    createdat: 2023-08-28T00:01:58.903Z
+                    updatedat: 2023-08-28T00:01:58.903Z
+                  relationsarc:
+                    net: null
+                    place: null
+                    transition: null
+                - innerarc:
+                    id: cllu47aew005sjgtkhnwxqsqf
+                    netid: cllu47aeq005bjgtkieizv1tz
+                    fromplace: false
+                    placeid: cllu47aer005djgtkau0htpcc
+                    transitionid: cllu47aer005gjgtk72xy6bis
+                    createdat: 2023-08-28T00:01:58.904Z
+                    updatedat: 2023-08-28T00:01:58.904Z
+                  relationsarc:
+                    net: null
+                    place: null
+                    transition: null
+                - innerarc:
+                    id: cllu47aew005ujgtkr27ciokj
+                    netid: cllu47aeq005bjgtkieizv1tz
+                    fromplace: true
+                    placeid: cllu47aer005djgtkau0htpcc
+                    transitionid: cllu47aer005jjgtkcbc1snlj
+                    createdat: 2023-08-28T00:01:58.904Z
+                    updatedat: 2023-08-28T00:01:58.904Z
+                  relationsarc:
+                    net: null
+                    place: null
+                    transition: null
+                - innerarc:
+                    id: cllu47aex005wjgtkb59v8pyr
+                    netid: cllu47aeq005bjgtkieizv1tz
+                    fromplace: false
+                    placeid: cllu47aer005ejgtkl3pxa6ui
+                    transitionid: cllu47aer005jjgtkcbc1snlj
+                    createdat: 2023-08-28T00:01:58.906Z
+                    updatedat: 2023-08-28T00:01:58.906Z
+                  relationsarc:
+                    net: null
+                    place: null
+                    transition: null
+                - innerarc:
+                    id: cllu47aey005yjgtk5gctb8k0
+                    netid: cllu47aeq005bjgtkieizv1tz
+                    fromplace: true
+                    placeid: cllu47aer005ejgtkl3pxa6ui
+                    transitionid: cllu47aer005mjgtkuokgsk70
+                    createdat: 2023-08-28T00:01:58.906Z
+                    updatedat: 2023-08-28T00:01:58.906Z
+                  relationsarc:
+                    net: null
+                    place: null
+                    transition: null
+                - innerarc:
+                    id: cllu47aey0060jgtkx9p9ymy8
+                    netid: cllu47aeq005bjgtkieizv1tz
+                    fromplace: false
+                    placeid: cllu47aer005djgtkau0htpcc
+                    transitionid: cllu47aer005mjgtkuokgsk70
+                    createdat: 2023-08-28T00:01:58.907Z
+                    updatedat: 2023-08-28T00:01:58.907Z
+                  relationsarc:
+                    net: null
+                    place: null
+                    transition: null
+                - innerarc:
+                    id: cllu47aez0062jgtk4lojgoag
+                    netid: cllu47aeq005bjgtkieizv1tz
+                    fromplace: false
+                    placeid: cllu47aer005fjgtklbc7q84t
+                    transitionid: cllu47aer005mjgtkuokgsk70
+                    createdat: 2023-08-28T00:01:58.907Z
+                    updatedat: 2023-08-28T00:01:58.907Z
+                  relationsarc:
+                    net: null
+                    place: null
+                    transition: null
+            places:
+                - innerplace:
+                    id: cllu47aeq005cjgtk6t1fa7vm
+                    name: Unknown
+                    description: The pump is on but the position is unknown.
+                    createdat: 2023-08-28T00:01:58.899Z
+                    updatedat: 2023-08-28T00:01:58.899Z
+                    bound: 1
+                  relationsplace:
+                    arcs: []
+                    nets: []
+                    interfaces: []
+                - innerplace:
+                    id: cllu47aer005djgtkau0htpcc
+                    name: Idle
+                    description: mixing_valve is idle.
+                    createdat: 2023-08-28T00:01:58.899Z
+                    updatedat: 2023-08-28T00:01:58.899Z
+                    bound: 1
+                  relationsplace:
+                    arcs: []
+                    nets: []
+                    interfaces: []
+                - innerplace:
+                    id: cllu47aer005ejgtkl3pxa6ui
+                    name: Mixing
+                    description: Fluid is mixing.
+                    createdat: 2023-08-28T00:01:58.899Z
+                    updatedat: 2023-08-28T00:01:58.899Z
+                    bound: 1
+                  relationsplace:
+                    arcs: []
+                    nets: []
+                    interfaces: []
+                - innerplace:
+                    id: cllu47aer005fjgtklbc7q84t
+                    name: Mixed
+                    description: Fluid was mixed.
+                    createdat: 2023-08-28T00:01:58.899Z
+                    updatedat: 2023-08-28T00:01:58.899Z
+                    bound: 1
+                  relationsplace:
+                    arcs: []
+                    nets: []
+                    interfaces: []
+            transitions:
+                - innertransition:
+                    id: cllu47aer005gjgtk72xy6bis
+                    condition: null
+                    description: mixing_valve was initialized.
+                    name: Initialized
+                    createdat: 2023-08-28T00:01:58.899Z
+                    updatedat: 2023-08-28T00:01:58.899Z
+                  relationstransition:
+                    arcs: []
+                    events:
+                        - innerevent:
+                            id: cllu47aer005hjgtkvrmfejvf
+                            name: Initialize
+                            description: Initialize mixing_valve.
+                            createdat: 2023-08-28T00:01:58.899Z
+                            updatedat: 2023-08-28T00:01:58.899Z
+                            placeinterfaceid: null
+                            transitioninterfaceid: null
+                          relationsevent:
+                            transitions: []
+                            fields:
+                                - innerfield:
+                                    id: cllu47aer005ijgtkdgzbxxop
+                                    name: Components
+                                    type: string
+                                    condition: null
+                                    eventid: cllu47aer005hjgtkvrmfejvf
+                                    createdat: 2023-08-28T00:01:58.899Z
+                                    updatedat: 2023-08-28T00:01:58.899Z
+                                  relationsfield:
+                                    event: null
+                                    constants: []
+                            commands: []
+                            data: []
+                            transitioninterface: null
+                    nets: []
+                    interfaces: []
+                - innertransition:
+                    id: cllu47aer005jjgtkcbc1snlj
+                    condition: null
+                    description: Fluid was mixed.
+                    name: Mixed
+                    createdat: 2023-08-28T00:01:58.899Z
+                    updatedat: 2023-08-28T00:01:58.899Z
+                  relationstransition:
+                    arcs: []
+                    events:
+                        - innerevent:
+                            id: cllu47aer005kjgtk92mm2d6t
+                            name: Mix
+                            description: Mix fluid.
+                            createdat: 2023-08-28T00:01:58.899Z
+                            updatedat: 2023-08-28T00:01:58.899Z
+                            placeinterfaceid: null
+                            transitioninterfaceid: null
+                          relationsevent:
+                            transitions: []
+                            fields:
+                                - innerfield:
+                                    id: cllu47aer005ljgtk3cn7yq04
+                                    name: Proportions
+                                    type: string
+                                    condition: null
+                                    eventid: cllu47aer005kjgtk92mm2d6t
+                                    createdat: 2023-08-28T00:01:58.899Z
+                                    updatedat: 2023-08-28T00:01:58.899Z
+                                  relationsfield:
+                                    event: null
+                                    constants: []
+                            commands: []
+                            data: []
+                            transitioninterface: null
+                    nets: []
+                    interfaces: []
+                - innertransition:
+                    id: cllu47aer005mjgtkuokgsk70
+                    condition: null
+                    description: mixing_valve finished.
+                    name: Finished
+                    createdat: 2023-08-28T00:01:58.899Z
+                    updatedat: 2023-08-28T00:01:58.899Z
+                  relationstransition:
+                    arcs: []
+                    events:
+                        - innerevent:
+                            id: cllu47aer005njgtkkrjaokzb
+                            name: Mixed
+                            description: Fluids were mixed.
+                            createdat: 2023-08-28T00:01:58.899Z
+                            updatedat: 2023-08-28T00:01:58.899Z
+                            placeinterfaceid: null
+                            transitioninterfaceid: null
+                          relationsevent:
+                            transitions: []
+                            fields:
+                                - innerfield:
+                                    id: cllu47aer005ojgtktua2y992
+                                    name: Proportions
+                                    type: string
+                                    condition: null
+                                    eventid: cllu47aer005njgtkkrjaokzb
+                                    createdat: 2023-08-28T00:01:58.899Z
+                                    updatedat: 2023-08-28T00:01:58.899Z
+                                  relationsfield:
+                                    event: null
+                                    constants: []
+                            commands: []
+                            data: []
+                            transitioninterface: null
+                    nets: []
+                    interfaces: []
+            parent: null
+            children: []
+            devices: []
+            placeinterfaces: []
+            transitioninterfaces: []
+            runs: []
+    actions: []

@@ -1,0 +1,91 @@
+// messages we need to send
+syntax = "proto3";
+
+option go_package = "v1/marlin";
+
+message Position {
+  // xyz position in mm
+  float x = 1;
+  // xyz position in mm
+  float y = 2;
+  // xyz position in mm
+  float z = 3;
+  // xyz position in mm
+  float e = 4;
+}
+
+message State {
+  Position position = 1;
+  float speed = 2;
+}
+
+message StateStreamRequest {
+}
+
+message StateStreamResponse {
+  State state = 1;
+  string timestamp = 2;
+}
+
+message HomeRequest {
+  oneof axis {
+    bool all = 1;
+    bool X = 2;
+    bool Y = 3;
+    bool Z = 4;
+  }
+}
+
+// X-axis -- syringe pump
+// Y-axis -- syringe pump
+// Z-axis -- 6-port rheodyne valve
+
+message MoveRequest {
+  // xyz position in mm
+  optional float x = 1;
+  // xyz position in mm
+  optional float y = 2;
+  // xyz position in mm
+  optional float z = 3;
+  // xyz position in mm
+  optional float e = 4;
+  // speed in mm/min
+  optional float speed = 5;
+}
+
+message MoveResponse {
+  string message = 1;
+}
+
+// M106 - Fan for 3-way valve
+
+message FanOnRequest {
+}
+
+
+message FanOnResponse {
+  string message = 1;
+}
+
+message FanOffRequest {
+}
+
+message FanOffResponse {
+  string message = 1;
+}
+
+message Response {
+  string message = 1;
+  oneof response {
+    State state = 2;
+    MoveResponse move = 3;
+  }
+}
+
+service Marlin {
+  rpc Home(HomeRequest) returns (Response) {}
+  rpc StateStream(StateStreamRequest) returns (stream StateStreamResponse) {}
+  rpc Move(MoveRequest) returns (Response) {}
+  rpc FanOn(FanOnRequest) returns (Response) {}
+  rpc FanOff(FanOffRequest) returns (Response) {}
+}

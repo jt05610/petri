@@ -20,35 +20,20 @@ type StatusUpdate interface {
 	IsStatusUpdate()
 }
 
+type Processing struct {
+}
+
+func (p *Processing) IsStatusUpdate() {}
+
 type Count struct {
 	X int
 	Y int
 	Z int
 }
 
-type Active struct {
-	Spindle bool
-	Flood   bool
-	Mist    bool
-}
-
-type Override struct {
-	Rapid   byte
-	Feed    byte
-	Spindle byte
-}
-
-type LimitPins struct {
-	X bool
-	Y bool
-	Z bool
-}
-
 type Status struct {
-	State    string
 	Error    *int
 	Alarm    *int
-	Active   *Active
 	Position *Position
 	Count    *Count
 }
@@ -72,8 +57,6 @@ const (
 	Return Token = iota
 	Space
 	Newline
-	OpenAngle
-	CloseAngle
 	Colon
 	Comma
 	Bar
@@ -85,8 +68,6 @@ var tokens = []string{
 	Return:     "RETURN",
 	Space:      "SPACE",
 	Newline:    "NEWLINE",
-	OpenAngle:  "<",
-	CloseAngle: ">",
 	Colon:      ":",
 	Comma:      ",",
 	Bar:        "|",
@@ -123,10 +104,6 @@ func (l *Lexer) Lex() (int, Token, string) {
 			return l.pos, Newline, Newline.String()
 		case '\r':
 			return l.pos, Return, Return.String()
-		case '<':
-			return l.pos, OpenAngle, OpenAngle.String()
-		case '>':
-			return l.pos, CloseAngle, CloseAngle.String()
 		case ':':
 			return l.pos, Colon, Colon.String()
 		case ',':
@@ -242,31 +219,34 @@ func (p *Parser) parseFloat() float32 {
 
 func (p *Parser) parsePosition() *Position {
 	ret := new(Position)
-	for i := 0; i < 4; i++ {
+	for i := 0; i < 4; {
 		pos, tok, lit := p.lexer.Lex()
 		switch tok {
 		case Newline:
 			panic(p.errorf(pos, "unexpected newline"))
-		case Colon, Space:
+		case Colon, Space, Identifier:
 			continue
+		default:
+			if tok != Float {
+				panic(p.errorf(pos, "expected float, got %q", lit))
+			}
+			f, err := strconv.ParseFloat(lit, 32)
+			if err != nil {
+				panic(p.errorf(pos, "expected float, got %q", lit))
+			}
+			i++
+			switch i {
+			case 0:
+				ret.X = float32(f)
+			case 1:
+				ret.Y = float32(f)
+			case 2:
+				ret.Z = float32(f)
+			case 3:
+				ret.E = float32(f)
+			}
 		}
-		if tok != Float {
-			panic(p.errorf(pos, "expected float, got %q", lit))
-		}
-		f, err := strconv.ParseFloat(lit, 32)
-		if err != nil {
-			panic(p.errorf(pos, "expected float, got %q", lit))
-		}
-		switch i {
-		case 0:
-			ret.X = float32(f)
-		case 1:
-			ret.Y = float32(f)
-		case 2:
-			ret.Z = float32(f)
-		case 3:
-			ret.E = float32(f)
-		}
+
 	}
 	return ret
 }
@@ -276,7 +256,7 @@ func (p *Parser) parseString() string {
 	switch tok {
 	case Newline:
 		panic(p.errorf(pos, "unexpected newline"))
-	case Colon, Comma, Bar:
+	case Colon, Comma, Identifier, Space:
 		return p.parseString()
 	}
 	if tok != Identifier {
@@ -305,12 +285,12 @@ func (p *Parser) parseInt() int {
 
 func (p *Parser) parseCount() *Count {
 	ret := new(Count)
-	for i := 0; i < 3; i++ {
+	for i := 0; i < 3; {
 		pos, tok, lit := p.lexer.Lex()
 		switch tok {
 		case Newline:
-			panic(p.errorf(pos, "unexpected newline"))
-		case Colon, Comma:
+			return ret
+		case Colon, Comma, Space, Bar, Identifier:
 			continue
 		}
 		if tok != Float {
@@ -320,6 +300,7 @@ func (p *Parser) parseCount() *Count {
 		if err != nil {
 			panic(p.errorf(pos, "expected float, got %q", lit))
 		}
+		i++
 		switch i {
 		case 0:
 			ret.X = int(f)
@@ -335,16 +316,16 @@ func (p *Parser) parseStatusUpdate(s *Status) (*Status, error) {
 	for {
 		pos, tok, lit := p.lexer.Lex()
 		switch tok {
+		case Colon:
+			s.Position = p.parsePosition()
 		case Identifier:
 			switch lit {
-			case "X":
-				s.Position = p.parsePosition()
 			case "Count":
 				s.Count = p.parseCount()
 			default:
 				return nil, p.errorf(pos, "unknown identifier %q", lit)
 			}
-		case Bar, Comma, Colon, Space:
+		case Bar, Comma, Space:
 			continue
 		case Newline:
 			return s, nil
@@ -378,26 +359,14 @@ func (p *Parser) Parse() (ret StatusUpdate, err error) {
 	for {
 		pos, tok, lit := p.lexer.Lex()
 		switch tok {
-		case Newline:
-
-		case CloseAngle:
-			return ret, p.discard()
-		case OpenAngle:
-			ret, err = p.parseStatusUpdate(status)
-			if err != nil {
-				return nil, err
-			}
-			return ret, p.discard()
 		case Identifier:
 			switch lit {
+			case "X":
+				return p.parseStatusUpdate(status)
 			case "ok":
 				return &Ack{}, p.discard()
-			case "error":
-				ret, err = p.parseError()
-				if err != nil {
-					return nil, err
-				}
-				return ret, p.discard()
+			case "echo":
+				return &Processing{}, p.discard()
 			case "alarm":
 				ret, err := p.parseAlarm()
 				if err != nil {

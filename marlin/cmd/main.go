@@ -6,38 +6,63 @@ import (
 	"fmt"
 	"github.com/joho/godotenv"
 	"github.com/jt05610/petri/comm/serial"
-	"github.com/jt05610/petri/grbl"
-	proto "github.com/jt05610/petri/grbl/proto/v1"
+	"github.com/jt05610/petri/marlin"
+	proto "github.com/jt05610/petri/marlin/proto/v1"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"io"
 	"net"
 	"os"
 	"strconv"
+	"strings"
 	"sync/atomic"
 	"time"
 )
 
-var _ proto.GRBLServer = (*Server)(nil)
+var _ proto.MarlinServer = (*Server)(nil)
 
 type Server struct {
-	*grbl.Parser
+	*marlin.Parser
 	cts           atomic.Bool
 	logger        *zap.Logger
-	machineStatus *atomic.Pointer[grbl.Status]
+	machineStatus *atomic.Pointer[marlin.Status]
 	state         *atomic.Pointer[proto.State]
 	port          *serial.Port
 	rxChan        <-chan io.Reader
 	txChan        chan []byte
 	listenCancel  context.CancelFunc
-	proto.UnimplementedGRBLServer
+	proto.UnimplementedMarlinServer
+}
+
+func (s *Server) FanOn(ctx context.Context, request *proto.FanOnRequest) (*proto.Response, error) {
+	err := s.do([]byte("M106 S255\n"), true, func(state *proto.State) bool {
+		return true
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &proto.Response{
+		Message: "ok",
+	}, nil
+}
+
+func (s *Server) FanOff(ctx context.Context, request *proto.FanOffRequest) (*proto.Response, error) {
+	err := s.do([]byte("M106 S0\n"), true, func(state *proto.State) bool {
+		return true
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &proto.Response{
+		Message: "ok",
+	}, nil
 }
 
 func (s *Server) currentState() *proto.State {
 	return s.state.Load()
 }
 
-func (s *Server) status() *grbl.Status {
+func (s *Server) status() *marlin.Status {
 	return s.machineStatus.Load()
 }
 
@@ -51,21 +76,6 @@ func (s *Server) do(cmd []byte, synchronous bool, check func(state *proto.State)
 			status := s.currentState()
 			if status == nil {
 				continue
-			}
-
-			if status.Error != nil {
-				if status.Error.Error != nil {
-					if *status.Error.Error != proto.ErrorCode_ErrorCode_NoError {
-						return fmt.Errorf("error: %d", status.Error.Message)
-					}
-				}
-			}
-			if status.Alarm != nil {
-				if status.Alarm.Alarm != nil {
-					if *status.Alarm.Alarm != proto.AlarmCode_AlarmCode_NoAlarm {
-						return fmt.Errorf("alarm: %d", status.Alarm.Message)
-					}
-				}
 			}
 			if s.cts.Load() && check(status) {
 				return nil
@@ -94,23 +104,19 @@ func (s *Server) Home(ctx context.Context, req *proto.HomeRequest) (*proto.Respo
 		}
 	}
 
-	// wait for state to be homing, then idle again
-	homingSeen := false
-	idleSeen := false
-	for !homingSeen && !idleSeen {
+	// wait until we see all positions at 0
+	for {
 		time.Sleep(100 * time.Millisecond)
 		status := s.status()
 		if status == nil {
 			continue
 		}
-		if status.State == "home" {
-			homingSeen = true
-			if status.State == "idle" {
-				idleSeen = true
-			}
+		if status.Position.X == 0 && status.Position.Y == 0 && status.Position.Z == 0 {
+			return &proto.Response{
+				Message: "ok",
+			}, nil
 		}
 	}
-	return &proto.Response{}, nil
 }
 
 func New(port *serial.Port, logger *zap.Logger) *Server {
@@ -122,13 +128,13 @@ func New(port *serial.Port, logger *zap.Logger) *Server {
 	}
 	ctx, can := context.WithCancel(context.Background())
 	s := &Server{
-		Parser:        grbl.NewParser(buf),
+		Parser:        marlin.NewParser(buf),
 		port:          port,
 		rxChan:        rxCh,
 		cts:           atomic.Bool{},
 		logger:        logger,
 		state:         &atomic.Pointer[proto.State]{},
-		machineStatus: &atomic.Pointer[grbl.Status]{},
+		machineStatus: &atomic.Pointer[marlin.Status]{},
 		txChan:        txCh,
 		listenCancel:  can,
 	}
@@ -146,7 +152,7 @@ func (s *Server) Close() error {
 	return s.port.Close()
 }
 
-func (s *Server) StateStream(req *proto.StateStreamRequest, server proto.GRBL_StateStreamServer) error {
+func (s *Server) StateStream(req *proto.StateStreamRequest, server proto.Marlin_StateStreamServer) error {
 	for {
 		select {
 		case <-server.Context().Done():
@@ -181,7 +187,10 @@ func goToMsg(pos *proto.MoveRequest) []byte {
 	if pos.Z != nil {
 		bld.WriteString(fmt.Sprintf(" Z%.3f", *pos.Z))
 	}
-	bld.WriteString("\n")
+	if pos.E != nil {
+		bld.WriteString(fmt.Sprintf(" E%.3f", *pos.E))
+	}
+	bld.WriteString("\nM400\n")
 	ret := bld.Bytes()
 	fmt.Println(string(ret))
 	return ret
@@ -204,6 +213,11 @@ func (s *Server) Move(ctx context.Context, req *proto.MoveRequest) (*proto.Respo
 				return false
 			}
 		}
+		if req.E != nil {
+			if state.Position.E != *req.E {
+				return false
+			}
+		}
 		return true
 	})
 	if err != nil {
@@ -219,139 +233,29 @@ func (s *Server) Move(ctx context.Context, req *proto.MoveRequest) (*proto.Respo
 	}, nil
 }
 
-func (s *Server) SpindleOn(ctx context.Context, req *proto.SpindleOnRequest) (*proto.Response, error) {
-	err := s.do([]byte("M3\n"), true, func(state *proto.State) bool {
-		return true
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &proto.Response{
-		Message:  "ok",
-		Response: &proto.Response_SpindleOn{SpindleOn: &proto.SpindleOnResponse{Message: "ok"}},
-	}, nil
-}
-
-func (s *Server) SpindleOff(ctx context.Context, req *proto.SpindleOffRequest) (*proto.Response, error) {
-	err := s.do([]byte("M5\n"), true, func(state *proto.State) bool {
-		return true
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &proto.Response{
-		Message:  "ok",
-		Response: &proto.Response_SpindleOff{SpindleOff: &proto.SpindleOffResponse{Message: "ok"}},
-	}, nil
-}
-
-func (s *Server) MistOn(ctx context.Context, req *proto.MistOnRequest) (*proto.Response, error) {
-	err := s.do([]byte("M7\n"), true, func(state *proto.State) bool {
-		return true
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &proto.Response{
-		Message: "ok",
-		Response: &proto.Response_MistOn{
-			MistOn: &proto.MistOnResponse{
-				Message: "ok",
-			},
-		},
-	}, nil
-}
-
-func (s *Server) FloodOn(ctx context.Context, req *proto.FloodOnRequest) (*proto.Response, error) {
-	err := s.do([]byte("M8\n"), true, func(state *proto.State) bool {
-		return true
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &proto.Response{
-		Message: "ok",
-		Response: &proto.Response_FloodOn{
-			FloodOn: &proto.FloodOnResponse{
-				Message: "ok",
-			},
-		},
-	}, nil
-}
-
-func (s *Server) CoolantOff(ctx context.Context, req *proto.CoolantOffRequest) (*proto.Response, error) {
-	err := s.do([]byte("M9\n"), true, func(state *proto.State) bool {
-		return true
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &proto.Response{
-		Message: "ok",
-		Response: &proto.Response_CoolantOff{
-			CoolantOff: &proto.CoolantOffResponse{
-				Message: "ok",
-			},
-		},
-	}, nil
-}
-
 var (
 	HeartbeatMsg = "M114 R\n"
 )
 
-func (s *Server) UpdateStatus(status grbl.StatusUpdate) {
-	if ack, ok := status.(*grbl.Ack); ok {
+func (s *Server) UpdateStatus(status marlin.StatusUpdate) {
+	if _, ok := status.(*marlin.Ack); ok {
 		s.cts.Store(true)
-		s.logger.Debug("Received ack", zap.String("msg", ack.String()))
 		return
 	}
-	if grblErr, ok := status.(grbl.Error); ok {
-		s.logger.Fatal("Received error", zap.Int("msg", int(grblErr)))
+	if _, ok := status.(*marlin.Processing); ok {
 		return
 	}
-	if grblAlarm, ok := status.(grbl.Alarm); ok {
-		s.logger.Fatal("Received alarm", zap.Int("msg", int(grblAlarm)))
-		return
-	}
-	if upd, ok := status.(*grbl.Status); ok {
+
+	if upd, ok := status.(*marlin.Status); ok {
+		s.logger.Debug("Received status update", zap.Any("status", upd))
 		s.machineStatus.Store(upd)
 		newState := &proto.State{
 			Position: &proto.Position{
-				X: upd.MachinePosition.X,
-				Y: upd.MachinePosition.Y,
-				Z: upd.MachinePosition.Z,
+				X: upd.Position.X,
+				Y: upd.Position.Y,
+				Z: upd.Position.Z,
+				E: upd.Position.E,
 			},
-		}
-		if upd.Error != nil {
-			ec := proto.ErrorCode(*upd.Error)
-			s := ec.String()
-			newState.Error = &proto.Error{
-				Message: &s,
-				Error:   &ec,
-			}
-		}
-		if upd.Override != nil {
-			fOvr := uint32(upd.Override.Feed)
-			rOvr := uint32(upd.Override.Rapid)
-			sOvr := uint32(upd.Override.Spindle)
-			newState.Offsets = &proto.Offsets{
-				Feed:    &fOvr,
-				Rapid:   &rOvr,
-				Spindle: &sOvr,
-			}
-		}
-		if upd.Active != nil {
-			newState.Active = make([]proto.Peripheral, 0, 4)
-			if upd.Active.Flood {
-				newState.Active = append(newState.Active, proto.Peripheral_Flood)
-			}
-			if upd.Active.Mist {
-				newState.Active = append(newState.Active, proto.Peripheral_Mist)
-			}
-			if upd.Active.Spindle {
-				newState.Active = append(newState.Active, proto.Peripheral_Spindle)
-			}
 		}
 		s.state.Store(newState)
 	}
@@ -370,14 +274,14 @@ func (s *Server) Listen(ctx context.Context) error {
 			}
 			s.logger.Debug("Received message", zap.String("msg", string(bb)))
 			buf := bytes.NewBuffer(bb)
-			parser := grbl.NewParser(buf)
+			parser := marlin.NewParser(buf)
 			upd, err := parser.Parse()
-			s.logger.Debug("Received message", zap.Any("update", upd))
 			if err != nil {
 				// write back to the buffer so that we can try again
 				s.logger.Error("Failed to parse message", zap.Error(err))
 			} else {
 				s.UpdateStatus(upd)
+
 			}
 		}
 	}
@@ -471,14 +375,45 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go s.runHeartbeat(ctx)
-	// _, err = s.Home(ctx, &proto.HomeRequest{})
+	startupLines := strings.Split(environ.StartupBlock, "\n")
+	for _, line := range startupLines {
+		// wait for cts
+		s.logger.Info("Sending line", zap.String("line", line))
+		s.txChan <- []byte(line + "\n")
+	}
+	_, err = s.FanOn(ctx, &proto.FanOnRequest{})
+	if err != nil {
+		logger.Fatal("Failed to turn on fan", zap.Error(err))
+	}
+	_, err = s.Home(ctx, &proto.HomeRequest{})
+	if err != nil {
+		logger.Fatal("Failed to home", zap.Error(err))
+	}
+	_, err = s.FanOff(ctx, &proto.FanOffRequest{})
+	if err != nil {
+		logger.Fatal("Failed to turn off fan", zap.Error(err))
+	}
+	pos := float32(100)
+	spd := float32(500)
+	ePos := -float32(100)
+	_, err = s.Move(ctx, &proto.MoveRequest{
+		X:     &pos,
+		Y:     &pos,
+		Z:     &pos,
+		Speed: &spd,
+		E:     &ePos,
+	})
+	if err != nil {
+		logger.Fatal("Failed to move", zap.Error(err))
+	}
 	lis, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", environ.Port))
 	if err != nil {
 		logger.Fatal("Failed to listen", zap.Error(err))
 	}
+
 	opts := make([]grpc.ServerOption, 0)
 	grpcServer := grpc.NewServer(opts...)
-	proto.RegisterGRBLServer(grpcServer, s)
+	proto.RegisterMarlinServer(grpcServer, s)
 	logger.Info("Starting grpc server", zap.Int("port", environ.Port))
 	go func() {
 		err := grpcServer.Serve(lis)

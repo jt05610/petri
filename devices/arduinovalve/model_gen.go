@@ -7,11 +7,15 @@ import (
 	"github.com/jt05610/petri/device"
 	"github.com/jt05610/petri/labeled"
 	"github.com/jt05610/petri/yaml"
+	"io"
 	"log"
 )
 
-func NewMixingValve() *MixingValve {
-	d := &MixingValve{}
+func NewMixingValve(txCh chan []byte, rxCh <-chan io.Reader) *MixingValve {
+	d := &MixingValve{
+		txCh: txCh,
+		rxCh: rxCh,
+	}
 	return d
 }
 
@@ -30,49 +34,6 @@ func (d *MixingValve) load() *device.Device {
 		log.Fatal(err)
 	}
 	return ret
-}
-
-func (r *InitializeRequest) Event() *labeled.Event {
-	return &labeled.Event{
-		Name: "initialize",
-	}
-}
-
-func (r *InitializeRequest) FromEvent(event *labeled.Event) error {
-	if event.Name != "initialize" {
-		return fmt.Errorf("expected event name initialize, got %s", event.Name)
-	}
-	if event.Data["components"] != nil {
-		ds := event.Data["components"].(string)
-
-		r.Components = ds
-	}
-
-	return nil
-}
-
-func (r *InitializeResponse) Event() *labeled.Event {
-	ret := &labeled.Event{
-		Name: "initialize",
-		Fields: []*labeled.Field{
-			{
-				Name: "components",
-				Type: "string",
-			},
-		},
-		Data: map[string]interface{}{
-			"Components": r.Components,
-		},
-	}
-
-	return ret
-}
-
-func (r *InitializeResponse) FromEvent(event *labeled.Event) error {
-	if event.Name != "initialize" {
-		return fmt.Errorf("expected event name initialize, got %s", event.Name)
-	}
-	return nil
 }
 
 func (r *MixRequest) Event() *labeled.Event {
@@ -163,19 +124,6 @@ func (r *MixedResponse) FromEvent(event *labeled.Event) error {
 
 func (d *MixingValve) Handlers() control.Handlers {
 	return control.Handlers{
-
-		"initialize": func(ctx context.Context, data *labeled.Event) (*labeled.Event, error) {
-			req := new(InitializeRequest)
-			err := req.FromEvent(data)
-			if err != nil {
-				return nil, err
-			}
-			resp, err := d.Initialize(ctx, req)
-			if err != nil {
-				return nil, err
-			}
-			return resp.Event(), nil
-		},
 
 		"mix": func(ctx context.Context, data *labeled.Event) (*labeled.Event, error) {
 			req := new(MixRequest)

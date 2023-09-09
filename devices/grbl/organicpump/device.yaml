@@ -5,220 +5,227 @@ innerdevice:
     description: A syringe pump.
     createdat: 2023-09-01T20:30:44.535Z
     updatedat: 2023-09-01T20:30:44.535Z
+    netids: []
 relationsdevice:
     author: null
     instances: []
     nets:
-        - innernet:
-            id: clm11uw4s003hjg4kwd6fe0lz
-            name: organic pump
-            description: A syringe pump.
-            initialmarking:
-                - 1
-                - 0
-                - 0
-            createdat: 2023-09-01T20:30:44.525Z
-            updatedat: 2023-09-01T20:30:44.578Z
-            authorid: clm11uw2s0000jg4kcwlstqq1
-            parentid: clm11uw6a0083jg4knghxsy84
-          relationsnet:
-            author: null
-            arcs:
-                - innerarc:
-                    id: clm11uw500045jg4k982jfrb3
-                    netid: clm11uw4s003hjg4kwd6fe0lz
-                    fromplace: true
-                    placeid: clm11uw4s003jjg4ktg3zz5nx
-                    transitionid: clm11uw4t003sjg4k5bz1ruen
-                    createdat: 2023-09-01T20:30:44.532Z
-                    updatedat: 2023-09-01T20:30:44.532Z
-                  relationsarc:
-                    net: null
-                    place: null
-                    transition: null
-                - innerarc:
-                    id: clm11uw500047jg4k6ajuivl8
-                    netid: clm11uw4s003hjg4kwd6fe0lz
-                    fromplace: false
-                    placeid: clm11uw4s003kjg4ku02dsvpn
-                    transitionid: clm11uw4t003sjg4k5bz1ruen
-                    createdat: 2023-09-01T20:30:44.533Z
-                    updatedat: 2023-09-01T20:30:44.533Z
-                  relationsarc:
-                    net: null
-                    place: null
-                    transition: null
-                - innerarc:
-                    id: clm11uw510049jg4kbtghvu2i
-                    netid: clm11uw4s003hjg4kwd6fe0lz
-                    fromplace: true
-                    placeid: clm11uw4s003kjg4ku02dsvpn
-                    transitionid: clm11uw4t003wjg4kn4wbt5bl
-                    createdat: 2023-09-01T20:30:44.533Z
-                    updatedat: 2023-09-01T20:30:44.533Z
-                  relationsarc:
-                    net: null
-                    place: null
-                    transition: null
-                - innerarc:
-                    id: clm11uw51004bjg4ktfjf76ob
-                    netid: clm11uw4s003hjg4kwd6fe0lz
-                    fromplace: false
-                    placeid: clm11uw4s003jjg4ktg3zz5nx
-                    transitionid: clm11uw4t003wjg4kn4wbt5bl
-                    createdat: 2023-09-01T20:30:44.534Z
-                    updatedat: 2023-09-01T20:30:44.534Z
-                  relationsarc:
-                    net: null
-                    place: null
-                    transition: null
-                - innerarc:
-                    id: clm11uw52004djg4k3i7ounb4
-                    netid: clm11uw4s003hjg4kwd6fe0lz
-                    fromplace: false
-                    placeid: clm11uw4s003ljg4kzwr2da2u
-                    transitionid: clm11uw4t003wjg4kn4wbt5bl
-                    createdat: 2023-09-01T20:30:44.534Z
-                    updatedat: 2023-09-01T20:30:44.534Z
-                  relationsarc:
-                    net: null
-                    place: null
-                    transition: null
-            places:
-                - innerplace:
-                    id: clm11uw4s003jjg4ktg3zz5nx
-                    name: Idle
-                    description: organic pump is idle.
+        - innerdevicesonnets:
+            deviceid: clm11uw52004fjg4kvqvuky0z
+            netid: clm11uw4s003hjg4kwd6fe0lz
+          relationsdevicesonnets:
+            device: null
+            net:
+                innernet:
+                    id: clm11uw4s003hjg4kwd6fe0lz
+                    name: organic pump
+                    description: A syringe pump.
+                    initialmarking:
+                        - 1
+                        - 0
+                        - 0
                     createdat: 2023-09-01T20:30:44.525Z
-                    updatedat: 2023-09-01T20:30:44.525Z
-                    bound: 1
-                  relationsplace:
-                    arcs: []
-                    nets: []
-                    interfaces: []
-                - innerplace:
-                    id: clm11uw4s003kjg4ku02dsvpn
-                    name: Pumping
-                    description: The syringe pump is pumping.
-                    createdat: 2023-09-01T20:30:44.525Z
-                    updatedat: 2023-09-01T20:30:44.525Z
-                    bound: 1
-                  relationsplace:
-                    arcs: []
-                    nets: []
-                    interfaces: []
-                - innerplace:
-                    id: clm11uw4s003ljg4kzwr2da2u
-                    name: Flow through syringe
-                    description: The syringe pump pumped.
-                    createdat: 2023-09-01T20:30:44.525Z
-                    updatedat: 2023-09-01T20:30:44.525Z
-                    bound: 1
-                  relationsplace:
-                    arcs: []
-                    nets: []
-                    interfaces: []
-            transitions:
-                - innertransition:
-                    id: clm11uw4t003sjg4k5bz1ruen
-                    condition: null
-                    description: The syringe pump pumped.
-                    name: Pumped
-                    createdat: 2023-09-01T20:30:44.525Z
-                    updatedat: 2023-09-01T20:30:44.525Z
-                  relationstransition:
-                    arcs: []
-                    events:
-                        - innerevent:
-                            id: clm11uw4t003tjg4kss32s8cd
-                            name: Pump
-                            description: Pump.
+                    updatedat: 2023-09-01T20:30:44.578Z
+                    authorid: clm11uw2s0000jg4kcwlstqq1
+                    parentid: clm11uw6a0083jg4knghxsy84
+                relationsnet:
+                    author: null
+                    arcs:
+                        - innerarc:
+                            id: clm11uw500045jg4k982jfrb3
+                            netid: clm11uw4s003hjg4kwd6fe0lz
+                            fromplace: true
+                            placeid: clm11uw4s003jjg4ktg3zz5nx
+                            transitionid: clm11uw4t003sjg4k5bz1ruen
+                            createdat: 2023-09-01T20:30:44.532Z
+                            updatedat: 2023-09-01T20:30:44.532Z
+                          relationsarc:
+                            net: null
+                            place: null
+                            transition: null
+                        - innerarc:
+                            id: clm11uw500047jg4k6ajuivl8
+                            netid: clm11uw4s003hjg4kwd6fe0lz
+                            fromplace: false
+                            placeid: clm11uw4s003kjg4ku02dsvpn
+                            transitionid: clm11uw4t003sjg4k5bz1ruen
+                            createdat: 2023-09-01T20:30:44.533Z
+                            updatedat: 2023-09-01T20:30:44.533Z
+                          relationsarc:
+                            net: null
+                            place: null
+                            transition: null
+                        - innerarc:
+                            id: clm11uw510049jg4kbtghvu2i
+                            netid: clm11uw4s003hjg4kwd6fe0lz
+                            fromplace: true
+                            placeid: clm11uw4s003kjg4ku02dsvpn
+                            transitionid: clm11uw4t003wjg4kn4wbt5bl
+                            createdat: 2023-09-01T20:30:44.533Z
+                            updatedat: 2023-09-01T20:30:44.533Z
+                          relationsarc:
+                            net: null
+                            place: null
+                            transition: null
+                        - innerarc:
+                            id: clm11uw51004bjg4ktfjf76ob
+                            netid: clm11uw4s003hjg4kwd6fe0lz
+                            fromplace: false
+                            placeid: clm11uw4s003jjg4ktg3zz5nx
+                            transitionid: clm11uw4t003wjg4kn4wbt5bl
+                            createdat: 2023-09-01T20:30:44.534Z
+                            updatedat: 2023-09-01T20:30:44.534Z
+                          relationsarc:
+                            net: null
+                            place: null
+                            transition: null
+                        - innerarc:
+                            id: clm11uw52004djg4k3i7ounb4
+                            netid: clm11uw4s003hjg4kwd6fe0lz
+                            fromplace: false
+                            placeid: clm11uw4s003ljg4kzwr2da2u
+                            transitionid: clm11uw4t003wjg4kn4wbt5bl
+                            createdat: 2023-09-01T20:30:44.534Z
+                            updatedat: 2023-09-01T20:30:44.534Z
+                          relationsarc:
+                            net: null
+                            place: null
+                            transition: null
+                    places:
+                        - innerplace:
+                            id: clm11uw4s003jjg4ktg3zz5nx
+                            name: Idle
+                            description: organic pump is idle.
                             createdat: 2023-09-01T20:30:44.525Z
                             updatedat: 2023-09-01T20:30:44.525Z
-                            placeinterfaceid: null
-                            transitioninterfaceid: null
-                          relationsevent:
-                            transitions: []
-                            fields:
-                                - innerfield:
-                                    id: clm11uw4t003ujg4ki7yyv69m
-                                    name: Volume
-                                    type: number
-                                    condition: null
-                                    eventid: clm11uw4t003tjg4kss32s8cd
-                                    createdat: 2023-09-01T20:30:44.525Z
-                                    updatedat: 2023-09-01T20:30:44.525Z
-                                  relationsfield:
-                                    event: null
-                                    constants: []
-                                - innerfield:
-                                    id: clm11uw4t003vjg4kxz1nefbf
-                                    name: Rate
-                                    type: number
-                                    condition: null
-                                    eventid: clm11uw4t003tjg4kss32s8cd
-                                    createdat: 2023-09-01T20:30:44.525Z
-                                    updatedat: 2023-09-01T20:30:44.525Z
-                                  relationsfield:
-                                    event: null
-                                    constants: []
-                            commands: []
-                            data: []
-                            transitioninterface: null
-                    nets: []
-                    interfaces: []
-                - innertransition:
-                    id: clm11uw4t003wjg4kn4wbt5bl
-                    condition: null
-                    description: organic pump finished.
-                    name: Finished
-                    createdat: 2023-09-01T20:30:44.525Z
-                    updatedat: 2023-09-01T20:30:44.525Z
-                  relationstransition:
-                    arcs: []
-                    events:
-                        - innerevent:
-                            id: clm11uw4t003xjg4k5n208otr
+                            bound: 1
+                          relationsplace:
+                            arcs: []
+                            nets: []
+                            interfaces: []
+                        - innerplace:
+                            id: clm11uw4s003kjg4ku02dsvpn
+                            name: Pumping
+                            description: The syringe pump is pumping.
+                            createdat: 2023-09-01T20:30:44.525Z
+                            updatedat: 2023-09-01T20:30:44.525Z
+                            bound: 1
+                          relationsplace:
+                            arcs: []
+                            nets: []
+                            interfaces: []
+                        - innerplace:
+                            id: clm11uw4s003ljg4kzwr2da2u
+                            name: Flow through syringe
+                            description: The syringe pump pumped.
+                            createdat: 2023-09-01T20:30:44.525Z
+                            updatedat: 2023-09-01T20:30:44.525Z
+                            bound: 1
+                          relationsplace:
+                            arcs: []
+                            nets: []
+                            interfaces: []
+                    transitions:
+                        - innertransition:
+                            id: clm11uw4t003sjg4k5bz1ruen
+                            condition: null
+                            description: The syringe pump pumped.
                             name: Pumped
-                            description: Pumped.
                             createdat: 2023-09-01T20:30:44.525Z
                             updatedat: 2023-09-01T20:30:44.525Z
-                            placeinterfaceid: null
-                            transitioninterfaceid: null
-                          relationsevent:
-                            transitions: []
-                            fields:
-                                - innerfield:
-                                    id: clm11uw4t003yjg4kombfhqzm
-                                    name: Volume
-                                    type: number
-                                    condition: null
-                                    eventid: clm11uw4t003xjg4k5n208otr
+                          relationstransition:
+                            arcs: []
+                            events:
+                                - innerevent:
+                                    id: clm11uw4t003tjg4kss32s8cd
+                                    name: Pump
+                                    description: Pump.
                                     createdat: 2023-09-01T20:30:44.525Z
                                     updatedat: 2023-09-01T20:30:44.525Z
-                                  relationsfield:
-                                    event: null
-                                    constants: []
-                                - innerfield:
-                                    id: clm11uw4t003zjg4k87ok4ljy
-                                    name: Rate
-                                    type: number
-                                    condition: null
-                                    eventid: clm11uw4t003xjg4k5n208otr
+                                    placeinterfaceid: null
+                                    transitioninterfaceid: null
+                                  relationsevent:
+                                    transitions: []
+                                    fields:
+                                        - innerfield:
+                                            id: clm11uw4t003ujg4ki7yyv69m
+                                            name: Volume
+                                            type: number
+                                            condition: null
+                                            eventid: clm11uw4t003tjg4kss32s8cd
+                                            createdat: 2023-09-01T20:30:44.525Z
+                                            updatedat: 2023-09-01T20:30:44.525Z
+                                          relationsfield:
+                                            event: null
+                                            constants: []
+                                        - innerfield:
+                                            id: clm11uw4t003vjg4kxz1nefbf
+                                            name: Rate
+                                            type: number
+                                            condition: null
+                                            eventid: clm11uw4t003tjg4kss32s8cd
+                                            createdat: 2023-09-01T20:30:44.525Z
+                                            updatedat: 2023-09-01T20:30:44.525Z
+                                          relationsfield:
+                                            event: null
+                                            constants: []
+                                    commands: []
+                                    data: []
+                                    transitioninterface: null
+                            nets: []
+                            interfaces: []
+                        - innertransition:
+                            id: clm11uw4t003wjg4kn4wbt5bl
+                            condition: null
+                            description: organic pump finished.
+                            name: Finished
+                            createdat: 2023-09-01T20:30:44.525Z
+                            updatedat: 2023-09-01T20:30:44.525Z
+                          relationstransition:
+                            arcs: []
+                            events:
+                                - innerevent:
+                                    id: clm11uw4t003xjg4k5n208otr
+                                    name: Pumped
+                                    description: Pumped.
                                     createdat: 2023-09-01T20:30:44.525Z
                                     updatedat: 2023-09-01T20:30:44.525Z
-                                  relationsfield:
-                                    event: null
-                                    constants: []
-                            commands: []
-                            data: []
-                            transitioninterface: null
-                    nets: []
-                    interfaces: []
-            parent: null
-            children: []
-            devices: []
-            placeinterfaces: []
-            transitioninterfaces: []
-            runs: []
+                                    placeinterfaceid: null
+                                    transitioninterfaceid: null
+                                  relationsevent:
+                                    transitions: []
+                                    fields:
+                                        - innerfield:
+                                            id: clm11uw4t003yjg4kombfhqzm
+                                            name: Volume
+                                            type: number
+                                            condition: null
+                                            eventid: clm11uw4t003xjg4k5n208otr
+                                            createdat: 2023-09-01T20:30:44.525Z
+                                            updatedat: 2023-09-01T20:30:44.525Z
+                                          relationsfield:
+                                            event: null
+                                            constants: []
+                                        - innerfield:
+                                            id: clm11uw4t003zjg4k87ok4ljy
+                                            name: Rate
+                                            type: number
+                                            condition: null
+                                            eventid: clm11uw4t003xjg4k5n208otr
+                                            createdat: 2023-09-01T20:30:44.525Z
+                                            updatedat: 2023-09-01T20:30:44.525Z
+                                          relationsfield:
+                                            event: null
+                                            constants: []
+                                    commands: []
+                                    data: []
+                                    transitioninterface: null
+                            nets: []
+                            interfaces: []
+                    parent: null
+                    children: []
+                    devices: []
+                    placeinterfaces: []
+                    transitioninterfaces: []
+                    runs: []
     actions: []

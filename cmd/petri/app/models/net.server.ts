@@ -73,13 +73,15 @@ export type NetDetails = Pick<Net, "id" | "name" | "description" | "initialMarki
   })[]
   transitions: TransitionWithEvents[]
   devices: {
-    id: string
-    name: string
-    instances: {
+    device: {
       id: string
       name: string
-      addr: string
-    }[] | null
+      instances: {
+        id: string
+        name: string
+        addr: string
+      }[] | null
+    }
   }[] | null
   arcs: Pick<Arc, "placeID" | "fromPlace" | "transitionID">[]
 }
@@ -133,13 +135,17 @@ export async function getNet({
       description: true,
       devices: {
         select: {
-          id: true,
-          name: true,
-          instances: {
+          device: {
             select: {
               id: true,
               name: true,
-              addr: true
+              instances: {
+                select: {
+                  id: true,
+                  name: true,
+                  addr: true
+                }
+              }
             }
           }
         }

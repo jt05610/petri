@@ -60,6 +60,12 @@ func main() {
 	failOnError(err, "Failed to parse max pos")
 	d.MaxPos = float32(maxPosFloat)
 	_, err = d.Initialize(context.Background(), req)
+	_, err = d.Pump(context.Background(), &PumpRequest{Volume: -0.1, Rate: 2})
+	if err != nil {
+		log.Fatalf("Failed to pump: %v", err)
+	}
+	d.Pos = 0
+
 	failOnError(err, "Failed to initialize device")
 	srv := server.New(dev.Nets[0], conn.Channel, environ.Exchange, environ.DeviceID, environ.InstanceID, dev.EventMap(), d.Handlers())
 	ctx, cancel := context.WithCancel(context.Background())

@@ -127,7 +127,7 @@ func (d *DeviceClient) List(ctx context.Context) ([]*device.ListItem, error) {
 func ConvertDevice(dev *db.DeviceModel, handlers control.Handlers) (*device.Device, error) {
 	nets := make([]*labeled.Net, len(dev.Nets()))
 	for i, net := range dev.Nets() {
-		nets[i] = makePetriNet(&net, handlers)
+		nets[i] = makePetriNet(net.Net(), handlers)
 	}
 	return device.New(dev.ID, dev.Name, nets), nil
 }
@@ -137,11 +137,13 @@ func (d *DeviceClient) Load(ctx context.Context, id string, handlers control.Han
 		db.Device.ID.Equals(id),
 	).With(
 		db.Device.Nets.Fetch().With(
-			db.Net.Places.Fetch(),
-			db.Net.Arcs.Fetch(),
-			db.Net.Transitions.Fetch().With(
-				db.Transition.Events.Fetch().With(
-					db.Event.Fields.Fetch(),
+			db.DevicesOnNets.Net.Fetch().With(
+				db.Net.Places.Fetch(),
+				db.Net.Arcs.Fetch(),
+				db.Net.Transitions.Fetch().With(
+					db.Transition.Events.Fetch().With(
+						db.Event.Fields.Fetch(),
+					),
 				),
 			),
 		),

@@ -3,10 +3,13 @@ package main
 import (
 	"context"
 	"embed"
+	"fmt"
 	"github.com/joho/godotenv"
 	"github.com/jt05610/petri/amqp/server"
+	"github.com/jt05610/petri/comm/serial"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"go.uber.org/zap"
+	"io"
 	"log"
 	"os"
 	"os/signal"
@@ -53,7 +56,22 @@ func main() {
 		err := ch.Close()
 		failOnError(err, "Failed to close channel")
 	}()
-	d := NewMixingValve()
+	port, err := serial.OpenPort("COM6", 115200)
+	defer func() {
+		err := port.Close()
+		failOnError(err, "Failed to close port")
+	}()
+	if err != nil {
+		logger.Fatal("Failed to open port", zap.Error(err))
+	}
+	txCh := make(chan []byte, 100)
+	if err != nil {
+		logger.Fatal("Failed to set read timeout", zap.Error(err))
+	}
+	rxCh, err := port.ChannelPort(context.Background(), txCh)
+	_ = receiveUntilNewLine(rxCh)
+	d := NewMixingValve(txCh, rxCh)
+	go printChan(rxCh)
 	dev := d.load()
 	srv := server.New(dev.Nets[0], ch, exchange, deviceID, instanceID, dev.EventMap(), d.Handlers())
 	ctx, cancel := context.WithCancel(context.Background())
@@ -73,5 +91,24 @@ func main() {
 func failOnError(err error, msg string) {
 	if err != nil {
 		log.Fatalf("%s: %s", msg, err)
+	}
+}
+
+func receiveUntilNewLine(ch <-chan io.Reader) []byte {
+	b := <-ch
+	msg, err := io.ReadAll(b)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return msg
+}
+func printChan(ch <-chan io.Reader) {
+	for {
+		b := <-ch
+		msg, err := io.ReadAll(b)
+		if err != nil {
+			log.Fatal(err)
+		}
+		fmt.Printf("received: %s", msg)
 	}
 }

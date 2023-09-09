@@ -19,7 +19,9 @@ export async function createDevice(device: DeviceInput) {
       name,
       description,
       nets: {
-        connect: netIDs?.map((id) => ({ id })) ?? []
+        createMany: {
+          data: netIDs?.map((id) => ({ netID: id })) ?? []
+        }
       }
     }
   });
@@ -39,18 +41,20 @@ export type DeviceDetails = Pick<Device, "id" | "name" | "description" | "create
     name: string;
   }[]
   nets: {
-    id: string
-    name: string;
-    description: string | null
-    createdAt: Date;
-    updatedAt: Date;
-    transitions: {
-      id: string;
+    net: {
+      id: string
       name: string;
       description: string | null
       createdAt: Date;
       updatedAt: Date;
-    }[]
+      transitions: {
+        id: string;
+        name: string;
+        description: string | null
+        createdAt: Date;
+        updatedAt: Date;
+      }[]
+    }
   }[]
 }
 
@@ -62,19 +66,22 @@ export async function getDevice(inputs: GetDeviceInput): Promise<DeviceDetails> 
       include: {
         nets: {
           select: {
-            id: true,
-            name: true,
-            description: true,
-            createdAt: true,
-            updatedAt: true,
-            transitions: {
+            net: {
               select: {
                 id: true,
                 name: true,
                 description: true,
                 createdAt: true,
-                updatedAt: true
-
+                updatedAt: true,
+                transitions: {
+                  select: {
+                    id: true,
+                    name: true,
+                    description: true,
+                    createdAt: true,
+                    updatedAt: true
+                  }
+                }
               }
             }
           }
@@ -107,7 +114,7 @@ export type ListDevicesInput = z.infer<typeof ListDevicesInputSchema>;
 export async function listDevices(input: ListDevicesInput): Promise<DeviceListItem[]> {
   const { authorID, netID } = ListDevicesInputSchema.parse(input);
   return prisma.device.findMany({
-    where: { authorID, nets: { some: { id: netID } } },
+    where: { authorID, nets: { some: { netID: netID } } },
     select: {
       id: true,
       name: true,
@@ -132,14 +139,18 @@ export type UpdateDeviceInput = z.infer<typeof UpdateDeviceInputSchema>;
 
 export async function updateDevice(input: UpdateDeviceInput) {
   const { id, name, description, netIDs } = UpdateDeviceInputSchema.parse(input);
+
+  if (netIDs) {
+    await prisma.devicesOnNets.deleteMany({ where: { deviceID: id } });
+    await prisma.devicesOnNets.createMany({
+      data: netIDs.map((netID) => ({ deviceID: id, netID }))
+    });
+  }
   return prisma.device.update({
     where: { id },
     data: {
       name,
       description,
-      nets: {
-        connect: [...netIDs!.map((netID) => ({ id: netID }))]
-      }
     }
   });
 }

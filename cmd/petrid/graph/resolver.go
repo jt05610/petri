@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/jt05610/petri/amqp/client"
 	"github.com/jt05610/petri/cmd/petrid/graph/model"
+	"github.com/jt05610/petri/control"
 	"github.com/jt05610/petri/prisma"
 	"github.com/jt05610/petri/prisma/db"
 	"time"
@@ -19,6 +20,7 @@ type Resolver struct {
 	*prisma.RunClient
 	*prisma.NetClient
 	*client.Controller
+	dataCh        chan *control.Event
 	sessionEvents map[string][]*model.Event
 	seenEvents    map[string]int
 	recordCtx     context.Context
@@ -66,6 +68,25 @@ func (r *Resolver) eventHistory(ctx context.Context, sessionID string) ([]*model
 
 func (r *Resolver) start(sessionId string) *model.Event {
 	r.runCtx, r.runCancel = context.WithCancel(r.runCtx)
+	ch := make(chan *control.Event)
+	r.Controller.ChannelData(ch)
+	go func() {
+		for {
+			select {
+			case <-r.runCtx.Done():
+				return
+			case data := <-ch:
+				r.sessionEvents[sessionId] = append(r.sessionEvents[sessionId], &model.Event{
+					Name: data.Event.Name,
+					Data: data.Data,
+				})
+				_, err := r.SessionClient.AddData(r.runCtx, sessionId, data)
+				if err != nil {
+					panic(err)
+				}
+			}
+		}
+	}()
 	r.Start(r.runCtx)
 	return &model.Event{
 		Name: "start",

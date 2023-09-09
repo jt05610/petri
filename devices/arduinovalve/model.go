@@ -1,14 +1,10 @@
 package main
 
+import "io"
+
 type MixingValve struct {
-}
-
-type InitializeRequest struct {
-	Components string `json:"components"`
-}
-
-type InitializeResponse struct {
-	Components string `json:"components"`
+	txCh chan []byte
+	rxCh <-chan io.Reader
 }
 
 type MixRequest struct {

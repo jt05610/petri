@@ -33,7 +33,7 @@ func (d *AqueousPump) Pump(ctx context.Context, req *PumpRequest) (*PumpResponse
 	}
 	mm := *dist
 	newPos := mm + d.Pos
-	if newPos < d.MaxPos || newPos > 0 {
+	if newPos > d.MaxPos || newPos < 0 {
 		return nil, errors.New("new pos error")
 	}
 

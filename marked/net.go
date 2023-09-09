@@ -82,7 +82,8 @@ func (n *Net) Fire(t *petri.Transition) error {
 		if pt, ok := arc.Dest.(*petri.Place); ok {
 			mark := n.marking[n.index[pt.ID]]
 			if mark >= pt.Bound {
-				return errors.New(fmt.Sprintf("place %s is full", pt.ID))
+				// ignore
+				continue
 			}
 			n.marking[n.index[pt.ID]]++
 		} else {

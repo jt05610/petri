@@ -7,10 +7,6 @@ generator client {
   provider = "prisma-client-js"
 }
 
-generator db {
-  provider = "go run github.com/steebchen/prisma-client-go"
-}
-
 enum UserRole {
   NONE
   ADMIN
@@ -55,7 +51,7 @@ model Net {
   parent               Net?                  @relation("NetChildren", fields: [parentID], references: [id])
   parentID             String?
   children             Net[]                 @relation("NetChildren")
-  devices              Device[]
+  devices              DevicesOnNets[]
   placeInterfaces      PlaceInterface[]
   transitionInterfaces TransitionInterface[]
   runs                 Run[]
@@ -122,6 +118,15 @@ model Arc {
   updatedAt    DateTime   @updatedAt
 }
 
+model DevicesOnNets {
+  device   Device @relation(fields: [deviceID], references: [id])
+  deviceID String
+  net      Net    @relation(fields: [netID], references: [id])
+  netID    String
+
+  @@id([deviceID, netID])
+}
+
 model Field {
   id        String     @id @default(cuid())
   name      String
@@ -173,15 +178,16 @@ model Instance {
 }
 
 model Device {
-  id          String     @id @default(cuid())
-  author      User       @relation(fields: [authorID], references: [id])
+  id          String          @id @default(cuid())
+  author      User            @relation(fields: [authorID], references: [id])
   authorID    String
   name        String
   description String
   instances   Instance[]
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-  nets        Net[]
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  netIDs      String[]
+  nets        DevicesOnNets[]
   actions     Action[]
 }
 

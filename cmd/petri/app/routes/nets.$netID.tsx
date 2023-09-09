@@ -34,9 +34,7 @@ function NetDropdown({ value, setValue, options }: NetDropdownProps) {
   return (
     <Listbox value={value} onChange={setValue} multiple>
       <Listbox.Button>
-        {value.map((v) => (
-          <span key={v}>{v}</span>
-        ))}
+        Insert children
       </Listbox.Button>
       <Listbox.Options>
         {options?.map((option) => (
@@ -88,9 +86,13 @@ export default function NetDetailsPage() {
           <h3 className="text-lg font-bold">{data.net.name}</h3>
           <p className="text-md">{data.net.description}</p>
         </div>
-        <NetDropdown value={insertNets} setValue={setInsertNets} options={nets?.map((net) => {
-          return net.id;
-        })} />
+        <div>
+          <h2>Child nets</h2>
+          <NetDropdown value={insertNets} setValue={setInsertNets} options={nets?.map((net) => {
+            return net.id;
+          })} />
+        </div>
+
         <div>
           <LinkList btnClass={"text-white p-2"} routes={[
             { name: "Places", path: "places" },

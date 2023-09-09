@@ -44,6 +44,10 @@ export default function Event() {
   const lastSubmission = useActionData<typeof action>();
   const [form, { name, description, fields }] = useForm<EventInput>({
     lastSubmission,
+    onValidate({formData}) {
+      return parse(formData, { schema: EventInputSchema });
+    },
+    shouldValidate: 'onBlur',
   });
   const fieldsList = useFieldList(form.ref, fields);
   const submit = useSubmit();

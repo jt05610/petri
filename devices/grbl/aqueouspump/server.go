@@ -59,9 +59,19 @@ func main() {
 	maxPosFloat, err := strconv.ParseFloat(maxPos, 64)
 	failOnError(err, "Failed to parse max pos")
 	d.MaxPos = float32(maxPosFloat)
+	pos := float32(0)
+	spd := float32(1000)
 	_, err = d.Initialize(context.Background(), req)
 	failOnError(err, "Failed to initialize device")
+	_, err = d.Move(context.Background(), &proto.MoveRequest{
+		Y:     &pos,
+		Speed: &spd,
+	})
+
 	srv := server.New(dev.Nets[0], conn.Channel, environ.Exchange, environ.DeviceID, environ.InstanceID, dev.EventMap(), d.Handlers())
+	if err != nil {
+		log.Fatal(err)
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	c := make(chan os.Signal, 1)

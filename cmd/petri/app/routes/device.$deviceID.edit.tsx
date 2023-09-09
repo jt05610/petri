@@ -19,6 +19,7 @@ export const action = async ({ request }: LoaderArgs) => {
     throw new Error("User not found");
   }
   let formData = await request.formData();
+  formData.append("id", authorID);
   const submission = parse(formData, {
     schema: UpdateDeviceInputSchema
   });
@@ -49,10 +50,6 @@ export default function Transition() {
   const [changed, setChanged] = useState(false);
   const [form, { name, description, netIDs }] = useForm({
     lastSubmission,
-    onValidate({ formData }) {
-      setChanged(false);
-      return parse(formData, { schema: UpdateDeviceInputSchema });
-    }
   });
 
   return (
@@ -76,7 +73,7 @@ export default function Transition() {
             {
               name: netIDs.name,
               type: "multiselect",
-              content: device.nets.map((net) => net.id),
+              content: device.nets.map((net) => net.net.id),
               error: netIDs.error,
               options: nets.map((net) => ({ value: net.id, display: net.name }))
             }

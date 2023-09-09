@@ -46,7 +46,7 @@ export default function Timeline({ sequence }: TimelineProps) {
   }
 
   return (
-    <div className={"w-full h-3/10 bottom-0 space-x-2"}>
+    <div className={"w-full bottom-0 space-x-2"}>
       <h4>Timeline</h4>
       <label
         htmlFor={"name"}
@@ -68,8 +68,8 @@ export default function Timeline({ sequence }: TimelineProps) {
       </button>
       {
         sequence && <RunView
-          minCols={10}
-          minRows={2}
+          minCols={20}
+          minRows={10}
           deviceNames={petriNet?.net.devices.map((d) => d.name) ?? []}
           sequence={sequence}
         />

@@ -12,7 +12,16 @@ export const EventInputSchema = z.object({
   transitionID: z.string().cuid(),
   name: z.string(),
   description: z.string().optional(),
-  fields: z.array(EventFieldSchema)
+  fields: z.preprocess((val) => {
+    if (typeof val === "string") return [];
+    if (!Array.isArray(val)) {
+      return [val];
+    }
+    if (typeof val[0] === "string") {
+      return val.map((name) => ({ name, type: "string" }));
+    }
+    return val;
+  }, z.array(EventFieldSchema).optional())
 });
 
 export type EventInput = z.infer<typeof EventInputSchema>;

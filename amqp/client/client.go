@@ -44,6 +44,7 @@ type Controller struct {
 	CurrentStep     int
 	Sequence        *sequence.Sequence
 	Net             *labeled.Net
+	dataRelay       chan *control.Event
 	Known           map[string]map[string]*Instance
 	exchange        string
 	stepCh          chan struct{}
@@ -68,6 +69,10 @@ func (c *Controller) ActualMarking() control.Marking {
 		}
 	}
 	return ret
+}
+
+func (c *Controller) ChannelData(ch chan *control.Event) {
+	c.dataRelay = ch
 }
 
 func (c *Controller) DeviceMarking() map[string]control.Marking {
@@ -201,6 +206,11 @@ func (c *Controller) Send(ctx context.Context, cmd *control.Command) error {
 	)
 }
 
+func (c *Controller) CloseRelay() {
+	close(c.dataRelay)
+	c.dataRelay = nil
+}
+
 func (c *Controller) Start(ctx context.Context) {
 	c.logger.Info("Starting sequence", zap.String("sequence", c.Sequence.Name))
 	c.StepQueue = make([]*sequence.Step, len(c.Sequence.Steps))
@@ -227,6 +237,9 @@ func (c *Controller) Start(ctx context.Context) {
 				data := <-c.dataCh
 				if data.From == inst.ID && data.Name == step.Event.Name {
 					c.logger.Info("Received event", zap.String("event", data.Name))
+					if c.dataRelay != nil {
+						c.dataRelay <- data
+					}
 				}
 				if len(c.StepQueue) == 1 {
 					c.logger.Info("Sequence complete", zap.String("sequence", c.Sequence.Name))

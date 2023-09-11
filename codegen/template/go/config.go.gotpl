@@ -1,0 +1,11 @@
+package {{.Name}}
+
+import "github.com/jt05610/petri/env"
+
+var environ = env.Environment{
+	URI:        "{{.RabbitMQURI}}",
+	Exchange:   "{{.RabbitMQ.Exchange}}",
+	DeviceID:   "{{.ID}}",
+	InstanceID: "{{.Instance.ID}}",
+	RPCAddress: "localhost:55055",
+}

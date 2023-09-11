@@ -1,4 +1,4 @@
-package main
+package organicpump
 
 import (
 	"context"
@@ -31,7 +31,7 @@ func (d *OrganicPump) Pump(ctx context.Context, req *PumpRequest) (*PumpResponse
 	if dist == nil {
 		return nil, errors.New("no volume")
 	}
-	mm := *dist
+	mm := -1 * *dist
 	newPos := mm + d.Pos
 	if newPos < d.MaxPos || newPos > 0 {
 		return nil, errors.New("new pos error")

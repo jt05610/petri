@@ -63,7 +63,7 @@ export class PetriNet {
 
     this.deviceIDFromInstanceID = {};
     if (this.net.devices && this.net.devices.length > 0) {
-      this.net.devices.forEach((device => {
+      this.net.devices.forEach(({ device }) => {
         this.devices.push({
           id: device.id,
           name: device.name,
@@ -79,13 +79,12 @@ export class PetriNet {
           }
           this.deviceIDFromInstanceID[instance.id] = device.id;
         });
-      }));
-
+      });
     }
     if (this.net.children) {
       this.net.children.forEach(child => {
         if (child.devices && child.devices.length > 0) {
-          child.devices.forEach(device => {
+          child.devices.forEach(({ device }) => {
             this.devices.push({
               id: device.id,
               name: device.name,
@@ -218,7 +217,7 @@ export class PetriNet {
   deviceEvents(marking: Marking): DeviceWithEvents[] {
     let ret: DeviceWithEvents[] = [];
     if (this.net.devices) {
-      for (let device of this.net.devices) {
+      for (let { device } of this.net.devices) {
         if (!device.instances) {
           continue;
         }
@@ -235,7 +234,7 @@ export class PetriNet {
     }
     for (let child of this.net.children) {
       if (child.devices) {
-        child.devices.forEach(device => {
+        child.devices.forEach(({device}) => {
           if (!device.instances) {
             return;
           }

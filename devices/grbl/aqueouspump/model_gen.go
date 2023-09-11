@@ -1,4 +1,4 @@
-package main
+package aqueouspump
 
 import (
 	"context"
@@ -12,9 +12,9 @@ import (
 	"strconv"
 )
 
-func NewAqueousPump(client proto.GRBLClient) *AqueousPump {
+func NewAqueousPump(client proto.GRBLServer) *AqueousPump {
 	d := &AqueousPump{
-		GRBLClient: client,
+		GRBLServer: client,
 	}
 	return d
 }

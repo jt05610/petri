@@ -1,4 +1,4 @@
-package main
+package aqueouspump
 
 import (
 	"context"
@@ -26,12 +26,16 @@ func (d *AqueousPump) VolToMM(vol float64) *float32 {
 	return &ret
 }
 
+const (
+	Inverse = float32(-1)
+)
+
 func (d *AqueousPump) Pump(ctx context.Context, req *PumpRequest) (*PumpResponse, error) {
 	dist := d.VolToMM(req.Volume)
 	if dist == nil {
 		return nil, errors.New("no volume")
 	}
-	mm := *dist
+	mm := Inverse * *dist
 	newPos := mm + d.Pos
 	if newPos > d.MaxPos || newPos < 0 {
 		return nil, errors.New("new pos error")

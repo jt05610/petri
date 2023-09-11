@@ -1,9 +1,9 @@
-package main
+package rheoten
 
 import proto "github.com/jt05610/petri/grbl/proto/v1"
 
 type TenPortRheodyneValve struct {
-	proto.GRBLClient
+	proto.GRBLServer
 }
 
 type OpenARequest struct {

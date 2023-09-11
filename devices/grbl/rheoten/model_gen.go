@@ -1,4 +1,4 @@
-package main
+package rheoten
 
 import (
 	"context"
@@ -12,9 +12,9 @@ import (
 	"strconv"
 )
 
-func NewTenPortRheodyneValve(client proto.GRBLClient) *TenPortRheodyneValve {
+func NewTenPortRheodyneValve(client proto.GRBLServer) *TenPortRheodyneValve {
 	d := &TenPortRheodyneValve{
-		GRBLClient: client,
+		GRBLServer: client,
 	}
 	return d
 }

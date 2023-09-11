@@ -1,9 +1,9 @@
-package main
+package organicpump
 
 import proto "github.com/jt05610/petri/grbl/proto/v1"
 
 type OrganicPump struct {
-	proto.GRBLClient
+	proto.GRBLServer
 	SyringeDiameter float64 `json:"syringe_diameter"`
 	SyringeVolume   float64 `json:"syringe_volume"`
 	Pos             float32 `json:"pos"`

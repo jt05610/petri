@@ -1,24 +1,26 @@
-package main
+package rheogrande
 
 import (
 	"context"
 	proto "github.com/jt05610/petri/grbl/proto/v1"
+	"log"
 	"time"
 )
 
 // determined experimentally
 var (
 	Load   float32 = 0.0
-	Inject float32 = -10.9
-	Rate   float32 = 400
+	Inject float32 = -12.7
+	Rate   float32 = 1000
 )
 
 func (d *SixPortRheodyneValve) OpenA(ctx context.Context, req *OpenARequest) (*OpenAResponse, error) {
+	log.Printf("open a with delay %f", req.Delay)
 	if req.Delay > 0 {
 		time.Sleep(time.Duration(req.Delay) * time.Millisecond)
 	}
 	_, err := d.Move(ctx, &proto.MoveRequest{
-		Z:     &Load,
+		Z:     &Inject,
 		Speed: &Rate,
 	})
 	if err != nil {
@@ -33,7 +35,7 @@ func (d *SixPortRheodyneValve) OpenB(ctx context.Context, req *OpenBRequest) (*O
 		time.Sleep(time.Duration(req.Delay) * time.Millisecond)
 	}
 	_, err := d.Move(ctx, &proto.MoveRequest{
-		Z:     &Inject,
+		Z:     &Load,
 		Speed: &Rate,
 	})
 	if err != nil {

@@ -1,4 +1,4 @@
-package main
+package rheogrande
 
 import (
 	"context"
@@ -12,9 +12,9 @@ import (
 	"strconv"
 )
 
-func NewSixPortRheodyneValve(client proto.GRBLClient) *SixPortRheodyneValve {
+func NewSixPortRheodyneValve(client proto.GRBLServer) *SixPortRheodyneValve {
 	d := &SixPortRheodyneValve{
-		GRBLClient: client,
+		GRBLServer: client,
 	}
 	return d
 }

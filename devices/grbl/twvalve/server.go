@@ -1,4 +1,4 @@
-package main
+package twvalve
 
 import (
 	"context"
@@ -26,21 +26,12 @@ func rpcClient(e *env.Environment) (proto.GRBLClient, error) {
 	return proto.NewGRBLClient(conn), nil
 }
 
-func main() {
+func Run(ctx context.Context, conn *amqp.Connection, client proto.GRBLServer) {
 	logger, err := zap.NewProduction()
 	failOnError(err, "Error creating logger")
-	environ := env.LoadEnv(logger)
-	conn, err := amqp.Dial(environ)
-	failOnError(err, "Failed to connect to RabbitMQ")
-	defer func() {
-		err := conn.Close()
-		failOnError(err, "Failed to close connection")
-	}()
-	client, err := rpcClient(environ)
-	failOnError(err, "Failed to connect to GRBL")
 	d := NewTwoPositionThreeWayValve(client)
 	dev := d.load()
-	srv := server.New(dev.Nets[0], conn.Channel, environ.Exchange, environ.DeviceID, environ.InstanceID, dev.EventMap(), d.Handlers())
+	srv := server.New(dev.Nets[0], conn.Channel, environ.Exchange, environ.DeviceID, environ.InstanceID, dev.EventMap(), d.Handlers(), logger)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	c := make(chan os.Signal, 1)

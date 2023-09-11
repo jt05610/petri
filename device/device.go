@@ -73,3 +73,6 @@ type Service interface {
 	List(ctx context.Context) ([]*ListItem, error)
 	Flush(ctx context.Context, dev *Device) (string, error)
 }
+
+type BaseDevice interface {
+}

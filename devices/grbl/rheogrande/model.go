@@ -1,9 +1,9 @@
-package main
+package rheogrande
 
 import proto "github.com/jt05610/petri/grbl/proto/v1"
 
 type SixPortRheodyneValve struct {
-	proto.GRBLClient
+	proto.GRBLServer
 }
 
 type OpenARequest struct {

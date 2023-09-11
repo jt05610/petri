@@ -8,6 +8,7 @@ import (
 	"github.com/jt05610/petri/control"
 	"github.com/jt05610/petri/labeled"
 	amqp "github.com/rabbitmq/amqp091-go"
+	"go.uber.org/zap"
 	"log"
 	"strings"
 )
@@ -20,6 +21,7 @@ func failOnError(err error, msg string) {
 
 type Server struct {
 	*labeled.Net
+	logger     *zap.Logger
 	name       string
 	deviceName string
 	ch         *amqp.Channel
@@ -44,7 +46,7 @@ func (s *Server) commandName(routingKey string) string {
 
 func (s *Server) route(data *control.Command) (*control.Event, error) {
 	var res *control.Event
-	fmt.Printf("Handling %s with current marking %v", data.Event.Name, s.MarkingMap())
+	s.logger.Info("Routing command", zap.String("command", data.Event.Name))
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
@@ -57,7 +59,7 @@ func (s *Server) route(data *control.Command) (*control.Event, error) {
 		}
 	}()
 	if err := s.Handle(context.Background(), data.Event); err != nil {
-		log.Printf("Failed to handle event: %v", err)
+		s.logger.Error("Failed to handle event", zap.Error(err))
 		return &control.Event{
 			Event:   data.Event,
 			Topic:   "error",
@@ -66,14 +68,14 @@ func (s *Server) route(data *control.Command) (*control.Event, error) {
 		}, err
 	}
 	<-done
-	fmt.Printf("Handled %s with current marking %v", data.Event.Name, s.MarkingMap())
+	s.logger.Info("Handled event", zap.String("event", data.Event.Name))
 	for k, v := range s.MarkingMap() {
 		res.Marking[k] = v
 	}
 	return res, nil
 }
 
-func New(net *labeled.Net, ch *amqp.Channel, exchange string, deviceID string, instanceID string, eventMap map[string]*petri.Transition, handlers control.Handlers) *Server {
+func New(net *labeled.Net, ch *amqp.Channel, exchange string, deviceID string, instanceID string, eventMap map[string]*petri.Transition, handlers control.Handlers, logger *zap.Logger) *Server {
 	for ev, h := range handlers {
 		err := net.AddHandler(ev, eventMap[ev], h)
 		failOnError(err, "Failed to add handler")
@@ -125,6 +127,7 @@ func New(net *labeled.Net, ch *amqp.Channel, exchange string, deviceID string, i
 		instanceID: instanceID,
 		event:      &amqp2.EventService{},
 		cmd:        &amqp2.CommandService{},
+		logger:     logger,
 	}
 }
 
@@ -170,7 +173,7 @@ func (s *Server) Listen(ctx context.Context) {
 			case <-s.netCh:
 				fmt.Println("Received a message from the net")
 			case d := <-msgs:
-				log.Printf("Received a message: %s", d.Body)
+				s.logger.Debug("Received message", zap.String("routing_key", d.RoutingKey))
 				if d.RoutingKey == "devices" {
 					s.publishBeacon()
 					continue

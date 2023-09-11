@@ -1,4 +1,4 @@
-package main
+package organicpump
 
 import (
 	"context"
@@ -12,9 +12,9 @@ import (
 	"strconv"
 )
 
-func NewOrganicPump(client proto.GRBLClient) *OrganicPump {
+func NewOrganicPump(client proto.GRBLServer) *OrganicPump {
 	d := &OrganicPump{
-		GRBLClient: client,
+		GRBLServer: client,
 	}
 	return d
 }

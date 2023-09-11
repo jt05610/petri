@@ -1,4 +1,4 @@
-package main
+package twvalve
 
 import (
 	"context"
@@ -12,9 +12,9 @@ import (
 	"strconv"
 )
 
-func NewTwoPositionThreeWayValve(client proto.GRBLClient) *TwoPositionThreeWayValve {
+func NewTwoPositionThreeWayValve(client proto.GRBLServer) *TwoPositionThreeWayValve {
 	d := &TwoPositionThreeWayValve{
-		GRBLClient: client,
+		GRBLServer: client,
 	}
 	return d
 }

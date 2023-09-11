@@ -1,9 +1,9 @@
-package main
+package twvalve
 
 import proto "github.com/jt05610/petri/grbl/proto/v1"
 
 type TwoPositionThreeWayValve struct {
-	proto.GRBLClient
+	proto.GRBLServer
 }
 
 type OpenARequest struct {

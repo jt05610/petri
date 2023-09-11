@@ -73,7 +73,7 @@ func main() {
 	d := NewMixingValve(txCh, rxCh)
 	go printChan(rxCh)
 	dev := d.load()
-	srv := server.New(dev.Nets[0], ch, exchange, deviceID, instanceID, dev.EventMap(), d.Handlers())
+	srv := server.New(dev.Nets[0], ch, exchange, deviceID, instanceID, dev.EventMap(), d.Handlers(), logger)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	c := make(chan os.Signal, 1)

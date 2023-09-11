@@ -32,7 +32,7 @@ func (a *Action) ParameterMap() map[string]interface{} {
 		ret[fLower(p.Field.Name)] = p.Value
 	}
 	for _, c := range a.Constants {
-		ret[c.Field.Name] = c.Value
+		ret[fLower(c.Field.Name)] = c.Value
 	}
 	return ret
 }
@@ -66,7 +66,7 @@ func (a *Action) ExtractParameters() {
 		}
 	}
 	for _, c := range a.Constants {
-		delete(a.Parameters, c.Name)
+		delete(a.Parameters, c.Field.ID)
 	}
 }
 

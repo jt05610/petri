@@ -6,3 +6,5 @@
 /devices/grbl/grbl/
 /cmd/petrid/.env
 /cmd/petrid/graph/generated/
+/devices/grbl/organicpump/config.go
+/devices/grbl/rheogrande/config.go

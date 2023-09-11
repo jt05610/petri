@@ -1,4 +1,4 @@
-package main
+package rheoten
 
 import (
 	"context"
@@ -14,7 +14,7 @@ func (d *TenPortRheodyneValve) OpenA(ctx context.Context, req *OpenARequest) (*O
 	if err != nil {
 		return nil, err
 	}
-	_, err = d.FloodOn(ctx, &proto.FloodOnRequest{})
+	_, err = d.MistOn(ctx, &proto.MistOnRequest{})
 	if err != nil {
 		return nil, err
 	}
@@ -30,7 +30,7 @@ func (d *TenPortRheodyneValve) OpenB(ctx context.Context, req *OpenBRequest) (*O
 	if err != nil {
 		return nil, err
 	}
-	_, err = d.MistOn(ctx, &proto.MistOnRequest{})
+	_, err = d.FloodOn(ctx, &proto.FloodOnRequest{})
 	if err != nil {
 		return nil, err
 	}

@@ -159,8 +159,8 @@ func (g *Generator) Generate(ctx context.Context) error {
 	return nil
 }
 
-func sentenceToPascalCase(s string) string {
-	splitString := strings.Split(s, " ")
+func snakeToPascal(s string) string {
+	splitString := strings.Split(s, "_")
 	for i, word := range splitString {
 		splitString[i] = strings.ToUpper(word[0:1]) + word[1:]
 	}
@@ -224,10 +224,10 @@ func (g *Generator) makeInstance(ctx context.Context) error {
 
 func funcMap(lang Language) template.FuncMap {
 	return template.FuncMap{
-		"pascal":          sentenceToPascalCase,
+		"pascal":          snakeToPascal,
 		"snake":           sentenceToSnakeCase,
 		"camel":           sentenceToCamelCase,
-		"pascalFromSnake": sentenceToPascalCase,
+		"pascalFromSnake": snakeToPascal,
 		"langType":        langType(lang),
 	}
 }

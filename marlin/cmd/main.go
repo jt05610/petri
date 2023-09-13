@@ -395,13 +395,12 @@ func main() {
 	}
 	pos := float32(100)
 	spd := float32(500)
-	ePos := -float32(100)
 	_, err = s.Move(ctx, &proto.MoveRequest{
 		X:     &pos,
 		Y:     &pos,
 		Z:     &pos,
 		Speed: &spd,
-		E:     &ePos,
+		E:     &pos,
 	})
 	if err != nil {
 		logger.Fatal("Failed to move", zap.Error(err))

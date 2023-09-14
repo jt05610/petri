@@ -248,6 +248,12 @@ model Datum {
   eventId    String
 }
 
+model Sample {
+}
+
+model Dataset {
+}
+
 enum SessionState {
   NONE
   RUNNING

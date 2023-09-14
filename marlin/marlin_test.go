@@ -13,13 +13,13 @@ var testCases = []struct {
 }{
 	{
 		name:   "pos upd",
-		buffer: []byte("X:0.00 Y:0.00 Z:0.00 E:0.00 Count X:0 Y:0 Z:0"),
+		buffer: []byte("X:0.00 Y:0.00 Z:40.00 E:0.00 Count X:0 Y:0 Z:16000"),
 		expect: &marlin.Status{
 			Alarm: nil,
 			Position: &marlin.Position{
 				X: 0,
 				Y: 0,
-				Z: 0,
+				Z: 40,
 			},
 		},
 	},

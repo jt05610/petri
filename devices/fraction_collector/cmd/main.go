@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"github.com/joho/godotenv"
 	"github.com/jt05610/petri/comm/serial"
+	fracCollector "github.com/jt05610/petri/devices/fraction_collector"
+	"github.com/jt05610/petri/devices/fraction_collector/pipbot"
 	"github.com/jt05610/petri/marlin"
 	proto "github.com/jt05610/petri/marlin/proto/v1"
 	"go.uber.org/zap"
-	"google.golang.org/grpc"
-	"net"
 	"os"
 	"strconv"
 )
@@ -75,7 +75,8 @@ func main() {
 			logger.Error("Failed to close port", zap.Error(err))
 		}
 	}()
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	s := marlin.New(ctx, port, logger)
 	go func() {
 		err := s.Listen(ctx)
@@ -86,41 +87,17 @@ func main() {
 	go s.RunHeartbeat(ctx)
 	_, err = s.Home(ctx, &proto.HomeRequest{})
 	if err != nil {
-		logger.Fatal("Failed to home", zap.Error(err))
+		panic(err)
 	}
-	_, err = s.FanOn(ctx, &proto.FanOnRequest{})
-	if err != nil {
-		logger.Fatal("Failed to turn on fan", zap.Error(err))
-	}
-	_, err = s.FanOff(ctx, &proto.FanOffRequest{})
-	if err != nil {
-		logger.Fatal("Failed to turn off fan", zap.Error(err))
-	}
-	pos := float32(100)
-	spd := float32(500)
-	_, err = s.Move(ctx, &proto.MoveRequest{
-		X:     &pos,
-		Y:     &pos,
-		Z:     &pos,
-		Speed: &spd,
-		E:     &pos,
+	fc := fracCollector.NewFractionCollector(s, pipbot.MakeGrid(
+		31.5-29, 40-17))
+	_, err = fc.Collect(ctx, &fracCollector.CollectRequest{
+		Grid:       "1",
+		Position:   "A6",
+		WasteVol:   0.2,
+		CollectVol: 0.2,
 	})
 	if err != nil {
-		logger.Fatal("Failed to move", zap.Error(err))
+		panic(err)
 	}
-	lis, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", environ.Port))
-	if err != nil {
-		logger.Fatal("Failed to listen", zap.Error(err))
-	}
-	opts := make([]grpc.ServerOption, 0)
-	grpcServer := grpc.NewServer(opts...)
-	proto.RegisterMarlinServer(grpcServer, s)
-	logger.Info("Starting grpc server", zap.Int("port", environ.Port))
-	go func() {
-		err := grpcServer.Serve(lis)
-		if err != nil {
-			logger.Fatal("Failed to serve grpc", zap.Error(err))
-		}
-	}()
-	<-ctx.Done()
 }

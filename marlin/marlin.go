@@ -234,7 +234,6 @@ func (p *Parser) parsePosition() *Position {
 			if err != nil {
 				panic(p.errorf(pos, "expected float, got %q", lit))
 			}
-			i++
 			switch i {
 			case 0:
 				ret.X = float32(f)
@@ -245,6 +244,7 @@ func (p *Parser) parsePosition() *Position {
 			case 3:
 				ret.E = float32(f)
 			}
+			i++
 		}
 
 	}

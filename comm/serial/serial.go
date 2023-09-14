@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"fmt"
 	"go.bug.st/serial"
 	"io"
 	"sync"
@@ -62,6 +63,7 @@ func (p *Port) ChannelPort(ctx context.Context, writeCh <-chan []byte) (<-chan i
 		for {
 			select {
 			case <-ctx.Done():
+				fmt.Println("closing listen port ")
 				return
 			default:
 				if scanner.Scan() {

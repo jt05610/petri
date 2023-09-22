@@ -11,15 +11,11 @@ type FractionCollector struct {
 }
 
 type CollectRequest struct {
-	Position   string  `json:"position"`
-	Grid       string  `json:"grid"`
 	WasteVol   float64 `json:"wastevol"`
 	CollectVol float64 `json:"collectvol"`
 }
 
 type CollectResponse struct {
-	Position   string  `json:"position"`
-	Grid       string  `json:"grid"`
 	WasteVol   float64 `json:"wastevol"`
 	CollectVol float64 `json:"collectvol"`
 }
@@ -30,6 +26,16 @@ type CollectedRequest struct {
 }
 
 type CollectedResponse struct {
+	Position string `json:"position"`
+	Grid     string `json:"grid"`
+}
+
+type MoveToRequest struct {
+	Position string `json:"position"`
+	Grid     string `json:"grid"`
+}
+
+type MoveToResponse struct {
 	Position string `json:"position"`
 	Grid     string `json:"grid"`
 }

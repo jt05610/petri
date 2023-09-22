@@ -16,6 +16,7 @@ import (
 	"github.com/jt05610/petri/grbl/server"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"os/signal"
 
 	"net"
 	"os"
@@ -129,6 +130,12 @@ func main() {
 	if err != nil {
 		logger.Fatal("Failed to dial amqp", zap.Error(err))
 	}
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+	go func() {
+		<-c // Wait for SIGINT
+		cancel()
+	}()
 	defer func() {
 		err := conn.Close()
 		if err != nil {
@@ -140,5 +147,6 @@ func main() {
 	go rheogrande.Run(ctx, conn, s)
 	go rheoten.Run(ctx, conn, s)
 	go twvalve.Run(ctx, conn, s)
+
 	<-ctx.Done()
 }

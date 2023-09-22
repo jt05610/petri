@@ -48,20 +48,8 @@ func (r *CollectRequest) FromEvent(event *labeled.Event) error {
 	if event.Name != "collect" {
 		return fmt.Errorf("expected event name collect, got %s", event.Name)
 	}
-	if event.Data["position"] != nil {
-		ds := event.Data["position"].(string)
-
-		r.Position = ds
-	}
-
-	if event.Data["grid"] != nil {
-		ds := event.Data["grid"].(string)
-
-		r.Grid = ds
-	}
-
-	if event.Data["wastevol"] != nil {
-		ds := event.Data["wastevol"].(string)
+	if event.Data["wasteVol"] != nil {
+		ds := event.Data["wasteVol"].(string)
 
 		d, err := strconv.ParseFloat(ds, 64)
 		if err != nil {
@@ -70,8 +58,8 @@ func (r *CollectRequest) FromEvent(event *labeled.Event) error {
 		r.WasteVol = d
 	}
 
-	if event.Data["collectvol"] != nil {
-		ds := event.Data["collectvol"].(string)
+	if event.Data["collectVol"] != nil {
+		ds := event.Data["collectVol"].(string)
 
 		d, err := strconv.ParseFloat(ds, 64)
 		if err != nil {
@@ -88,16 +76,6 @@ func (r *CollectResponse) Event() *labeled.Event {
 		Name: "collect",
 		Fields: []*labeled.Field{
 			{
-				Name: "position",
-				Type: "string",
-			},
-
-			{
-				Name: "grid",
-				Type: "string",
-			},
-
-			{
 				Name: "wastevol",
 				Type: "number",
 			},
@@ -108,8 +86,6 @@ func (r *CollectResponse) Event() *labeled.Event {
 			},
 		},
 		Data: map[string]interface{}{
-			"Position":   r.Position,
-			"Grid":       r.Grid,
 			"WasteVol":   r.WasteVol,
 			"CollectVol": r.CollectVol,
 		},
@@ -180,6 +156,61 @@ func (r *CollectedResponse) FromEvent(event *labeled.Event) error {
 	return nil
 }
 
+func (r *MoveToRequest) Event() *labeled.Event {
+	return &labeled.Event{
+		Name: "moveto",
+	}
+}
+
+func (r *MoveToRequest) FromEvent(event *labeled.Event) error {
+	if event.Name != "moveto" {
+		return fmt.Errorf("expected event name moveto, got %s", event.Name)
+	}
+	if event.Data["position"] != nil {
+		ds := event.Data["position"].(string)
+
+		r.Position = ds
+	}
+
+	if event.Data["grid"] != nil {
+		ds := event.Data["grid"].(string)
+
+		r.Grid = ds
+	}
+
+	return nil
+}
+
+func (r *MoveToResponse) Event() *labeled.Event {
+	ret := &labeled.Event{
+		Name: "moveto",
+		Fields: []*labeled.Field{
+			{
+				Name: "position",
+				Type: "string",
+			},
+
+			{
+				Name: "grid",
+				Type: "string",
+			},
+		},
+		Data: map[string]interface{}{
+			"Position": r.Position,
+			"Grid":     r.Grid,
+		},
+	}
+
+	return ret
+}
+
+func (r *MoveToResponse) FromEvent(event *labeled.Event) error {
+	if event.Name != "moveto" {
+		return fmt.Errorf("expected event name moveto, got %s", event.Name)
+	}
+	return nil
+}
+
 func (d *FractionCollector) Handlers() control.Handlers {
 	return control.Handlers{
 
@@ -203,6 +234,19 @@ func (d *FractionCollector) Handlers() control.Handlers {
 				return nil, err
 			}
 			resp, err := d.Collected(ctx, req)
+			if err != nil {
+				return nil, err
+			}
+			return resp.Event(), nil
+		},
+
+		"moveto": func(ctx context.Context, data *labeled.Event) (*labeled.Event, error) {
+			req := new(MoveToRequest)
+			err := req.FromEvent(data)
+			if err != nil {
+				return nil, err
+			}
+			resp, err := d.MoveTo(ctx, req)
 			if err != nil {
 				return nil, err
 			}

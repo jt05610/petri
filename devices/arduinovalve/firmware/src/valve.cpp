@@ -4,13 +4,13 @@
 #include <Arduino.h>
 
 #include "valve.h"
-#include "../../fraction_collector/include/config.h"
+#include "config.h"
 
 void
 solenoid_open()
 {
-    DDRB = DDRB | PORT_EH_MASK;
-    DDRD = DDRD | PORT_AD_MASK;
+    DDRB = DDRB | PORT_AD_MASK;
+    DDRD = DDRD | PORT_EH_MASK;
 }
 
 void
@@ -28,15 +28,15 @@ solenoid_read()
 
 void solenoid_write(Solenoid solenoid)
 {
-    PORTB = (PORTB & (~PORT_EH_MASK));
-    PORTD = (PORTD & (~PORT_AD_MASK));
+    PORTB = (PORTB & (~PORT_AD_MASK));
+    PORTD = (PORTD & (~PORT_EH_MASK));
     if (solenoid->port == 1)
     {
         // clear the bits for the solenoid controlled by port B and set them according to the mask
-        PORTB = PORTB | (solenoid->mask & PORT_EH_MASK);
+        PORTB = PORTB | (solenoid->mask & PORT_AD_MASK);
     } else
     {
         // clear the bits for the solenoid controlled by port D and set them according to the mask
-        PORTD = PORTD | (solenoid->mask & PORT_AD_MASK);
+        PORTD = PORTD | (solenoid->mask & PORT_EH_MASK);
     }
 }

@@ -13,6 +13,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strings"
 )
 
 //go:embed device.yaml
@@ -82,6 +83,10 @@ func main() {
 		<-c // Wait for SIGINT
 		cancel()
 	}()
+	_, err = d.Mix(ctx, &MixRequest{Proportions: "1,0,0,0,0,0,0,0"})
+	if err != nil {
+		logger.Fatal("Failed to mix", zap.Error(err))
+	}
 	logger.Info("Started 🐰 server")
 	srv.Listen(ctx)
 	<-ctx.Done()
@@ -94,14 +99,20 @@ func failOnError(err error, msg string) {
 	}
 }
 
-func receiveUntilNewLine(ch <-chan io.Reader) []byte {
-	b := <-ch
-	msg, err := io.ReadAll(b)
-	if err != nil {
-		log.Fatal(err)
+func receiveUntilNewLine(ch <-chan io.Reader) (msg []byte) {
+	var err error
+	for {
+		b := <-ch
+		msg, err = io.ReadAll(b)
+		if err != nil {
+			log.Fatal(err)
+		}
+		if strings.Contains(string(msg), "ready") {
+			return msg
+		}
 	}
-	return msg
 }
+
 func printChan(ch <-chan io.Reader) {
 	for {
 		b := <-ch
@@ -109,6 +120,6 @@ func printChan(ch <-chan io.Reader) {
 		if err != nil {
 			log.Fatal(err)
 		}
-		fmt.Printf("received: %s", msg)
+		fmt.Printf("received: %s\n", msg)
 	}
 }

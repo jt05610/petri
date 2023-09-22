@@ -85,7 +85,7 @@ export default function Player({ devices, paramRef }: PlayerProps) {
       <h4>Player</h4>
       {
         sequence && <RunView
-          minCols={20}
+          minCols={40}
           minRows={10}
           devices={devices}
           sequence={sequence}

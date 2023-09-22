@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"fmt"
 	"strconv"
 	"strings"
 )
@@ -43,7 +44,8 @@ func (d *MixingValve) Start(ctx context.Context, props []uint16) error {
 func fromString(s string) []uint16 {
 	commaSplit := strings.Split(s, ",")
 	if len(commaSplit) != 8 {
-		panic("Invalid number of props")
+		msg := fmt.Errorf("Invalid number of props: %d\nsent: %s", len(commaSplit), s)
+		panic(msg)
 	}
 	ret := make([]uint16, 8)
 	for i, prop := range commaSplit {

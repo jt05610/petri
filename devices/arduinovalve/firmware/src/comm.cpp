@@ -5,8 +5,8 @@
 #include <Arduino.h>
 #include <HardwareSerial.h>
 
-#include "../../fraction_collector/include/comm.h"
-#include "../../fraction_collector/include/config.h"
+#include "comm.h"
+#include "config.h"
 
 static struct Comm
 {

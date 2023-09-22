@@ -10,19 +10,19 @@
 
 #define END_MARKER '\n'
 
-#define PORT_AD PORTD
-#define PORT_EH PORTB
+#define PORT_AD PORTB
+#define PORT_EH PORTD
 #define SOLENOID_MASK 0x07
 
-#define VALVE_A 2
-#define VALVE_B 3
-#define VALVE_C 4
-#define VALVE_D 5
+#define VALVE_A 3
+#define VALVE_B 2
+#define VALVE_C 1
+#define VALVE_D 0
 
-#define VALVE_E 0
-#define VALVE_F 1
-#define VALVE_G 2
-#define VALVE_H 3
+#define VALVE_E 5
+#define VALVE_F 4
+#define VALVE_G 3
+#define VALVE_H 2
 
 #define PORT_AD_MASK ((0x01 << VALVE_A) | (0x01 << VALVE_B) | (0x01 << VALVE_C) | (0x01 << VALVE_D))
 #define PORT_EH_MASK ((0x01 << VALVE_E) | (0x01 << VALVE_F) | (0x01 << VALVE_G) | (0x01 << VALVE_H))

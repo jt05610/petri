@@ -189,6 +189,7 @@ model Device {
   netIDs      String[]
   nets        DevicesOnNets[]
   actions     Action[]
+  Instrument  Instrument[]
 }
 
 model Constant {
@@ -235,23 +236,63 @@ model Run {
   steps       Step[]
 }
 
-model Datum {
+model Instrument {
+  id        String   @id @default(cuid())
+  name      String
+  device    Device   @relation(fields: [deviceId], references: [id])
+  deviceId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  data      Datum[]
+}
+
+model Figure {
   id         String   @id @default(cuid())
-  instance   Instance @relation(fields: [instanceID], references: [id])
-  instanceID String
-  session    Session  @relation(fields: [sessionID], references: [id])
-  sessionID  String
-  value      Json?
+  name       String
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
-  event      Event    @relation(fields: [eventId], references: [id])
-  eventId    String
+  analysis   Analysis @relation(fields: [analysisId], references: [id])
+  analysisId String
+  data       Datum[]
+}
+
+model Analysis {
+  id          String   @id @default(cuid())
+  name        String
+  description String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  figures     Figure[]
+  data        Datum[]
+}
+
+model Datum {
+  id           String      @id @default(cuid())
+  instance     Instance    @relation(fields: [instanceID], references: [id])
+  instanceID   String
+  session      Session     @relation(fields: [sessionID], references: [id])
+  sessionID    String
+  value        Json?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  event        Event       @relation(fields: [eventId], references: [id])
+  eventId      String
+  Sample       Sample?     @relation(fields: [sampleId], references: [id])
+  sampleId     String?
+  Instrument   Instrument? @relation(fields: [instrumentId], references: [id])
+  instrumentId String?
+  Figure       Figure?     @relation(fields: [figureId], references: [id])
+  figureId     String?
+  Analysis     Analysis?   @relation(fields: [analysisId], references: [id])
+  analysisId   String?
 }
 
 model Sample {
-}
-
-model Dataset {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  data      Datum[]
+  params    Json
 }
 
 enum SessionState {

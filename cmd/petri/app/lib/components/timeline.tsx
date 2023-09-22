@@ -68,7 +68,7 @@ export default function Timeline({ sequence }: TimelineProps) {
       </button>
       {
         sequence && <RunView
-          minCols={20}
+          minCols={40}
           minRows={10}
           deviceNames={petriNet?.net.devices.map((d) => d.name) ?? []}
           sequence={sequence}

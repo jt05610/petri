@@ -157,15 +157,13 @@ function DeviceEditConstantView({ actionIndex, constants, fields }: ActionConsta
             <td>
               <button
                 onClick={() => {
-                  if (confirm("Are you sure you want to delete this constant?")) {
-                    dispatch!({
-                      type: RunActionType.ConstantDeleted,
-                      payload: {
-                        fieldID: constant.fieldID,
-                        actionIndex: actionIndex
-                      }
-                    });
-                  }
+                  dispatch!({
+                    type: RunActionType.ConstantDeleted,
+                    payload: {
+                      fieldID: constant.fieldID,
+                      actionIndex: actionIndex
+                    }
+                  });
                 }
                 }
               ><BackspaceIcon className={"h-4 w-4 text-rose-400/50"} /></button>
@@ -198,7 +196,17 @@ type ActionDetailsProps = {
   paramRef?: MutableRefObject<Record<string, Record<number, Record<string, ParameterWithValue>>>>
 }
 
-function ActionDetails({ deviceID, index, color, name, constants, fields, parameters, playback, paramRef }: ActionDetailsProps) {
+function ActionDetails({
+                         deviceID,
+                         index,
+                         color,
+                         name,
+                         constants,
+                         fields,
+                         parameters,
+                         playback,
+                         paramRef
+                       }: ActionDetailsProps) {
   const deviceEventColors = {
     teal: "bg-teal-400/20 dark:bg-cyan-600/50 border-teal-700/10 dark:border-cyan-500 text-teal-600 dark:text-cyan-100",
     yellow: "bg-yellow-400/20 dark:bg-amber-600/50 border-yellow-700/10 dark:border-amber-500 text-yellow-600 dark:text-amber-100",

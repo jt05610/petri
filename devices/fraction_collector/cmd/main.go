@@ -6,11 +6,11 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/jt05610/petri/comm/serial"
 	fracCollector "github.com/jt05610/petri/devices/fraction_collector"
-	"github.com/jt05610/petri/devices/fraction_collector/pipbot"
 	"github.com/jt05610/petri/marlin"
 	proto "github.com/jt05610/petri/marlin/proto/v1"
 	"go.uber.org/zap"
 	"os"
+	"os/signal"
 	"strconv"
 )
 
@@ -77,6 +77,12 @@ func main() {
 	}()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+	go func() {
+		<-c // Wait for SIGINT
+		cancel()
+	}()
 	s := marlin.New(ctx, port, logger)
 	go func() {
 		err := s.Listen(ctx)
@@ -84,20 +90,14 @@ func main() {
 			panic(err)
 		}
 	}()
+	go func() {
+
+	}()
 	go s.RunHeartbeat(ctx)
 	_, err = s.Home(ctx, &proto.HomeRequest{})
 	if err != nil {
 		panic(err)
 	}
-	fc := fracCollector.NewFractionCollector(s, pipbot.MakeGrid(
-		31.5-29, 40-17))
-	_, err = fc.Collect(ctx, &fracCollector.CollectRequest{
-		Grid:       "1",
-		Position:   "A6",
-		WasteVol:   0.2,
-		CollectVol: 0.2,
-	})
-	if err != nil {
-		panic(err)
-	}
+	go fracCollector.Run(ctx, s)
+	<-ctx.Done()
 }

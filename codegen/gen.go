@@ -160,11 +160,12 @@ func (g *Generator) Generate(ctx context.Context) error {
 }
 
 func snakeToPascal(s string) string {
+	s = sentenceToSnakeCase(s)
 	splitString := strings.Split(s, "_")
 	for i, word := range splitString {
 		splitString[i] = strings.ToUpper(word[0:1]) + word[1:]
 	}
-	return strings.Join(splitString, "")
+	return strings.Trim(strings.Join(splitString, ""), " \r\n")
 }
 
 func sentenceToSnakeCase(s string) string {
@@ -172,7 +173,7 @@ func sentenceToSnakeCase(s string) string {
 	for i, word := range splitString {
 		splitString[i] = strings.ToLower(word)
 	}
-	return strings.Join(splitString, "_")
+	return strings.Trim(strings.Join(splitString, "_"), " \r\n")
 }
 
 func sentenceToCamelCase(s string) string {
@@ -184,7 +185,7 @@ func sentenceToCamelCase(s string) string {
 			splitString[i] = strings.ToUpper(word[0:1]) + word[1:]
 		}
 	}
-	return strings.Join(splitString, "")
+	return strings.Trim(strings.Join(splitString, ""), " \r\n")
 }
 
 func (g *Generator) loadDev(ctx context.Context) error {

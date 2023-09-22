@@ -117,7 +117,7 @@ export function SystemControl(props: {}) {
     <div className={"flex flex-col h-screen w-full items-center justify-items-center"}>
       <div className={"w-full flex-col overflow-auto"}>
         <div className={"flex h-full w-full flex-row space-x-2 p-2 overflow-y-scroll"}>
-          <div className={"flex w-full flex-col space-y-2"}>
+          <div className={"flex w-full flex-wrap space-y-2"}>
             {net && net.petriNet.net.deviceEvents(net.petriNet.marking).map((
               {
                 id,

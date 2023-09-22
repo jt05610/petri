@@ -32,18 +32,6 @@ relationsdevice:
                     author: null
                     arcs:
                         - innerarc:
-                            id: clm11uw5v006wjg4kcm6td9bh
-                            netid: clm11uw5p006cjg4kn4bqxu4f
-                            fromplace: true
-                            placeid: clm11uw5p006ejg4kt9nc6vje
-                            transitionid: clm11uw5p006jjg4keo4161ll
-                            createdat: 2023-09-01T20:30:44.564Z
-                            updatedat: 2023-09-01T20:30:44.564Z
-                          relationsarc:
-                            net: null
-                            place: null
-                            transition: null
-                        - innerarc:
                             id: clm11uw5w006yjg4kskct3zuh
                             netid: clm11uw5p006cjg4kn4bqxu4f
                             fromplace: false
@@ -91,6 +79,42 @@ relationsdevice:
                             net: null
                             place: null
                             transition: null
+                        - innerarc:
+                            id: clmp6wrax0002jg2slk9fwkxm
+                            netid: clm11uw5p006cjg4kn4bqxu4f
+                            fromplace: false
+                            placeid: clmp6wjna0001jg2sog8mcdvi
+                            transitionid: clmp6tn2x0000jg2sw1oi1oyp
+                            createdat: 2023-09-18T17:58:37.882Z
+                            updatedat: 2023-09-18T17:58:37.882Z
+                          relationsarc:
+                            net: null
+                            place: null
+                            transition: null
+                        - innerarc:
+                            id: clm11uw5v006wjg4kcm6td9bh
+                            netid: clm11uw5p006cjg4kn4bqxu4f
+                            fromplace: true
+                            placeid: clm11uw5p006ejg4kt9nc6vje
+                            transitionid: clmp6tn2x0000jg2sw1oi1oyp
+                            createdat: 2023-09-01T20:30:44.564Z
+                            updatedat: 2023-09-18T17:57:05.635Z
+                          relationsarc:
+                            net: null
+                            place: null
+                            transition: null
+                        - innerarc:
+                            id: clmp6x80u0003jg2s5b5i3p4s
+                            netid: clm11uw5p006cjg4kn4bqxu4f
+                            fromplace: true
+                            placeid: clmp6wjna0001jg2sog8mcdvi
+                            transitionid: clm11uw5p006jjg4keo4161ll
+                            createdat: 2023-09-18T17:58:59.55Z
+                            updatedat: 2023-09-18T17:58:59.55Z
+                          relationsarc:
+                            net: null
+                            place: null
+                            transition: null
                     places:
                         - innerplace:
                             id: clm11uw5p006ejg4kt9nc6vje
@@ -125,6 +149,17 @@ relationsdevice:
                             arcs: []
                             nets: []
                             interfaces: []
+                        - innerplace:
+                            id: clmp6wjna0001jg2sog8mcdvi
+                            name: InPosition
+                            description: ""
+                            createdat: 2023-09-18T17:58:27.959Z
+                            updatedat: 2023-09-18T17:58:27.959Z
+                            bound: 1
+                          relationsplace:
+                            arcs: []
+                            nets: []
+                            interfaces: []
                     transitions:
                         - innertransition:
                             id: clm11uw5p006jjg4keo4161ll
@@ -147,28 +182,6 @@ relationsdevice:
                                   relationsevent:
                                     transitions: []
                                     fields:
-                                        - innerfield:
-                                            id: clm11uw5q006ljg4kedn1n7vn
-                                            name: Position
-                                            type: string
-                                            condition: null
-                                            eventid: clm11uw5q006kjg4ku2xv329m
-                                            createdat: 2023-09-01T20:30:44.558Z
-                                            updatedat: 2023-09-01T20:30:44.558Z
-                                          relationsfield:
-                                            event: null
-                                            constants: []
-                                        - innerfield:
-                                            id: clm11uw5q006mjg4kxu03y4tt
-                                            name: Grid
-                                            type: string
-                                            condition: null
-                                            eventid: clm11uw5q006kjg4ku2xv329m
-                                            createdat: 2023-09-01T20:30:44.558Z
-                                            updatedat: 2023-09-01T20:30:44.558Z
-                                          relationsfield:
-                                            event: null
-                                            constants: []
                                         - innerfield:
                                             id: clmh0q0n9000024jg8owr4ebl
                                             name: WasteVol
@@ -236,6 +249,65 @@ relationsdevice:
                                             eventid: clm11uw5q006ojg4kz2ellndz
                                             createdat: 2023-09-01T20:30:44.558Z
                                             updatedat: 2023-09-01T20:30:44.558Z
+                                          relationsfield:
+                                            event: null
+                                            constants: []
+                                    commands: []
+                                    data: []
+                                    transitioninterface: null
+                            nets: []
+                            interfaces: []
+                        - innertransition:
+                            id: clmp6tn2x0000jg2sw1oi1oyp
+                            condition: null
+                            description: ""
+                            name: MovedTo
+                            createdat: 2023-09-18T17:56:12.442Z
+                            updatedat: 2023-09-18T17:56:12.442Z
+                          relationstransition:
+                            arcs: []
+                            events:
+                                - innerevent:
+                                    id: clmp771n40004jg2s33bp8dfz
+                                    name: MoveTo
+                                    description: Move to position
+                                    createdat: 2023-09-18T18:06:37.841Z
+                                    updatedat: 2023-09-18T18:06:37.841Z
+                                    placeinterfaceid: null
+                                    transitioninterfaceid: null
+                                  relationsevent:
+                                    transitions: []
+                                    fields:
+                                        - innerfield:
+                                            id: clm11uw5q006ljg4kedn1n7vn
+                                            name: Position
+                                            type: string
+                                            condition: null
+                                            eventid: clmp771n40004jg2s33bp8dfz
+                                            createdat: 2023-09-01T20:30:44.558Z
+                                            updatedat: 2023-09-01T20:30:44.558Z
+                                          relationsfield:
+                                            event: null
+                                            constants: []
+                                        - innerfield:
+                                            id: clm11uw5q006mjg4kxu03y4tt
+                                            name: Grid
+                                            type: string
+                                            condition: null
+                                            eventid: clmp771n40004jg2s33bp8dfz
+                                            createdat: 2023-09-01T20:30:44.558Z
+                                            updatedat: 2023-09-01T20:30:44.558Z
+                                          relationsfield:
+                                            event: null
+                                            constants: []
+                                        - innerfield:
+                                            id: clmp771n40005jg2s3kou3f6j
+                                            name: Grid
+                                            type: string
+                                            condition: null
+                                            eventid: clmp771n40004jg2s33bp8dfz
+                                            createdat: 2023-09-18T18:06:37.841Z
+                                            updatedat: 2023-09-18T18:06:37.841Z
                                           relationsfield:
                                             event: null
                                             constants: []

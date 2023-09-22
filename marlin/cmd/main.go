@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/joho/godotenv"
 	"github.com/jt05610/petri/comm/serial"
+	fracCollector "github.com/jt05610/petri/devices/fraction_collector"
 	"github.com/jt05610/petri/marlin"
 	proto "github.com/jt05610/petri/marlin/proto/v1"
 	"go.uber.org/zap"
@@ -77,6 +78,7 @@ func main() {
 	}()
 	ctx := context.Background()
 	s := marlin.New(ctx, port, logger)
+
 	go func() {
 		err := s.Listen(ctx)
 		if err != nil {
@@ -88,23 +90,6 @@ func main() {
 	if err != nil {
 		logger.Fatal("Failed to home", zap.Error(err))
 	}
-	_, err = s.FanOn(ctx, &proto.FanOnRequest{})
-	if err != nil {
-		logger.Fatal("Failed to turn on fan", zap.Error(err))
-	}
-	_, err = s.FanOff(ctx, &proto.FanOffRequest{})
-	if err != nil {
-		logger.Fatal("Failed to turn off fan", zap.Error(err))
-	}
-	pos := float32(100)
-	spd := float32(500)
-	_, err = s.Move(ctx, &proto.MoveRequest{
-		X:     &pos,
-		Y:     &pos,
-		Z:     &pos,
-		Speed: &spd,
-		E:     &pos,
-	})
 	if err != nil {
 		logger.Fatal("Failed to move", zap.Error(err))
 	}
@@ -122,5 +107,6 @@ func main() {
 			logger.Fatal("Failed to serve grpc", zap.Error(err))
 		}
 	}()
+	go fracCollector.Run(ctx, s)
 	<-ctx.Done()
 }

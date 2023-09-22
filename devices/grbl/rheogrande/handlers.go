@@ -9,9 +9,9 @@ import (
 
 // determined experimentally
 var (
-	Load   float32 = 0.0
-	Inject float32 = -12.7
-	Rate   float32 = 1000
+	Load   float32 = -21
+	Inject float32 = 0
+	Rate   float32 = 3000
 )
 
 func (d *SixPortRheodyneValve) OpenA(ctx context.Context, req *OpenARequest) (*OpenAResponse, error) {

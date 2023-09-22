@@ -1,4 +1,4 @@
-package {{.Name}}
+package camera
 
 import (
 	"context"
@@ -16,11 +16,10 @@ var deviceYaml embed.FS
 
 func Run(ctx context.Context, conn *amqp.Connection) {
 	logger, err := zap.NewProduction()
-	failOnError(err, "Error creating logger")
-	d := New{{pascalFromSnake .Name}}()
+	FailOnError(err, "Error creating logger")
+	d := NewCamera()
 	dev := d.load()
 	// any additional initialization goes here
-
 
 	srv := server.New(dev.Nets[0], conn.Channel, environ.Exchange, environ.DeviceID, environ.InstanceID, dev.EventMap(), d.Handlers(), logger)
 
@@ -38,7 +37,7 @@ func Run(ctx context.Context, conn *amqp.Connection) {
 	logger.Info("Shutting down 🐰 server")
 }
 
-func failOnError(err error, msg string) {
+func FailOnError(err error, msg string) {
 	if err != nil {
 		log.Fatalf("%s: %s", msg, err)
 	}

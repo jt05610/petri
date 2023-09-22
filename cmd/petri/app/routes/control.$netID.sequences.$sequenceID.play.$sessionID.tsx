@@ -289,7 +289,7 @@ export default function PlaySequence() {
       {session && deviceMarkings.data && runParams &&
         <RunSessionProvider session={session} devices={deviceMarkings.data.deviceMarkings}
                             parameters={runParams}>
-          <div className={"flex flex-col h-screen w-full items-center justify-items-center"}>
+          <div className={"flex flex-wrap h-screen w-full items-center justify-items-center"}>
             {session && runParams && runDevices && petriNet &&
               runDevices.map((device) => {
                 return (

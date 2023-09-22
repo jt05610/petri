@@ -19,6 +19,7 @@ extract_uint16(message_t * message, uint8_t start, uint16_t * value)
     if (message->size < start + 2)
     {
         result = false;
+        Serial.println("error: message size is not large enough to extract uint16_t");
     } else
     {
         *value = (uint16_t) message->buffer[start] +
@@ -53,6 +54,7 @@ process_run(message_t * message, timing_t * params)
     {
         if (!extract_uint16(message, 1 + (i * 2), values[i]))
         {
+            Serial.println("error: could not extract uint16_t starting from character" + String(i * 2));
             break;
         }
     }
@@ -107,6 +109,7 @@ process_message(message_t * message, timing_t * params)
             }
             break;
         default:
+            Serial.println("error: unknown header");
             result = false;
             break;
     }

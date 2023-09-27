@@ -28,19 +28,24 @@ comm_read(message_t * message)
     uint8_t        read;
     message->size = 0;
 
-    while(Serial.available() > 0 && !comm.new_data) {
+    while (Serial.available() > 0 && !comm.new_data)
+    {
         read = Serial.read();
 
         if (read != END_MARKER)
         {
             comm.rx_buffer[len++] = read;
             if (len >= BUFFER_CHARS)
+            {
                 len = BUFFER_CHARS - 1;
+            }
         } else
         {
             comm.rx_buffer[len] = '\0';
-            for (uint8_t i = 0; i < len; i ++)
+            for (uint8_t i = 0; i < len; i++)
+            {
                 message->buffer[i] = comm.rx_buffer[i];
+            }
             message->size = len;
             len = 0;
             comm.new_data = true;
@@ -50,9 +55,12 @@ comm_read(message_t * message)
 
 void comm_write(message_t * message)
 {
-    if (comm.new_data) {
-        for (size_t i = 0; i < message->size; i ++)
+    if (comm.new_data)
+    {
+        for (size_t i = 0; i < message->size; i++)
+        {
             Serial.write(message->buffer[i]);
+        }
         Serial.write(END_MARKER);
         comm.new_data = false;
     }

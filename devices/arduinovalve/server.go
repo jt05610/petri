@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"embed"
-	"fmt"
 	"github.com/joho/godotenv"
 	"github.com/jt05610/petri/amqp/server"
 	"github.com/jt05610/petri/comm/serial"
@@ -72,7 +71,6 @@ func main() {
 	rxCh, err := port.ChannelPort(context.Background(), txCh)
 	_ = receiveUntilNewLine(rxCh)
 	d := NewMixingValve(txCh, rxCh)
-	go printChan(rxCh)
 	dev := d.load()
 	srv := server.New(dev.Nets[0], ch, exchange, deviceID, instanceID, dev.EventMap(), d.Handlers(), logger)
 	ctx, cancel := context.WithCancel(context.Background())
@@ -83,10 +81,6 @@ func main() {
 		<-c // Wait for SIGINT
 		cancel()
 	}()
-	_, err = d.Mix(ctx, &MixRequest{Proportions: "1,0,0,0,0,0,0,0"})
-	if err != nil {
-		logger.Fatal("Failed to mix", zap.Error(err))
-	}
 	logger.Info("Started 🐰 server")
 	srv.Listen(ctx)
 	<-ctx.Done()
@@ -110,16 +104,5 @@ func receiveUntilNewLine(ch <-chan io.Reader) (msg []byte) {
 		if strings.Contains(string(msg), "ready") {
 			return msg
 		}
-	}
-}
-
-func printChan(ch <-chan io.Reader) {
-	for {
-		b := <-ch
-		msg, err := io.ReadAll(b)
-		if err != nil {
-			log.Fatal(err)
-		}
-		fmt.Printf("received: %s\n", msg)
 	}
 }

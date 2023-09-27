@@ -7,6 +7,7 @@ import (
 
 type FractionCollector struct {
 	marlin.MarlinServer
+	wasting bool
 	*pipbot.Layout
 }
 

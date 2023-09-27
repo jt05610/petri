@@ -28,14 +28,6 @@ func Run(ctx context.Context, conn *amqp.Connection, client proto.GRBLServer) {
 	d := NewOrganicPump(client)
 	req := loadPumpParams()
 	dev := d.load()
-	d.MaxPos = MaxPos
-	_, err = d.Initialize(context.Background(), req)
-	spd := float32(1000)
-	_, err = d.Move(context.Background(), &proto.MoveRequest{X: &d.MaxPos, Speed: &spd})
-	if err != nil {
-		log.Fatalf("Failed to pump: %v", err)
-	}
-	d.Pos = d.MaxPos
 
 	failOnError(err, "Failed to initialize device")
 	srv := server.New(dev.Nets[0], conn.Channel, environ.Exchange, environ.DeviceID, environ.InstanceID, dev.EventMap(), d.Handlers(), logger)
@@ -47,6 +39,15 @@ func Run(ctx context.Context, conn *amqp.Connection, client proto.GRBLServer) {
 		<-c // Wait for SIGINT
 		cancel()
 	}()
+	d.MaxPos = MaxPos
+	_, err = d.Initialize(context.Background(), req)
+	spd := float32(1000)
+	_, err = d.Move(context.Background(), &proto.MoveRequest{X: &d.MaxPos, Speed: &spd})
+	if err != nil {
+		log.Fatalf("Failed to pump: %v", err)
+	}
+	d.Pos = d.MaxPos
+
 	logger.Info("Started 🐰 server")
 	srv.Listen(ctx)
 	<-ctx.Done()

@@ -8,6 +8,7 @@ import (
 	"github.com/jt05610/petri/control"
 	"github.com/jt05610/petri/prisma"
 	"github.com/jt05610/petri/prisma/db"
+	"log"
 	"time"
 )
 
@@ -82,7 +83,7 @@ func (r *Resolver) start(sessionId string) *model.Event {
 				})
 				_, err := r.SessionClient.AddData(r.runCtx, sessionId, data)
 				if err != nil {
-					panic(err)
+					log.Printf("error adding data: %v", err)
 				}
 			}
 		}

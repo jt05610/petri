@@ -9,14 +9,33 @@ import (
 	"github.com/jt05610/petri/yaml"
 	"io"
 	"log"
+	"strconv"
+	"sync/atomic"
 )
 
 func NewMixingValve(txCh chan []byte, rxCh <-chan io.Reader) *MixingValve {
 	d := &MixingValve{
-		txCh: txCh,
-		rxCh: rxCh,
+		txCh:    txCh,
+		rxCh:    rxCh,
+		success: new(atomic.Int32),
 	}
+	d.success.Store(0)
+	go d.PrintCh(rxCh)
 	return d
+}
+
+func (d *MixingValve) PrintCh(ch <-chan io.Reader) {
+	for {
+		b := <-ch
+		msg, err := io.ReadAll(b)
+		if err != nil {
+			log.Fatal(err)
+		}
+		if string(msg)[:2] == "ok" {
+			d.success.Add(1)
+		}
+		fmt.Printf("received: %s\n", msg)
+	}
 }
 
 func (d *MixingValve) load() *device.Device {
@@ -52,6 +71,15 @@ func (r *MixRequest) FromEvent(event *labeled.Event) error {
 		r.Proportions = ds
 	}
 
+	if event.Data["period"] != nil {
+		ds := event.Data["period"].(string)
+		var err error
+		r.Period, err = strconv.ParseUint(ds, 10, 16)
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -63,9 +91,15 @@ func (r *MixResponse) Event() *labeled.Event {
 				Name: "proportions",
 				Type: "string",
 			},
+
+			{
+				Name: "period",
+				Type: "number",
+			},
 		},
 		Data: map[string]interface{}{
 			"Proportions": r.Proportions,
+			"Period":      r.Period,
 		},
 	}
 
@@ -77,12 +111,6 @@ func (r *MixResponse) FromEvent(event *labeled.Event) error {
 		return fmt.Errorf("expected event name mix, got %s", event.Name)
 	}
 	return nil
-}
-
-func (r *MixedRequest) Event() *labeled.Event {
-	return &labeled.Event{
-		Name: "mixed",
-	}
 }
 
 func (r *MixedRequest) FromEvent(event *labeled.Event) error {

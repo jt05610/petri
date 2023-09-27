@@ -36,7 +36,8 @@ uint8_t masks[8] = {
 void
 timing_open(uint32_t period)
 {
-    self.period = period;
+    self.current_params = nullptr;
+    self.period         = period;
     for (uint32_t &pulse: self.pulses)
     {
         pulse = 0;
@@ -77,16 +78,17 @@ uint32_t timing_sum(timing_t * params)
 void set_params(timing_t * params)
 {
     self.n_pulses  = 0;
-    uint32_t scale = self.period / timing_sum(params);
+    uint32_t total = timing_sum(params);
+    Serial.println("period: " + String(self.period));
     self.current_params = params;
-    self.pulses[0] = params->A * scale;
-    self.pulses[1] = params->B * scale;
-    self.pulses[2] = params->C * scale;
-    self.pulses[3] = params->D * scale;
-    self.pulses[4] = params->E * scale;
-    self.pulses[5] = params->F * scale;
-    self.pulses[6] = params->G * scale;
-    self.pulses[7] = params->H * scale;
+    self.pulses[0] = self.period * (1000 * params->A / total);
+    self.pulses[1] = self.period * (1000 * params->B / total);
+    self.pulses[2] = self.period * (1000 * params->C / total);
+    self.pulses[3] = self.period * (1000 * params->D / total);
+    self.pulses[4] = self.period * (1000 * params->E / total);
+    self.pulses[5] = self.period * (1000 * params->F / total);
+    self.pulses[6] = self.period * (1000 * params->G / total);
+    self.pulses[7] = self.period * (1000 * params->H / total);
 
     for (uint8_t i = 0; i < 8; i++)
     {
@@ -102,11 +104,12 @@ void set_params(timing_t * params)
 bool
 timing_write(timing_t * params)
 {
-    uint8_t sum = timing_sum(params);
+    uint64_t sum = timing_sum(params);
     if (sum == 0)
     {
         return false;
     }
+    Serial.print("timing: ");
     self.running = true;
     set_params(params);
     return true;
@@ -117,14 +120,15 @@ timing_update()
 {
     Solenoid result     = nullptr;
     uint8_t  last_pulse = self.current_pulse;
+    uint32_t now;
     if (self.running)
     {
-        if (millis() - self.last_update >
-            self.active_pulses[self.current_pulse])
+        now = micros();
+        if (now - self.last_update > self.active_pulses[self.current_pulse])
         {
             result = &self.active_solenoids[self.current_pulse];
             self.current_pulse = (self.current_pulse + 1) % self.n_pulses;
-            self.last_update   = millis();
+            self.last_update   = now;
             if (self.current_pulse != last_pulse)
             {
                 Serial.println("opened: " + String(self.current_pulse));
@@ -144,8 +148,10 @@ bool timing_set_period(uint32_t period)
     {
         self.period = period;
         result = true;
-        timing_write(self.current_params);
+        if (self.current_params != nullptr)
+        {
+            timing_write(self.current_params);
+        }
     }
     return result;
-
 }

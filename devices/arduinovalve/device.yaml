@@ -158,6 +158,17 @@ relationsdevice:
                                           relationsfield:
                                             event: null
                                             constants: []
+                                        - innerfield:
+                                            id: clmzg3pa40000c4jgfy8c785f
+                                            name: Period
+                                            type: number
+                                            condition: null
+                                            eventid: clm11uw5f005qjg4kw0l9riif
+                                            createdat: 2023-09-25T22:13:40Z
+                                            updatedat: 2023-09-25T22:13:40Z
+                                          relationsfield:
+                                            event: null
+                                            constants: []
                                     commands: []
                                     data: []
                                     transitioninterface: null

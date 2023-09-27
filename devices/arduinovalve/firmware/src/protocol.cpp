@@ -11,21 +11,30 @@ static struct
 } self = {0};
 
 
-// extract an uint16_t from the message buffer starting at the given index. The first byte is the low byte and the second byte is the high byte.
+// extract an uint16_t from the message buffer starting at the given index until we reach a comma, then convert the string to an integer
 bool
-extract_uint16(message_t * message, uint8_t start, uint16_t * value)
+extract_uint16(message_t * message, uint8_t * start, uint32_t * value)
 {
-    bool result;
-    if (message->size < start + 2)
+    bool    result;
+    uint8_t end = *start;
+    while (end < message->size && message->buffer[end] != ',' &&
+           message->buffer[end] != '\n')
     {
-        result = false;
-        Serial.println("error: message size is not large enough to extract uint16_t");
+        end++;
+    }
+    if (end <= message->size)
+    {
+        char buffer[6];
+        memcpy(buffer, message->buffer + *start, end - *start);
+        buffer[end - *start] = '\0';
+        *value = strtol(buffer, nullptr, 10);
+        *start = end + 1;
+        result = true;
     } else
     {
-        *value = (uint16_t) message->buffer[start] +
-                 ((uint16_t) message->buffer[start + 1] << 8);
-        result = true;
+        result = false;
     }
+
     return result;
 }
 
@@ -34,13 +43,7 @@ extract_uint16(message_t * message, uint8_t start, uint16_t * value)
 bool
 process_run(message_t * message, timing_t * params)
 {
-    if (message->size != 17)
-    {
-        Serial.println("error: message size is not 18");
-        Serial.println("received length: " + String(message->size));
-        return false;
-    }
-    uint16_t * values[8] = {
+    uint32_t * values[8] = {
             &params->A,
             &params->B,
             &params->C,
@@ -50,11 +53,14 @@ process_run(message_t * message, timing_t * params)
             &params->G,
             &params->H
     };
-    for (uint8_t i = 0; i < 8; i++)
+    uint8_t current = 1;
+    for (auto &value: values)
     {
-        if (!extract_uint16(message, 1 + (i * 2), values[i]))
+        if (!extract_uint16(message, &current, value))
         {
-            Serial.println("error: could not extract uint16_t starting from character" + String(i * 2));
+            Serial.println(
+                    "error: could not extract uint16_t starting from character " +
+                    String(current));
             break;
         }
     }
@@ -98,18 +104,22 @@ process_message(message_t * message, timing_t * params)
             result = process_stop(message, params);
             break;
         case PERIOD_HEADER:
-            uint16_t period;
-            result = extract_uint16(message, 1, &period);
+            uint8_t  start;
+            uint32_t period;
+            start  = 1;
+            result = extract_uint16(message, &start, &period);
             if (result)
             {
-                result = timing_set_period(period);
-            } else {
+                timing_set_period(period);
+                result = false;
+            } else
+            {
                 Serial.println("error: could not extract period");
-
             }
             break;
         default:
-            Serial.println("error: unknown header");
+            Serial.println(
+                    "error: unknown header: " + String(message->buffer[0]));
             result = false;
             break;
     }

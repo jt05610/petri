@@ -12,6 +12,7 @@ import (
 	"go.uber.org/zap"
 	"log"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -41,7 +42,7 @@ type Controller struct {
 	q               *amqpGo.Queue
 	Routes          map[string]*Instance
 	StepQueue       []*sequence.Step
-	CurrentStep     int
+	CurrentStep     *atomic.Int32
 	Sequence        *sequence.Sequence
 	Net             *labeled.Net
 	dataRelay       chan *control.Event
@@ -177,14 +178,15 @@ func NewController(logger *zap.Logger, ch *amqpGo.Channel, exchange string) *Con
 		failOnError(err, "Failed to bind queue")
 	}
 	c := &Controller{
-		logger:   logger,
-		ch:       ch,
-		q:        &q,
-		cmd:      &amqp.CommandService{},
-		event:    &amqp.EventService{},
-		exchange: exchange,
-		Routes:   make(map[string]*Instance),
-		Known:    make(map[string]map[string]*Instance),
+		logger:      logger,
+		ch:          ch,
+		q:           &q,
+		cmd:         &amqp.CommandService{},
+		event:       &amqp.EventService{},
+		exchange:    exchange,
+		CurrentStep: new(atomic.Int32),
+		Routes:      make(map[string]*Instance),
+		Known:       make(map[string]map[string]*Instance),
 	}
 	c.runDiscoverLoop(context.Background())
 	return c
@@ -217,7 +219,7 @@ func (c *Controller) Start(ctx context.Context) {
 	for i, step := range c.Sequence.Steps {
 		c.StepQueue[i] = step
 	}
-	c.CurrentStep = 0
+	c.CurrentStep.Store(0)
 	go func() {
 		for {
 			select {
@@ -235,7 +237,7 @@ func (c *Controller) Start(ctx context.Context) {
 					log.Println(err)
 				}
 				data := <-c.dataCh
-				if data.From == inst.ID && data.Name == step.Event.Name {
+				if data.From == inst.ID {
 					c.logger.Info("Received event", zap.String("event", data.Name))
 					if c.dataRelay != nil {
 						c.dataRelay <- data
@@ -243,10 +245,11 @@ func (c *Controller) Start(ctx context.Context) {
 				}
 				if len(c.StepQueue) == 1 {
 					c.logger.Info("Sequence complete", zap.String("sequence", c.Sequence.Name))
+					c.CurrentStep.Store(0)
 					return
 				}
 				c.StepQueue = c.StepQueue[1:]
-				c.CurrentStep++
+				c.CurrentStep.Add(1)
 			}
 		}
 	}()

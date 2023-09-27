@@ -9,14 +9,14 @@
 
 struct timing_t
 {
-    uint16_t A;
-    uint16_t B;
-    uint16_t C;
-    uint16_t D;
-    uint16_t E;
-    uint16_t F;
-    uint16_t G;
-    uint16_t H;
+    uint32_t A;
+    uint32_t B;
+    uint32_t C;
+    uint32_t D;
+    uint32_t E;
+    uint32_t F;
+    uint32_t G;
+    uint32_t H;
 };
 
 void timing_open(uint32_t period);

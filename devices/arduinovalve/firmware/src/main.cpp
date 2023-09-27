@@ -23,6 +23,14 @@ static struct
 
 void setup()
 {
+    self.params.A = 0;
+    self.params.B = 0;
+    self.params.C = 0;
+    self.params.D = 0;
+    self.params.E = 0;
+    self.params.F = 0;
+    self.params.G = 0;
+    self.params.H = 0;
     comm_open();
     solenoid_open();
     timing_open(4000);

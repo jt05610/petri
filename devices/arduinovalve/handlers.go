@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"context"
-	"encoding/binary"
 	"fmt"
 	"strconv"
 	"strings"
@@ -14,29 +13,37 @@ func startMsg(props []uint16) []byte {
 		panic("Invalid number of props")
 	}
 	ret := bytes.NewBuffer([]byte("R"))
-	for _, prop := range props {
-		err := binary.Write(ret, binary.LittleEndian, prop)
-		if err != nil {
-			panic(err)
+	for i, prop := range props {
+		propStr := strconv.Itoa(int(prop))
+		ret.WriteString(propStr)
+		if i != len(props)-1 {
+			ret.WriteString(",")
 		}
 	}
 	ret.WriteString("\n")
-	return ret.Bytes()
-
+	bb := ret.Bytes()
+	fmt.Printf("startMsg: %s\n", strconv.Quote(string(bb)))
+	return bb
 }
 
 func setPeriodMsg(period uint16) []byte {
 	ret := bytes.NewBuffer([]byte("P"))
-	err := binary.Write(ret, binary.LittleEndian, period)
-	if err != nil {
-		panic(err)
-	}
+	periodStr := strconv.Itoa(int(period))
+	ret.WriteString(periodStr)
 	ret.WriteString("\n")
-	return ret.Bytes()
+	bb := ret.Bytes()
+	fmt.Printf("setPeriodMsg: %s\n", strconv.Quote(string(bb)))
+	return bb
 }
 
 func (d *MixingValve) Start(ctx context.Context, props []uint16) error {
 	msg := startMsg(props)
+	d.txCh <- msg
+	return nil
+}
+
+func (d *MixingValve) SetPeriod(ctx context.Context, period uint16) error {
+	msg := setPeriodMsg(period)
 	d.txCh <- msg
 	return nil
 }
@@ -63,7 +70,12 @@ func fromString(s string) []uint16 {
 
 func (d *MixingValve) Mix(ctx context.Context, req *MixRequest) (*MixResponse, error) {
 	props := fromString(req.Proportions)
-	err := d.Start(ctx, props)
+	period := uint16(req.Period)
+	err := d.SetPeriod(ctx, period)
+	if err != nil {
+		return nil, err
+	}
+	err = d.Start(ctx, props)
 	if err != nil {
 		return nil, err
 	}

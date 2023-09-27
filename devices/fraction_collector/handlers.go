@@ -72,9 +72,17 @@ func (d *FractionCollector) goToWaste() {
 		Z:     &DispenseHeight,
 		Speed: &Speed,
 	})
+	d.wasting = true
 }
 
 func (d *FractionCollector) Collect(ctx context.Context, req *CollectRequest) (*CollectResponse, error) {
+	if d.wasting {
+		_, err := d.FanOff(context.Background(), &marlin.FanOffRequest{})
+		if err != nil {
+			panic(err)
+		}
+		return &CollectResponse{}, nil
+	}
 	d.park(float32(req.WasteVol))
 	_, err := d.FanOff(context.Background(), &marlin.FanOffRequest{})
 	if err != nil {
@@ -107,6 +115,7 @@ func (d *FractionCollector) MoveTo(ctx context.Context, req *MoveToRequest) (*Mo
 		}
 		return &MoveToResponse{}, nil
 	}
+	d.wasting = false
 	if err != nil {
 		return nil, err
 	}

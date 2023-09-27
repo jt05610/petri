@@ -2,6 +2,7 @@ package sequence
 
 import (
 	"context"
+	"encoding/json"
 	"github.com/jt05610/petri/control"
 	"github.com/jt05610/petri/device"
 	"github.com/jt05610/petri/labeled"
@@ -44,8 +45,15 @@ func (a *Action) ApplyParameters(params map[string]interface{}) error {
 			if !ok {
 				return labeled.ErrMissingParameter(p.Field, a.Event)
 			}
-			if v, ok := vm["value"]; ok {
-				p.Value = v.(string)
+			if v, found := vm["value"]; found {
+				p.Value, ok = v.(string)
+				if !ok {
+					floatVal, ok := v.(json.Number)
+					if !ok {
+						return labeled.ErrMissingParameter(p.Field, a.Event)
+					}
+					p.Value = floatVal.String()
+				}
 				a.setParams++
 			} else {
 				return labeled.ErrMissingParameter(p.Field, a.Event)

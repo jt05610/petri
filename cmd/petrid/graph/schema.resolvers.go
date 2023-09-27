@@ -166,7 +166,8 @@ func (r *queryResolver) Sessions(ctx context.Context, runID string) ([]*model.Se
 
 // CurrentStep is the resolver for the currentStep field.
 func (r *queryResolver) CurrentStep(ctx context.Context, sessionID string) (int, error) {
-	return r.Controller.CurrentStep, nil
+	val := r.Controller.CurrentStep.Load()
+	return int(val), nil
 }
 
 // EventHistory is the resolver for the eventHistory field.

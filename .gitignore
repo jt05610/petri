@@ -1,10 +1,7 @@
 /prisma/db/db_gen.go
 /prisma/db/query-engine-darwin-arm64_gen.go
-/.env
-/codegen/testData/go/.env
-/cmd/codegen/.env
+.env
 /devices/grbl/grbl/
-/cmd/petrid/.env
 /cmd/petrid/graph/generated/
 /devices/grbl/organicpump/config.go
 /devices/grbl/rheogrande/config.go

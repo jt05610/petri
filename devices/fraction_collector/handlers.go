@@ -11,10 +11,9 @@ import (
 var (
 	ClearHeight    = float32(40)
 	DispenseHeight = float32(0)
-	Speed          = float32(1500)
+	Speed          = float32(2000)
 	flowRate       = float32(2) // mL/min
 	wasteX         = float32(0)
-	wasteY         = float32(0)
 )
 
 func (d *FractionCollector) rowIndexFromLetter(grid int, letter string) int {
@@ -62,7 +61,6 @@ func (d *FractionCollector) goToWaste() {
 	}
 	_, err = d.Move(context.Background(), &marlin.MoveRequest{
 		X:     &wasteX,
-		Y:     &wasteY,
 		Speed: &Speed,
 	})
 	if err != nil {

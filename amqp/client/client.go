@@ -285,6 +285,12 @@ func (c *Controller) registerInstance(deviceID, instanceID string, marking contr
 	defer c.mu.Unlock()
 	if c.Known[deviceID] == nil {
 		c.Known[deviceID] = make(map[string]*Instance)
+		c.Known[deviceID][instanceID] = &Instance{
+			ID:       instanceID,
+			liveness: MaxLiveness,
+			Marking:  marking,
+		}
+		return
 	}
 	if c.Known[deviceID][instanceID] != nil {
 		c.Known[deviceID][instanceID].liveness = MaxLiveness
@@ -300,6 +306,8 @@ func (c *Controller) registerInstance(deviceID, instanceID string, marking contr
 }
 
 func (c *Controller) pruneInstances() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	for k, vv := range c.Known {
 		for instanceKey, v := range vv {
 			v.liveness--

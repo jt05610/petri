@@ -80,7 +80,7 @@ function runReducer(state: RunInputDisplay, action: RunAction): RunInputDisplay 
     case RunActionType.ActionRemoved: {
       const { index } = action.payload as ActionRemovedPayload;
       const actions = [...state.actions];
-      actions.splice(index, 1);
+      actions.splice(index);
       return { ...state, actions };
     }
     case RunActionType.ConstantDeleted: {

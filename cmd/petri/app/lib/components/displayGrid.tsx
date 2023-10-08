@@ -1,12 +1,13 @@
 import type { MutableRefObject, ReactNode } from "react";
+import { Suspense } from "react";
 import type { ConstantInput, RunDetails, RunInputDisplay } from "~/models/net.run.server";
 import { useContextSelector } from "use-context-selector";
 import { RecordRunContext, RunActionType } from "~/context";
 import { BackspaceIcon } from "@heroicons/react/24/outline";
-import { PetriNetContext } from "~/lib/context/petrinet";
+import { XCircleIcon } from "@heroicons/react/24/solid";
+import { PetriNetActionType, PetriNetContext } from "~/lib/context/petrinet";
 import type { ParameterWithValue } from "~/lib/context/session";
-import { RunSessionContext, RunSessionActionType } from "~/lib/context/session";
-import { Suspense } from "react";
+import { RunSessionActionType, RunSessionContext } from "~/lib/context/session";
 
 type GridHeaderItemProps = {
   col: number
@@ -194,6 +195,7 @@ type ActionDetailsProps = {
   parameters?: Record<string, ParameterWithValue>
   playback?: boolean
   paramRef?: MutableRefObject<Record<string, Record<number, Record<string, ParameterWithValue>>>>
+  deleteAction?: () => void
 }
 
 function ActionDetails({
@@ -205,7 +207,8 @@ function ActionDetails({
                          fields,
                          parameters,
                          playback,
-                         paramRef
+                         paramRef,
+                         deleteAction
                        }: ActionDetailsProps) {
   const deviceEventColors = {
     teal: "bg-teal-400/20 dark:bg-cyan-600/50 border-teal-700/10 dark:border-cyan-500 text-teal-600 dark:text-cyan-100",
@@ -219,7 +222,21 @@ function ActionDetails({
   };
   return (
     <div className={`relative m-1 p-2 text-sm rounded-lg flex flex-col max-w-lg ${deviceEventColors[color]}`}>
-      <span className="w-full text-sm font-medium">{name}</span>
+      <span className="w-full text-sm font-medium">
+        <div className="w-full justify-between flex flex-row">
+          <div>
+          {name}
+          </div>
+            <div className="text-xs text-gray-500 dark:text-gray-400">
+              <button
+                onClick={deleteAction}
+              >
+              <XCircleIcon className={"h-4 w-4 text-rose-400/50"} />
+              </button>
+          </div>
+        </div>
+
+      </span>
       {(constants.length > 0 || parameters) && (
         playback ?
           <DeviceEditParamView fields={fields} constants={constants} parameters={parameters} paramRef={paramRef!} /> :
@@ -324,7 +341,8 @@ type RecordRunGridViewProps = {
 }
 
 export function RecordRunGridView({ nCols, nRows, deviceNames, sequence }: RecordRunGridViewProps) {
-  const petriNet = useContextSelector(PetriNetContext, (context) => context!.petriNet.net);
+  const [petriNet, petriNetDispatch] = useContextSelector(PetriNetContext, (context) => [context!.petriNet.net, context!.dispatch]);
+  const dispatch = useContextSelector(RecordRunContext, (context) => context?.dispatch);
   return (
     <div className="not-prose relative bg-slate-50 rounded-xl overflow-hidden dark:bg-slate-800/25">
       <div
@@ -368,6 +386,26 @@ export function RecordRunGridView({ nCols, nRows, deviceNames, sequence }: Recor
                                 [key: string]: string
                               }
                             )
+                            }
+                            deleteAction={() => {
+                              if (!dispatch) {
+                                console.log("no dispatch");
+                                return;
+                              }
+                              dispatch({
+                                type: RunActionType.ActionRemoved,
+                                payload: {
+                                  index: col - 1
+                                }
+                              });
+                              petriNetDispatch({
+                                  type: PetriNetActionType.RevertMarking,
+                                  payload: {
+                                    markingIndex: col - 1
+                                  }
+                                }
+                              );
+                            }
                             }
                           />
                         </GridCell>

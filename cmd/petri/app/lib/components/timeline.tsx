@@ -6,6 +6,7 @@ import { RecordRunGridView } from "~/lib/components/displayGrid";
 import { useState } from "react";
 import { PetriNetContext } from "~/lib/context/petrinet";
 import { useNavigate } from "@remix-run/react";
+import { RecordRunContext } from "~/context";
 
 
 type RunViewProps = {

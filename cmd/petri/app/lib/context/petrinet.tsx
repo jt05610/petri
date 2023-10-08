@@ -57,8 +57,13 @@ type UpdateMarkingPayload = {
   [key: string]: number
 }
 
+type RevertMarkingPayload = {
+  markingIndex: number
+}
+
 export enum PetriNetActionType {
   UpdateMarking = "updateMarking",
+  RevertMarking = "revertMarking"
 }
 
 type UpdateMarkingAction = {
@@ -66,11 +71,17 @@ type UpdateMarkingAction = {
   payload: UpdateMarkingPayload;
 }
 
-type PetriNetAction = UpdateMarkingAction;
+type RevertMarkingAction = {
+  type: PetriNetActionType.RevertMarking;
+  payload: RevertMarkingPayload;
+}
+
+
+type PetriNetAction = UpdateMarkingAction | RevertMarkingAction;
 
 function petriNetReducer(state: ActivePetriNet, action: PetriNetAction): ActivePetriNet {
   switch (action.type) {
-    case PetriNetActionType.UpdateMarking:
+    case PetriNetActionType.UpdateMarking: {
       // Use cloneDeep to create a new copy of state.marking
       const newMarking = cloneDeep(action.payload);
       const markingHistory = [...state.markingHistory, newMarking];
@@ -86,8 +97,24 @@ function petriNetReducer(state: ActivePetriNet, action: PetriNetAction): ActiveP
         enabledEvents
       };
 
-    default:
+    }
+    case PetriNetActionType.RevertMarking: {
+      const marking = state.markingHistory[action.payload.markingIndex];
+      const markingHistory = state.markingHistory.slice(0, action.payload.markingIndex + 1);
+      const enabledEvents = state.net.allEvents(marking).reduce((acc, event) => ({
+        ...acc,
+        [event.id]: state.net.eventEnabled(marking, event.id)
+      }), {});
+      return {
+        ...state,
+        marking,
+        markingHistory,
+        enabledEvents
+      };
+    }
+    default: {
       return state;
+    }
   }
 }
 

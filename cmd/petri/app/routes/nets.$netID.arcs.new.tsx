@@ -16,18 +16,13 @@ export const action = async ({ params, request }: LoaderArgs) => {
   invariant(params.netID, "netID not found");
   let formData = await request.formData();
   formData.append("netID", params.netID);
-  if (formData.get("fromPlace") === "on") {
-    formData.set("fromPlace", "true");
-  } else {
-    formData.set("fromPlace", "false");
-  }
+  console.log(formData.get("fromPlace"))
   const submission = parse(formData, {
     schema: ArcInputFormSchema
   });
   if (!submission.value || submission.intent !== "submit") {
     return badRequest(submission);
   }
-
   const arc = await addArc(submission.value);
   return redirect(`/nets/${params.netID}/arcs/${arc.id}`);
 };
@@ -50,11 +45,6 @@ export default function Arc() {
   const [form, { fromPlace, placeID, transitionID }] = useForm({
     lastSubmission,
     onValidate({ formData }) {
-      if (formData.get("fromPlace") === "on") {
-        formData.set("fromPlace", "true");
-      } else {
-        formData.set("fromPlace", "false");
-      }
       return parse(formData, { schema: ArcInputFormSchema });
     }
   });
@@ -82,7 +72,7 @@ export default function Arc() {
             type: "checkbox",
             name: fromPlace.name,
             content: lastSubmission?.payload?.fromPlace,
-            error: fromPlace.error
+            error: fromPlace.error,
           }
         ]} />
       </Form>

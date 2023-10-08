@@ -156,9 +156,9 @@ const FieldComponent = forwardRef((props: FieldComponentProps, ref: Ref<HTMLInpu
         </select>
       );
     case "checkbox":
-      return <input  type={field.type} {...baseProps} ref={
-        inputRef && inputRef as Ref<HTMLInputElement>
-      } />;
+      return <input type={field.type} {...baseProps} ref={
+        inputRef && inputRef as Ref<HTMLInputElement>} value="true"
+      />;
     case "radio":
       return <input type={field.type} {...baseProps} ref={
         inputRef && inputRef as Ref<HTMLInputElement>} />;
@@ -201,7 +201,7 @@ const FormContent = (props: FormProps) => {
       {props.fields.map((field, i) => (
         <div
           key={i}
-          className={`flex flex-col space-y-1 form-field ${field.type === "checkbox" ? "form-field-checkbox" : ""}`}
+          className={`flex flex-col space-y-1 ${field.type === "checkbox" ? "form-field-checkbox" : "form-field "}`}
         >
           <div className={`flex flex-row justify-between`}>
             <label htmlFor={field.name}>

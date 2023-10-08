@@ -405,21 +405,23 @@ async function seed() {
       });
     }
 
-    await prisma.device.create({
+    let device = await prisma.device.create({
       data: {
         name: name,
         description: description,
         authorID: user.id,
-        nets: {
-          connect: [
-            {
-              id: net.id
-            }
-          ]
-        }
       }
     });
+
+    await prisma.devicesOnNets.create({
+      data: {
+        deviceID: device.id,
+        netID: net.id
+      }
+    })
+
     return net;
+
   };
 
   const allNets: Record<string, Pick<Net, "id"> & {
@@ -728,20 +730,21 @@ async function seed() {
       });
     }
 
-    await prisma.device.create({
+    let valveDevice = await prisma.device.create({
       data: {
         name: name,
         description: description,
         authorID: user.id,
-        nets: {
-          connect: [
-            {
-              id: valve.id
-            }
-          ]
-        }
       }
     });
+
+    await prisma.devicesOnNets.create({
+      data: {
+        deviceID: valveDevice.id,
+        netID: valve.id
+      }
+    })
+
     return valve;
   }
 

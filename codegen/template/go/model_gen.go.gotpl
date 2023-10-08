@@ -38,6 +38,7 @@ func (d *{{pascal .Device.Name}}) load() *device.Device {
 func (r *{{pascalFromSnake .Name}}Request) Event() *labeled.Event {
 	return &labeled.Event{
 		Name: "{{snake .Name}}",
+        ID: "{{.ID}}",
 	}
 }
 
@@ -75,6 +76,7 @@ func (r *{{pascalFromSnake .Name}}Request) FromEvent(event *labeled.Event) error
 func (r *{{pascalFromSnake .Name}}Response) Event() *labeled.Event {
     ret := &labeled.Event{
         Name: "{{snake .Name}}",
+        ID: "{{.ID}}",
         {{if .Fields}}Fields: []*labeled.Field{
         {{- range .Fields}}
             {

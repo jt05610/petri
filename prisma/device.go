@@ -49,6 +49,7 @@ func makePetriNet(model *db.NetModel, handlers control.Handlers) *labeled.Net {
 					}
 				}
 				ee = append(ee, &labeled.Event{
+					ID:     event.ID,
 					Name:   event.Name,
 					Fields: fields,
 				})

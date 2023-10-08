@@ -10,16 +10,19 @@ import (
 	"io"
 	"log"
 	"strconv"
+	"strings"
 	"sync/atomic"
 )
 
 func NewMixingValve(txCh chan []byte, rxCh <-chan io.Reader) *MixingValve {
 	d := &MixingValve{
-		txCh:    txCh,
-		rxCh:    rxCh,
-		success: new(atomic.Int32),
+		txCh:   txCh,
+		rxCh:   rxCh,
+		cts:    new(atomic.Bool),
+		period: new(atomic.Int32),
 	}
-	d.success.Store(0)
+	d.cts.Store(true)
+	d.period.Store(0)
 	go d.PrintCh(rxCh)
 	return d
 }
@@ -31,8 +34,8 @@ func (d *MixingValve) PrintCh(ch <-chan io.Reader) {
 		if err != nil {
 			log.Fatal(err)
 		}
-		if string(msg)[:2] == "ok" {
-			d.success.Add(1)
+		if strings.Contains(string(msg), "ok") {
+			d.cts.Store(true)
 		}
 		fmt.Printf("received: %s\n", msg)
 	}

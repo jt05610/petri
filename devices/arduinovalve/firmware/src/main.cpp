@@ -2,10 +2,6 @@
 // Created by taylojon on 6/22/2022.
 //
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wunknown-pragmas"
-#pragma ide diagnostic ignored "OCUnusedGlobalDeclarationInspection"
-
 #include <Arduino.h>
 
 #include "comm.h"
@@ -17,8 +13,10 @@
 static struct
 {
     uint8_t   buffer[BUFFER_CHARS];
+    uint8_t   tx_buffer[BUFFER_CHARS];
     timing_t  params;
     message_t received;
+    message_t response;
 } self;
 
 void setup()
@@ -30,27 +28,28 @@ void setup()
     self.params.E = 0;
     self.params.F = 0;
     self.params.G = 0;
-    self.params.H = 0;
     comm_open();
     solenoid_open();
     timing_open(4000);
     self.received.buffer = self.buffer;
+    self.response.buffer = self.tx_buffer;
+    self.response.size   = 0;
     self.received.size   = 0;
     Serial.print("ready\n");
 }
 
-void loop()
+__attribute__((unused)) void loop()
 {
     comm_read(&self.received);
     if (self.received.size)
     {
         bool ok = process_message(&self.received, &self.params);
-        format_response(ok, &self.received);
+        format_response(ok, &self.response);
         if (ok)
         {
             timing_write(&self.params);
         }
-        comm_write(&self.received);
+        comm_write(&self.response);
     }
     Solenoid solenoid = timing_update();
     if (solenoid != nullptr)
@@ -58,5 +57,3 @@ void loop()
         solenoid_write(solenoid);
     }
 }
-
-#pragma clang diagnostic pop

@@ -9,6 +9,7 @@ typedef struct solenoid_t * Solenoid;
 
 typedef struct solenoid_t
 {
+    uint8_t id;
     uint8_t mask;
     uint8_t port;
 }

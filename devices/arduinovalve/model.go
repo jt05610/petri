@@ -6,9 +6,10 @@ import (
 )
 
 type MixingValve struct {
-	txCh    chan []byte
-	rxCh    <-chan io.Reader
-	success *atomic.Int32
+	txCh   chan []byte
+	rxCh   <-chan io.Reader
+	period *atomic.Int32
+	cts    *atomic.Bool
 }
 
 type MixRequest struct {

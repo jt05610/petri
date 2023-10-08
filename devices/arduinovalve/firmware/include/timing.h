@@ -6,6 +6,7 @@
 #define FRACTION_COLLECTOR_TIMING_H
 
 #include "valve.h"
+#define N_PULSES 7
 
 struct timing_t
 {
@@ -16,7 +17,6 @@ struct timing_t
     uint32_t E;
     uint32_t F;
     uint32_t G;
-    uint32_t H;
 };
 
 void timing_open(uint32_t period);

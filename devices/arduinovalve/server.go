@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"embed"
+	"errors"
 	"github.com/joho/godotenv"
 	"github.com/jt05610/petri/amqp/server"
 	"github.com/jt05610/petri/comm/serial"
@@ -18,33 +19,74 @@ import (
 //go:embed device.yaml
 var deviceYaml embed.FS
 
-func main() {
-	logger, err := zap.NewProduction()
-	failOnError(err, "Error creating logger")
+type RunConfig struct {
+	URI        string `json:"uri"`
+	Exchange   string `json:"exchange"`
+	DeviceID   string `json:"device_id"`
+	InstanceID string `json:"instance_id"`
+}
+
+var (
+	URINotFound        = errors.New("uri not found")
+	ExchangeNotFound   = errors.New("exchange not found")
+	DeviceIDNotFound   = errors.New("device_id not found")
+	InstanceIDNotFound = errors.New("instance_id not found")
+)
+
+type ConfigLookup struct {
+	key   string
+	value *string
+	err   error
+}
+
+func (c *ConfigLookup) LookupEnv(key string) error {
+	v, ok := os.LookupEnv(key)
+	if !ok {
+		return c.err
+	}
+	*c.value = v
+	return nil
+}
+
+func LoadEnv() (config *RunConfig, err error) {
 	err = godotenv.Load()
 	failOnError(err, "Error loading .env file")
+	cfg := new(RunConfig)
+	lookups := []*ConfigLookup{
+		{
+			key:   "RABBITMQ_URI",
+			value: &cfg.URI,
+			err:   URINotFound,
+		},
+		{
+			key:   "AMQP_EXCHANGE",
+			value: &cfg.Exchange,
+			err:   ExchangeNotFound,
+		},
+		{
+			key:   "DEVICE_ID",
+			value: &cfg.DeviceID,
+			err:   DeviceIDNotFound,
+		},
+		{
+			key:   "INSTANCE_ID",
+			value: &cfg.InstanceID,
+			err:   InstanceIDNotFound,
+		},
+	}
+	for _, lookup := range lookups {
+		err := lookup.LookupEnv(lookup.key)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return cfg, nil
+}
 
-	logger.Info("Starting 🐰 server")
-	// Setup rabbitmq channel
-	uri, ok := os.LookupEnv("RABBITMQ_URI")
-	if !ok {
-		logger.Fatal("RABBITMQ_URI not set")
-	}
-	exchange, ok := os.LookupEnv("AMQP_EXCHANGE")
-	if !ok {
-		logger.Fatal("AMQP_EXCHANGE not set")
-	}
-	deviceID, ok := os.LookupEnv("DEVICE_ID")
-	if !ok {
-		logger.Fatal("DEVICE_ID not set")
-	}
-	instanceID, ok := os.LookupEnv("INSTANCE_ID")
-	if !ok {
-		logger.Fatal("INSTANCE_ID not set")
-	}
-	conn, err := amqp.Dial(uri)
+func Run(ctx context.Context, d *MixingValve, logger *zap.Logger, cfg *RunConfig) {
+	conn, err := amqp.Dial(cfg.URI)
 	failOnError(err, "Failed to connect to RabbitMQ")
-	logger.Info("Connected to RabbitMQ", zap.String("uri", uri))
+	logger.Info("Connected to RabbitMQ", zap.String("uri", cfg.URI))
 	defer func() {
 		err := conn.Close()
 		failOnError(err, "Failed to close connection")
@@ -70,21 +112,28 @@ func main() {
 	}
 	rxCh, err := port.ChannelPort(context.Background(), txCh)
 	_ = receiveUntilNewLine(rxCh)
-	d := NewMixingValve(txCh, rxCh)
+	*d = *NewMixingValve(txCh, rxCh)
 	dev := d.load()
-	srv := server.New(dev.Nets[0], ch, exchange, deviceID, instanceID, dev.EventMap(), d.Handlers(), logger)
+	srv := server.New(dev.Nets[0], ch, cfg.Exchange, cfg.DeviceID, cfg.InstanceID, dev.EventMap(), d.Handlers(), logger)
+	logger.Info("Started 🐰 server")
+	srv.Listen(ctx)
+	<-ctx.Done()
+}
+
+func main() {
+	logger, err := zap.NewProduction()
+	failOnError(err, "Error creating logger")
+	logger.Info("Starting 🐰 server")
+	// Setup rabbitmq channel
+	cfg, err := LoadEnv()
+	failOnError(err, "Error loading config")
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
-	go func() {
-		<-c // Wait for SIGINT
-		cancel()
-	}()
-	logger.Info("Started 🐰 server")
-	srv.Listen(ctx)
-	<-ctx.Done()
-	logger.Info("Shutting down 🐰 server")
+	d := new(MixingValve)
+	go Run(ctx, d, logger, cfg)
+	<-c // Wait for SIGINT
 }
 
 func failOnError(err error, msg string) {

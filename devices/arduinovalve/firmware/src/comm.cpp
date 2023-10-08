@@ -42,6 +42,7 @@ comm_read(message_t * message)
         } else
         {
             comm.rx_buffer[len] = '\0';
+
             for (uint8_t i = 0; i < len; i++)
             {
                 message->buffer[i] = comm.rx_buffer[i];

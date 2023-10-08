@@ -4,13 +4,11 @@ import { requireUser } from "~/session.server";
 import { Form, useLoaderData, useNavigate } from "@remix-run/react";
 import { useContextSelector } from "use-context-selector";
 import type { FormEvent } from "react";
-import { Suspense } from "react";
+import { Suspense, useState } from "react";
 import { useMutation, useQuery } from "@apollo/client";
 import { getRunDetails } from "~/models/net.run.server";
-
-import type {
-  DeviceInstanceInput
-} from "~/models/__generated__/graphql";
+import JSONExport, { newSessionRequest } from "~/util/json_export";
+import type { DeviceInstanceInput } from "~/models/__generated__/graphql";
 import {
   DevicesDocument,
   NewSessionDocument,
@@ -35,6 +33,7 @@ export const loader = async ({ params, request }: ActionArgs) => {
 
 export default function PlaySequence() {
   const { run, user, runDevices } = useLoaderData<typeof loader>();
+  const [reqJSON, setReqJSON] = useState<Object>({});
   const {
     net,
     marking
@@ -81,7 +80,7 @@ export default function PlaySequence() {
             const strings = instStrings as string[];
             strings.forEach((string) => {
               instanceStrings.push(string);
-            })
+            });
           }
           return instanceStrings.map((instString) => {
             return JSON.parse(instString.toString()) as DeviceInstanceInput;
@@ -96,7 +95,7 @@ export default function PlaySequence() {
       console.log(submission.error);
       return;
     }
-    console.log(submission.value);
+    setReqJSON(newSessionRequest(submission.value));
     const session = await newSession({
       variables: { input: submission.value }
     }).then((session) => {
@@ -151,9 +150,12 @@ export default function PlaySequence() {
                 </div>
               );
             })}
-            <button type={"submit"}>
-              New session
-            </button>
+            <JSONExport name={"run.json"} json={reqJSON}>
+              <button type={"submit"}>
+                New session
+              </button>
+            </JSONExport>
+
           </Form>
         }
       </Suspense>

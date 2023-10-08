@@ -9,7 +9,7 @@ import (
 )
 
 func startMsg(props []uint16) []byte {
-	if len(props) != 8 {
+	if len(props) != 7 {
 		panic("Invalid number of props")
 	}
 	ret := bytes.NewBuffer([]byte("R"))
@@ -36,25 +36,40 @@ func setPeriodMsg(period uint16) []byte {
 	return bb
 }
 
+func (d *MixingValve) do(ctx context.Context, msg []byte) error {
+	fmt.Printf("sending: %s\n", strconv.Quote(string(msg)))
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+			if d.cts.Load() {
+				d.cts.Store(false)
+				d.txCh <- msg
+				fmt.Printf("sent: %s\n", strconv.Quote(string(msg)))
+				return nil
+			}
+		}
+	}
+}
+
 func (d *MixingValve) Start(ctx context.Context, props []uint16) error {
 	msg := startMsg(props)
-	d.txCh <- msg
-	return nil
+	return d.do(ctx, msg)
 }
 
 func (d *MixingValve) SetPeriod(ctx context.Context, period uint16) error {
 	msg := setPeriodMsg(period)
-	d.txCh <- msg
-	return nil
+	return d.do(ctx, msg)
 }
 
 func fromString(s string) []uint16 {
 	commaSplit := strings.Split(s, ",")
-	if len(commaSplit) != 8 {
+	if len(commaSplit) != 7 {
 		msg := fmt.Errorf("Invalid number of props: %d\nsent: %s", len(commaSplit), s)
 		panic(msg)
 	}
-	ret := make([]uint16, 8)
+	ret := make([]uint16, 7)
 	for i, prop := range commaSplit {
 		propInt, err := strconv.Atoi(prop)
 		if err != nil {
@@ -71,11 +86,16 @@ func fromString(s string) []uint16 {
 func (d *MixingValve) Mix(ctx context.Context, req *MixRequest) (*MixResponse, error) {
 	props := fromString(req.Proportions)
 	period := uint16(req.Period)
-	err := d.SetPeriod(ctx, period)
-	if err != nil {
-		return nil, err
+	currentPeriod := d.period.Load()
+	if uint16(currentPeriod) != period {
+		d.period.Store(int32(period))
+		err := d.SetPeriod(ctx, period)
+		if err != nil {
+			return nil, err
+		}
 	}
-	err = d.Start(ctx, props)
+
+	err := d.Start(ctx, props)
 	if err != nil {
 		return nil, err
 	}
@@ -84,14 +104,9 @@ func (d *MixingValve) Mix(ctx context.Context, req *MixRequest) (*MixResponse, e
 
 func (d *MixingValve) Stop(ctx context.Context) error {
 	msg := []byte("S\n")
-	d.txCh <- msg
-	return nil
+	return d.do(ctx, msg)
 }
 
 func (d *MixingValve) Mixed(ctx context.Context, req *MixedRequest) (*MixedResponse, error) {
-	err := d.Stop(ctx)
-	if err != nil {
-		return nil, err
-	}
 	return &MixedResponse{}, nil
 }

@@ -44,7 +44,7 @@ func (s *Server) commandName(routingKey string) string {
 	return strings.Split(routingKey, ".")[2]
 }
 
-func (s *Server) route(data *control.Command) (*control.Event, error) {
+func (s *Server) route(ctx context.Context, data *control.Command) (*control.Event, error) {
 	var res *control.Event
 	s.logger.Info("Routing command", zap.String("command", data.Event.Name))
 	done := make(chan struct{})
@@ -57,8 +57,9 @@ func (s *Server) route(data *control.Command) (*control.Event, error) {
 			Marking: make(map[string]int),
 			From:    s.instanceID,
 		}
+
 	}()
-	if err := s.Handle(context.Background(), data.Event); err != nil {
+	if err := s.Handle(ctx, data.Event); err != nil {
 		s.logger.Error("Failed to handle event", zap.Error(err))
 		return &control.Event{
 			Event:   data.Event,
@@ -178,19 +179,19 @@ func (s *Server) Listen(ctx context.Context) {
 					s.publishBeacon()
 					continue
 				}
-				data, err := s.cmd.Load(context.Background(), d)
+				data, err := s.cmd.Load(ctx, d)
 				failOnError(err, "Failed to load command")
 				switch data.Topic {
 				case "state":
-					resp, err := s.cmd.Flush(context.Background(), data.Event, s.MarkingMap())
+					resp, err := s.cmd.Flush(ctx, data.Event, s.MarkingMap())
 					failOnError(err, "Failed to flush command")
 					err = s.ch.PublishWithContext(ctx, s.exchange, s.instanceID+".state.current", false, false, resp)
 				case "commands":
-					event, err := s.route(data)
+					event, err := s.route(context.Background(), data)
 					failOnError(err, "Failed to handle data")
 					resp, err := s.cmd.Flush(ctx, event.Event, s.MarkingMap())
 					log.Printf("Sending response %v", resp)
-					err = s.ch.PublishWithContext(ctx,
+					err = s.ch.PublishWithContext(context.Background(),
 						s.exchange,
 						event.RoutingKey(),
 						false,

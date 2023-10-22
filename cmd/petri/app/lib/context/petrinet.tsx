@@ -10,6 +10,7 @@ type Marking = {
 }
 
 export type ActivePetriNet = {
+  userID?: string
   net: PetriNet
   marking: Marking
   markingHistory: Marking[];
@@ -27,9 +28,10 @@ function initialNet(net: NetDetailsWithChildren): PetriNet {
 
 type InitialActiveNetProps = {
   net: NetDetailsWithChildren
+  userID?: string
 }
 
-const initialActiveNet = ({ net }: InitialActiveNetProps): ActivePetriNet => {
+const initialActiveNet = ({ net, userID }: InitialActiveNetProps): ActivePetriNet => {
   const pNet = initialNet(net);
   return {
     net: pNet,
@@ -49,6 +51,7 @@ export const PetriNetContext = createContext<({
 
 type PetriNetProviderProps = {
   net: NetDetailsWithChildren,
+  userID: string,
   children: ReactNode;
 }
 
@@ -119,7 +122,7 @@ function petriNetReducer(state: ActivePetriNet, action: PetriNetAction): ActiveP
 }
 
 
-export function PetriNetProvider({ net, children }: PetriNetProviderProps) {
+export function PetriNetProvider({ net, userID, children }: PetriNetProviderProps) {
   const [petriNet, dispatch] = useReducer<Reducer<ActivePetriNet, PetriNetAction>>(petriNetReducer,
     initialActiveNet({ net }));
 

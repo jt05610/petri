@@ -16,6 +16,7 @@ type FormProps = {
     options?: { value: string, display: string }[];
     arraySchema?: z.Schema
     arrayFields?: ({ key: string } & FieldConfig<{ type: string, name: string, description?: string | undefined }>)[]
+    field?: FieldConfig<any>
     error?: string;
   }[]
 }
@@ -43,9 +44,8 @@ const ArrayField: FC<ArrayFieldProps> = forwardRef(({
         {/* Table logic to display items */}
         <thead>
         <tr>
-          {arrayFields.map((field, index) => (
-            <th key={index}>{field.name}</th>
-          ))}
+          <th>Field</th>
+          <th>Type</th>
           <th>Actions</th>
         </tr>
         </thead>
@@ -53,9 +53,6 @@ const ArrayField: FC<ArrayFieldProps> = forwardRef(({
         {arrayFields.map((item, index) => (
           <tr key={index}>
             {}
-            <td>
-              {item.form}
-            </td>
             <td>
               {item.form}
             </td>
@@ -73,7 +70,7 @@ const ArrayField: FC<ArrayFieldProps> = forwardRef(({
           {arrayFields.map((field, index) => (
             // create a ref in the arrayFieldRefs object for each field
             <td
-              key={index}
+              key={field.key}
               className={"align-top "}
             >
               <FieldComponent
@@ -93,8 +90,14 @@ const ArrayField: FC<ArrayFieldProps> = forwardRef(({
             className={"align-top"}
           >
             <button
-              type={"button"}
-              {...list.append(field.name)}
+              {...list.append(field.name, {
+                defaultValue: {
+                  type: "text",
+                  name: "",
+                  description: ""
+                }
+              })}
+
             ><PlusCircleIcon className={"h-7 w-7"} /></button>
           </td>
         </tr>

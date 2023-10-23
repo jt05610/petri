@@ -6,6 +6,7 @@ datasource db {
 generator client {
   provider = "prisma-client-js"
 }
+
 generator db {
   provider = "go run github.com/steebchen/prisma-client-go"
 }
@@ -25,17 +26,24 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  password  Password?
-  nets      Net[]
-  devices   Device[]
-  instances Instance[]
-  sessions  Session[]
+  password   Password?
+  devices    Device[]
+  instances  Instance[]
+  sessions   Session[]
+  Type       Type[]
+  sharedNets SharedNets[]
+  nets       Net[]
 }
 
 model Password {
   hash   String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   userId String @unique
+}
+
+enum NetVisibility {
+  PRIVATE
+  PUBLIC
 }
 
 // A Net is a Petri Net. It is a directed graph consisting of places, transitions, and arcs.
@@ -58,6 +66,18 @@ model Net {
   placeInterfaces      PlaceInterface[]
   transitionInterfaces TransitionInterface[]
   runs                 Run[]
+  visibility           NetVisibility         @default(PRIVATE)
+  sharedNets           SharedNets[]
+}
+
+model SharedNets {
+  user   User   @relation(fields: [userId], references: [id])
+  userId String
+
+  net   Net    @relation(fields: [netId], references: [id])
+  netId String
+
+  @@id([userId, netId])
 }
 
 // PlaceInterface is a place that connect
@@ -84,15 +104,16 @@ model TransitionInterface {
 }
 
 model Place {
-  id          String           @id @default(cuid())
-  name        String
-  description String?
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
-  arcs        Arc[]
-  bound       Int
-  nets        Net[]
-  interfaces  PlaceInterface[]
+  id             String           @id @default(cuid())
+  name           String
+  initialMarking Int              @default(0)
+  description    String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  arcs           Arc[]
+  bound          Int
+  nets           Net[]
+  interfaces     PlaceInterface[]
 }
 
 model Transition {
@@ -130,16 +151,55 @@ model DevicesOnNets {
   @@id([deviceID, netID])
 }
 
+enum FieldRole {
+  NONE
+  INPUT
+  OUTPUT
+  INPUT_OUTPUT
+  PARAMETER
+}
+
+enum TypeScope {
+  NONE
+  GLOBAL
+  USER
+  NET
+  DEVICE
+}
+
+model Type {
+  id          String    @id @default(cuid())
+  name        String
+  description String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  fields      Field[]
+  scope       TypeScope @default(NONE)
+  user        User?     @relation(fields: [userId], references: [id])
+  userId      String?
+  device      Device?   @relation(fields: [deviceId], references: [id])
+  deviceId    String?
+  deletable   Boolean   @default(true)
+}
+
 model Field {
-  id        String     @id @default(cuid())
-  name      String
-  type      String
-  condition String?
-  event     Event      @relation(fields: [eventID], references: [id])
-  eventID   String
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
-  constants Constant[]
+  id          String     @id @default(cuid())
+  name        String
+  description String?
+  condition   String?
+  event       Event?     @relation(fields: [eventID], references: [id])
+  eventID     String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  constants   Constant[]
+  role        FieldRole  @default(INPUT_OUTPUT)
+  required    Boolean    @default(true)
+  Device      Device?    @relation(fields: [deviceId], references: [id])
+  deviceId    String?
+  type        Type       @relation(fields: [typeId], references: [id])
+  typeId      String
+
+  @@unique([name, eventID])
 }
 
 model Event {
@@ -152,6 +212,7 @@ model Event {
   fields                Field[]
   commands              Action[]
   data                  Datum[]
+  synchronous           Boolean              @default(false)
   placeInterfaceId      String?
   transitionInterface   TransitionInterface? @relation(fields: [transitionInterfaceId], references: [id])
   transitionInterfaceId String?
@@ -178,12 +239,15 @@ model Instance {
   addr      String
   data      Datum[]
   sessions  Session[]
+
+  @@unique([name, deviceId])
 }
 
 model Device {
   id          String          @id @default(cuid())
   author      User            @relation(fields: [authorID], references: [id])
   authorID    String
+  fields      Field[]
   name        String
   description String
   instances   Instance[]
@@ -192,7 +256,10 @@ model Device {
   netIDs      String[]
   nets        DevicesOnNets[]
   actions     Action[]
-  Instrument  Instrument[]
+  instrument  Instrument[]
+  types       Type[]
+
+  @@unique([name, authorID])
 }
 
 model Constant {
@@ -201,7 +268,7 @@ model Constant {
   actionID String
   field    Field  @relation(fields: [fieldID], references: [id])
   fieldID  String
-  value    String
+  value    Json
 }
 
 model Action {

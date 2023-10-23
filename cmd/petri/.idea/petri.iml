@@ -12,11 +12,15 @@
       <excludeFolder url="file://$MODULE_DIR$/remix.init" />
       <excludeFolder url="file://$MODULE_DIR$/public/build" />
       <excludeFolder url="file://$MODULE_DIR$/node_modules/@prisma/client/node_modules" />
+      <excludeFolder url="file://$MODULE_DIR$/node_modules/.pnpm" />
     </content>
+    <content url="file://$MODULE_DIR$/node_modules/.pnpm" />
     <content url="file://$MODULE_DIR$/node_modules/.pnpm/@prisma+client@5.0.0" />
     <content url="file://$MODULE_DIR$/node_modules/.pnpm/@prisma+client@5.0.0_prisma@5.0.0" />
     <content url="file://$MODULE_DIR$/node_modules/.pnpm/@prisma+client@5.1.1_prisma@5.1.1" />
     <content url="file://$MODULE_DIR$/node_modules/.pnpm/@prisma+client@5.1.1_prisma@5.1.1/node_modules/@prisma/client" />
+    <content url="file://$MODULE_DIR$/node_modules/.pnpm/@prisma+client@5.4.1_prisma@5.4.1" />
+    <content url="file://$MODULE_DIR$/node_modules/.pnpm/@prisma+client@5.4.1_prisma@5.4.1/node_modules/@prisma/client" />
     <content url="file://$MODULE_DIR$/node_modules/@prisma/client" />
     <content url="file://$MODULE_DIR$/node_modules/tailwindcss" />
     <orderEntry type="inheritedJdk" />

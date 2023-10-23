@@ -34,12 +34,14 @@ const testNet = new PetriNet({
     {
       id: "idle",
       name: "idle",
-      bound: 1
+      bound: 1,
+      initialMarking: 1
     },
     {
       id: "pumping",
       name: "pumping",
-      bound: 1
+      bound: 1,
+      initialMarking: 0
     }
   ],
   transitionInterfaces: [],
@@ -54,7 +56,11 @@ const testNet = new PetriNet({
           {
             id: "flowRate",
             name: "flowRate",
-            type: "number"
+            type: {
+              id: "number",
+              name: "number",
+              fields: []
+            }
           }
         ]
       }
@@ -94,9 +100,7 @@ async function readFileIntoString(filepath: string): Promise<string> {
   return await fs.readFile(filepath, "utf-8");
 }
 
-const testFile = "./app/lib/writers/language/typescript/interfaceWriter.test.data.ts";
-
-const testFileContents = readFileIntoString(testFile);
+const testFile = "./app/lib/writers/language/typescript/interfaceWriter.test.singleData.ts";
 
 describe.concurrent("InterfaceWriter", () => {
   it("should have a language", () => {

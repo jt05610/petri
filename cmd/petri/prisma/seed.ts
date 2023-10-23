@@ -1,10 +1,12 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, FieldRole } from "@prisma/client";
 import type { Net, Place, Transition } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { seedGlobalTypes } from "~/models/type";
 
 const prisma = new PrismaClient();
 
 async function seed() {
+  const globals = await seedGlobalTypes();
   const email = "jonathan@petri.local";
 
   // cleanup the existing database
@@ -31,6 +33,13 @@ async function seed() {
     description: string,
   }
 
+  type FieldInput = {
+    name: string,
+    description?: string,
+    role: FieldRole
+    typeId: string
+  }
+
   type ServiceNetParams = {
     name: string,
     description: string,
@@ -41,23 +50,14 @@ async function seed() {
     output: NodeParams
     event: NodeParams
     emit: NodeParams
-    initializeFields?: {
-      name: string,
-      type: string
-    }[]
+    initializeFields?: FieldInput[]
 
-    eventFields?: {
-      name: string,
-      type: string
-    }[]
+    eventFields?: FieldInput[]
 
-    emitFields?: {
-      name: string,
-      type: string
-    }[]
+    emitFields?: FieldInput[]
   }
 
-  function syringe_pump(name: string): ServiceNetParams {
+  function syringePump(name: string): ServiceNetParams {
     return {
       name: name,
       description: "A syringe pump.",
@@ -84,48 +84,46 @@ async function seed() {
       },
       initializeFields: [
         {
-          name: "syringe_diameter",
-          type: "number"
+          name: "SyringeDiameter",
+          typeId: globals["number"].id,
+          role: FieldRole.PARAMETER,
+          description: "The diameter of the syringe in millimeters."
         },
         {
-          name: "syringe_volume",
-          type: "number"
+          name: "SyringeVolume",
+          typeId: globals["number"].id,
+          role: FieldRole.PARAMETER
         },
         {
-          name: "steps_per_mm",
-          type: "number"
-        },
-        {
-          name: "rate",
-          type: "number"
+          name: "MMPerStep",
+          typeId: globals["number"].id,
+          role: FieldRole.PARAMETER
         }
       ],
       eventFields: [
         {
           name: "Volume",
-          type: "number"
+          typeId: globals["number"].id,
+          role: FieldRole.INPUT
         },
         {
           name: "Rate",
-          type: "number"
+          typeId: globals["number"].id,
+          role: FieldRole.INPUT
         }
       ],
       emitFields: [
         {
-          name: "Volume",
-          type: "number"
-        },
-        {
-          name: "Rate",
-          type: "number"
+          name: "DispensedVolume",
+          typeId: globals["number"].id,
+          role: FieldRole.OUTPUT
         }
       ]
     };
   }
 
   const services: Record<string, ServiceNetParams> = {
-    "organic_pump": syringe_pump("organic pump"),
-    "aqueous_pump": syringe_pump("aqueous pump"),
+    "organic_pump": syringePump("organic pump"),
     "mixing_valve": {
       name: "mixing_valve",
       description: "A mixing valve.",
@@ -133,13 +131,15 @@ async function seed() {
       initializeFields: [
         {
           name: "Components",
-          type: "string"
+          typeId: globals["array"].id,
+          role: FieldRole.PARAMETER
         }
       ],
       eventFields: [
         {
           name: "Proportions",
-          type: "string"
+          typeId: globals["array"].id,
+          role: FieldRole.INPUT
         }
       ],
       service: {
@@ -158,7 +158,8 @@ async function seed() {
       emitFields: [
         {
           name: "Proportions",
-          type: "string"
+          typeId: globals["array"].id,
+          role: FieldRole.OUTPUT
         }
       ],
       event: {
@@ -193,11 +194,15 @@ async function seed() {
       eventFields: [
         {
           name: "Position",
-          type: "string"
+          typeId: globals["string"].id,
+          role: FieldRole.INPUT,
+          description: "The position to collect."
         },
         {
           name: "Grid",
-          type: "string"
+          typeId: globals["string"].id,
+          role: FieldRole.INPUT,
+          description: "The grid to collect."
         }
       ],
       emit: {
@@ -207,11 +212,15 @@ async function seed() {
       emitFields: [
         {
           name: "Position",
-          type: "string"
+          typeId: globals["string"].id,
+          role: FieldRole.OUTPUT,
+          description: "The position collected."
         },
         {
           name: "Grid",
-          type: "string"
+          typeId: globals["string"].id,
+          role: FieldRole.OUTPUT,
+          description: "The grid collected."
         }
       ]
     },
@@ -238,11 +247,15 @@ async function seed() {
       eventFields: [
         {
           name: "Duration",
-          type: "number"
+          typeId: globals["int"].id,
+          role: FieldRole.INPUT,
+          description: "The duration to capture in ms."
         },
         {
           name: "Interval",
-          type: "number"
+          typeId: globals["int"].id,
+          role: FieldRole.INPUT,
+          description: "The interval to capture in ms."
         }
       ],
       emit: {
@@ -252,7 +265,8 @@ async function seed() {
       emitFields: [
         {
           name: "url",
-          type: "string"
+          typeId: globals["string"].id,
+          role: FieldRole.OUTPUT
         }
       ]
     }
@@ -272,20 +286,16 @@ async function seed() {
       emitFields,
       emit
     }: ServiceNetParams) => {
+    console.log(`Creating ${name}...`);
     const net = await prisma.net.create({
       data: {
         name: name,
         description: description,
         authorID: user.id,
         parentID: parentID,
-        initialMarking: [1, 0, 0, 0],
+        initialMarking: [1, 0, 0],
         places: {
           create: [
-            {
-              name: "Unknown",
-              description: "The pump is on but the position is unknown.",
-              bound: 1
-            },
             {
               name: "Idle",
               description: `${name} is idle.`,
@@ -305,19 +315,6 @@ async function seed() {
         },
         transitions: {
           create: [
-            {
-              name: "Initialized",
-              description: `${name} was initialized.`,
-              events: {
-                create: [{
-                  name: "Initialize",
-                  description: `Initialize ${name}.`,
-                  fields: {
-                    create: initializeFields
-                  }
-                }]
-              }
-            },
             {
               name: transition.name,
               description: transition.description,
@@ -360,16 +357,6 @@ async function seed() {
     }[] = [
       {
         fromPlace: true,
-        placeName: "Unknown",
-        transitionName: "Initialized"
-      },
-      {
-        fromPlace: false,
-        placeName: "Idle",
-        transitionName: "Initialized"
-      },
-      {
-        fromPlace: true,
         placeName: "Idle",
         transitionName: transition.name
       },
@@ -404,24 +391,19 @@ async function seed() {
         ...arc
       });
     }
-
-    let device = await prisma.device.create({
+    await prisma.device.create({
       data: {
         name: name,
         description: description,
         authorID: user.id,
+        fields: {
+          create: initializeFields
+        },
+        netIDs: [net.id]
       }
     });
 
-    await prisma.devicesOnNets.create({
-      data: {
-        deviceID: device.id,
-        netID: net.id
-      }
-    })
-
     return net;
-
   };
 
   const allNets: Record<string, Pick<Net, "id"> & {
@@ -442,14 +424,13 @@ async function seed() {
     allNets["six_port_rheodyne_valve"].id,
     allNets["ten_port_rheodyne_valve"].id,
     allNets["organic_pump"].id,
-    allNets["aqueous_pump"].id,
     allNets["mixing_valve"].id,
     allNets["fraction_collector"].id,
     allNets["camera"].id
   ];
   const microfluidicNet = await prisma.net.create({
     data: {
-      name: "a microfluidic injection system",
+      name: "microfluidic system",
       description: `this system has 3 syringe pumps, 2 rheodyne valves, 1 three way valve, and a fraction collector`,
       authorID: user.id,
       children: {
@@ -463,20 +444,6 @@ async function seed() {
   });
 
   const connections: ConnectionParams[] = [
-    {
-      name: "Aqueous injection inlet",
-      description: "The aqueous injection inlet.",
-      bound: 1,
-      parentID: microfluidicNet.id,
-      places: [
-        {
-          id: allNets["six_port_rheodyne_valve"].places.find(place => place.name === "Flow main")!.id
-        },
-        {
-          id: allNets["aqueous_pump"].places.find(place => place.name === "Flow through syringe")!.id
-        }
-      ]
-    },
     {
       name: "Organic injection inlet",
       description: "The organic injection inlet.",
@@ -552,6 +519,7 @@ async function seed() {
   await connect(microfluidicNet.id, connections);
 
   async function makeValve(name: string, description: string) {
+    console.log(`Creating ${name}...`);
     const valve = await prisma.net.create({
       data: {
         name: name,
@@ -600,7 +568,8 @@ async function seed() {
                     create: [
                       {
                         name: "Delay",
-                        type: "number"
+                        description: "The delay in milliseconds before opening port A.",
+                        typeId: globals["int"].id
                       }
                     ]
                   }
@@ -618,7 +587,8 @@ async function seed() {
                     create: [
                       {
                         name: "Delay",
-                        type: "number"
+                        description: "The delay in milliseconds before opening port B.",
+                        typeId: globals["int"].id
                       }
                     ]
                   }
@@ -730,20 +700,14 @@ async function seed() {
       });
     }
 
-    let valveDevice = await prisma.device.create({
+    await prisma.device.create({
       data: {
         name: name,
         description: description,
         authorID: user.id,
+        netIDs: [valve.id]
       }
     });
-
-    await prisma.devicesOnNets.create({
-      data: {
-        deviceID: valveDevice.id,
-        netID: valve.id
-      }
-    })
 
     return valve;
   }

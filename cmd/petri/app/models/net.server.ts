@@ -1,6 +1,7 @@
-import type { User, Net, Arc, Transition, Place, Event } from "@prisma/client";
+import type { FieldRole, Type, User, Net, Arc, Transition, Place, Event } from "@prisma/client";
 import { prisma } from "~/db.server";
 import { z } from "zod";
+import { createId } from "@paralleldrive/cuid2";
 
 export const NetInputSchema = z.object({
   name: z.string(),
@@ -14,6 +15,7 @@ export async function createNet(input: NetInput) {
   const { name, authorID, description } = NetInputSchema.parse(input);
   return prisma.net.create({
     data: {
+      id: createId(),
       authorID,
       name,
       description
@@ -22,7 +24,7 @@ export async function createNet(input: NetInput) {
 }
 
 export const NetUpdateSchema = z.object({
-  id: z.string().cuid().optional(),
+  id: z.string().cuid2().optional(),
   name: z.string().optional(),
   description: z.string().optional()
 });
@@ -40,12 +42,22 @@ export async function updateNet(input: NetUpdate) {
   });
 }
 
+export type FieldDetails = {
+  id: string
+  name: string
+  type: TypeDetails
+  required: boolean
+  role: FieldRole
+}
+
+export type TypeDetails = Pick<Type, "id" | "name" | "description" | "deletable" | "scope"> & {
+  fields: Pick<FieldDetails, "id" | "name">[]
+}
+
 export type EventDetails = Pick<Event, "id" | "name"> & {
-  fields: {
-    id: string
-    name: string
-    type: "string" | "number" | "boolean" | string
-  }[]
+  fields: (Pick<FieldDetails, "id" | "name" | "required" | "role"> & {
+    type: TypeDetails
+  })[]
 }
 
 export type EventDetailsWithEnabled = EventDetails & {
@@ -56,8 +68,8 @@ export type TransitionWithEvents = Pick<Transition, "id" | "name"> & {
   events?: EventDetails[]
 };
 
-export type NetDetails = Pick<Net, "id" | "name" | "description" | "initialMarking"> & {
-  places: Pick<Place, "id" | "name" | "bound">[]
+export type NetDetails = Pick<Net, "id" | "name" | "description"> & {
+  places: Pick<Place, "id" | "name" | "bound" | "initialMarking">[]
   placeInterfaces: {
     id: string
     name: string
@@ -106,7 +118,8 @@ export async function getNet({
         select: {
           id: true,
           name: true,
-          bound: true
+          bound: true,
+          initialMarking: true
         }
       },
       transitions: {
@@ -121,7 +134,31 @@ export async function getNet({
                 select: {
                   id: true,
                   name: true,
-                  type: true
+                  role: true,
+                  type: {
+                    select: {
+                      id: true,
+                      name: true,
+                      description: true,
+                      scope: true,
+                      deletable: true,
+                      fields: {
+                        select: {
+                          id: true,
+                          name: true,
+                          required: true,
+                          role: true,
+                          type: {
+                            select: {
+                              id: true,
+                              name: true
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  required: true
                 }
               }
             }
@@ -144,6 +181,23 @@ export async function getNet({
                   id: true,
                   name: true,
                   addr: true
+                }
+              },
+              fields: {
+                select: {
+                  id: true,
+                  name: true,
+                  type: {
+                    select: {
+                      id: true,
+                      name: true,
+                      description: true,
+                      scope: true,
+                      deletable: true
+                    }
+                  },
+                  required: true,
+                  role: true
                 }
               }
             }
@@ -174,7 +228,33 @@ export async function getNet({
                 select: {
                   id: true,
                   name: true,
-                  type: true
+                  role: true,
+                  type: {
+                    select: {
+                      id: true,
+                      name: true,
+                      description: true,
+                      scope: true,
+                      deletable: true,
+                      fields: {
+                        select: {
+                          id: true,
+                          name: true,
+                          required: true,
+                          role: true,
+                          type: {
+                            select: {
+                              id: true,
+                              name: true,
+                              description: true,
+                              scope: true
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  required: true
                 }
               }
             }
@@ -185,8 +265,7 @@ export async function getNet({
             }
           }
         }
-      },
-      initialMarking: true
+      }
     }
   };
 

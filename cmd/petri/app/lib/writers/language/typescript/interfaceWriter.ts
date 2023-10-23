@@ -1,6 +1,7 @@
-import InterfaceWriter, { ImplementedLanguage } from "~/lib/writers/interface";
-import { PetriNet } from "~/util/petrinet";
-import { EventDetails } from "~/models/net.server";
+import type InterfaceWriter from "~/lib/writers/interface";
+import { ImplementedLanguage } from "~/lib/writers/interface";
+import type { PetriNet } from "~/util/petrinet";
+import type { EventDetails } from "~/models/net.server";
 
 interface InterfaceMethod {
   methodName: string;
@@ -48,7 +49,7 @@ export default class Writer implements InterfaceWriter {
 
   writePetriNet(petriNet: PetriNet): string {
     const methods = new Map<string, InterfaceMethod>();
-    petriNet.net.children[0].transitions.forEach((transition) => {
+    petriNet.net.transitions.forEach((transition) => {
       if (!transition.events) {
         return;
       }
@@ -60,7 +61,7 @@ export default class Writer implements InterfaceWriter {
     });
 
     const interfaceDefinition: InterfaceDefinition = {
-      name: petriNet.net.children[0].name,
+      name: petriNet.net.name,
       methods: [...methods.values()]
     };
     const contents = [
@@ -73,7 +74,6 @@ export default class Writer implements InterfaceWriter {
   }
 }
 
-// language=TypeScript
 const resultOrError = `interface ResultOrError<T> {
   result?: T;
   error?: string;
@@ -84,14 +84,10 @@ export function pascalCase(str: string): string {
   // converts the first character of the string to Uppercase
   // if there are spaces, underscores, or dashes, it removes them and converts the next character to upper case
   // if there are any other characters, it converts them to lower case
-  return str.replace(/^\w|[A-Z]|\b\w/g, function(word, index) {
+  return str.replace(/^\w|[A-Z]|\b\w/g, function(word) {
       return word.toUpperCase();
     }
   ).replace(/\s+|_+|-+/g, "");
-}
-
-function firstCapital(str: string): string {
-  return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
 export function camelCase(str: string): string {
@@ -102,10 +98,6 @@ export function camelCase(str: string): string {
       return index === 0 ? word.toLowerCase() : word.toUpperCase();
     }
   ).replace(/\s+|_+|-+/g, "");
-}
-
-function removeWhitespace(str: string): string {
-  return str.replace(/\s/g, "");
 }
 
 enum RequestOrResponse {

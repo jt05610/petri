@@ -34,6 +34,8 @@ interface PumpSettings {
   syringeUnits?: string;
   maxFlowRate?: number;
   minFlowRate?: number;
+  calibrationSlope?: number;
+  calibrationIntercept?: number;
 }
 
 interface Settings<S> {
@@ -42,6 +44,11 @@ interface Settings<S> {
   set settings(settings: S);
 }
 
-export interface Pump extends PumpActions, Settings<PumpSettings> {
+interface PumpRuns {
+  refillAndPump(params: PumpRequest): ResultOrError<PumpResponse>;
+}
+
+export interface Pump extends PumpActions, Settings<PumpSettings>, PumpRuns {
 
 }
+

@@ -26,6 +26,8 @@ export const EventInputSchema = z.object({
 
 export type EventInput = z.infer<typeof EventInputSchema>;
 
+export type EventField = z.infer<typeof EventFieldSchema>;
+
 export async function addEvent(input: EventInput) {
   const { transitionID, name, description, fields } = EventInputSchema.parse(input);
   return prisma.event.create({

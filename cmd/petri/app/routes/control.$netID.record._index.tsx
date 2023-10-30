@@ -4,7 +4,9 @@ import { SystemControl } from "~/lib/components/systemControl";
 export default function ControlIndex() {
   return (
     <RecordRunProvider>
-      <SystemControl />
+      <div className={"max-w-screen"}>
+        <SystemControl />
+      </div>
     </RecordRunProvider>
   );
 };

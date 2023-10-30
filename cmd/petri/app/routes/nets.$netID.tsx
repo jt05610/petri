@@ -80,7 +80,9 @@ export default function NetDetailsPage() {
   }, [data.net]);
   return (
     <div className={"flex flex-row space-y-2"}>
-      <LabeledNet net={petriNet} />
+      <div className={"flex flex-grow"}>
+        <LabeledNet net={petriNet} />
+      </div>
       <div className={"flex flex-col bg-slate-100 dark:bg-slate-700 space-y-1 p-2"}>
         <div className={"flex flex-col "}>
           <h3 className="text-lg font-bold">{data.net.name}</h3>

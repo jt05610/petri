@@ -9,7 +9,8 @@ import type { EventDetails } from "~/models/net.transition.event.server";
 import type { Event } from "@prisma/client";
 import Timeline from "~/lib/components/timeline";
 import { PetriNetActionType, PetriNetContext } from "~/lib/context/petrinet";
-import  cloneDeep  from "lodash/cloneDeep";
+import cloneDeep from "lodash/cloneDeep";
+import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/solid";
 
 export const makeZodSchema = (fields: {
   id: string
@@ -52,24 +53,20 @@ type EventData = {
 }
 
 export function SystemControl(props: {}) {
+  const [hiddenDevices, setHiddenDevices] = useState<string[]>([]);
   const net = useContextSelector(PetriNetContext, (context) => context);
   const run = useContextSelector(RecordRunContext, (context) => context?.run);
   const dispatch = useContextSelector(RecordRunContext, (context) => context?.dispatch);
-  const [selectedInstances, setSelectedInstances] = useState<{
-    [deviceID: string]: string
-  }>({} as {
-    [deviceID: string]: string
-  });
 
-  const handleSelectChanged = (deviceID: string, instanceID: string) => {
-    setSelectedInstances({ ...selectedInstances, [deviceID]: instanceID });
-  };
+  function hideDevice(deviceID: string) {
+    setHiddenDevices([...hiddenDevices, deviceID]);
+  }
+
+  function showDevice(deviceID: string) {
+    setHiddenDevices(hiddenDevices.filter((id) => id !== deviceID));
+  }
 
   function handleEvent(event: EventData, deviceID: string, data: any) {
-    if (!selectedInstances[deviceID]) {
-      console.log("no instance selected");
-      return;
-    }
     console.log("handle event", event, deviceID, data);
     if (!net) return;
     if (!net.petriNet.net.eventEnabled(net.petriNet.marking, event.id)) {
@@ -114,102 +111,101 @@ export function SystemControl(props: {}) {
   }
 
   return (
-    <div className={"flex flex-col h-screen w-full items-center justify-items-center"}>
+    <div className={"flex flex-col w-full items-center justify-items-center"}>
       <div className={"w-full flex-col overflow-auto"}>
-        <div className={"flex h-full w-full flex-row space-x-2 p-2 overflow-y-scroll"}>
-          <div className={"space-y-2"}>
-            {net && net.petriNet.net.deviceEvents(net.petriNet.marking).map((
-              {
-                id,
-                name,
-                instances,
-                events
-              }) => {
-              return (
-                <div
-                  key={id}
-                  className={"flex flex-col space-y-2 border-md rounded-lg p-2"}
-                >
-                  <h2 className={"text-xl font-bold"}>{name}</h2>
-                  <select
-                    defaultValue={""}
-                    className={"rounded-full p-2"}
-                    onChange={(e) => {
-                      const instance = instances.find((instance) => instance.id === e.target.value);
-                      if (!instance) return;
-                      handleSelectChanged(id, instance.id);
-                      const data = { data: {}, deviceID: instance.id, command: "get" };
-                      console.log("systemControl sent", data);
-                    }
-                    }>
-                    <option value={""}>Select a device</option>
-                    {instances?.map((instance) => {
-                        return (
-                          <option key={instance.id} value={instance.id}>{instance.name}</option>
-                        );
-                      }
-                    )}
-                  </select>
-                  {events.map((event) => {
-                      return (
-                        <div
-                          className={"flex flex-col space-y-2 border-md rounded-lg p-2"}
-                          key={event.id}
-                        >
-                          <h2 className={"text-xl font-bold"}>{event.name}</h2>
-                          <form onSubmit={(e) => {
-                            const formData = new FormData(e.target as HTMLFormElement);
-                            const data = parse(formData, {
-                              schema: makeZodSchema(event.fields)
-                            });
-                            e.preventDefault();
-                            if (!data.value) {
-                              alert(data.error);
-                            }
-                            handleEvent(event, id, data.value);
-                          }}>
-                            {event.fields!.map((field, i) => {
-                              return (
-                                <div
-                                  key={i}
-                                  className={"m-2 flex flex-row space-x-2 items-center"}
-                                >
-                                  <label
-                                    className={"w-1/2 text-right font-medium"}
-                                    htmlFor={field.name}
-                                  >
-                                    {field.name}
-                                  </label>
-                                  <input
-                                    className={"rounded-full p-2 bg-transparent text-inherit w-1/2"}
-                                    type={field.type} name={field.name}
-                                  />
-                                </div>
-                              );
-                            })}
-                            <button
-                              className={`flex rounded-full px-2 py-1 font-medium text-white flex-grow-0 flex-shrink ${event.enabled ? "bg-green-700" : "bg-slate-900"} `}
-                              disabled={net.petriNet.enabledEvents[event.id] !== null ? !net.petriNet.enabledEvents[event.id] : true}
-                              type="submit"
-                            >{net.petriNet.enabledEvents[event.id] ? "Send" : "Disabled"}</button>
-                          </form>
-                        </div>
-                      );
-                    }
-                  )}
-                </div>
-              );
-            })
-            }
-          </div>
+        <div className={"flex h-1/4 w-full flex-col space-x-2 p-2 overflow-y-scroll"}>
           <div
             className={"flex h-full w-full border-2 border-gray-900 rounded-xl items-center p-2 space-x-2"}
           >
             {net && <MarkedNet marking={net.petriNet.marking} net={net.petriNet.net} />}
           </div>
         </div>
+        <div className={"flex h-2/4 flex-row flex-wrap gap-2"}>
+          {net && net.petriNet.net.deviceEvents(net.petriNet.marking).map((
+            {
+              id,
+              name,
+              instances,
+              events
+            }) => {
+            return (
+              <div
+                key={id}
+                className={"flex flex-col border-2 dark:border-gray-50 dark:border-opacity-30 rounded-lg p-2 h-96 w-96 "}
+              >
+                <div className={"flex flex-row space-x-2 justify-between sticky py-1 px-2"}>
+                  <h2 className={"text-xl font-bold"}>{name}</h2>
+                  <button
+                    onClick={() => {
+                      if (hiddenDevices.includes(id)) {
+                        showDevice(id);
+                      } else {
+                        hideDevice(id);
+                      }
+                    }}>
+                    {hiddenDevices.includes(id) ?
+                      <EyeIcon className={"w-6 h-6"} /> :
+                      <EyeSlashIcon className={"w-6 h-6"} />}
+                  </button>
+                </div>
+                <div className={"overflow-auto"}>
+
+                {!hiddenDevices.includes(id) && events.map((event) => {
+                    return (
+                      <div
+                        className={"flex flex-col space-y-2 border-md rounded-lg p-2"}
+                        key={event.id}
+                      >
+                        <h2 className={"text-xl font-bold"}>{event.name}</h2>
+                        <form onSubmit={(e) => {
+                          const formData = new FormData(e.target as HTMLFormElement);
+                          const data = parse(formData, {
+                            schema: makeZodSchema(event.fields)
+                          });
+                          e.preventDefault();
+                          if (!data.value) {
+                            alert(data.error);
+                          }
+                          handleEvent(event, id, data.value);
+                        }}>
+                          {event.fields!.map((field, i) => {
+                            return (
+                              <div
+                                key={i}
+                                className={"m-2 flex flex-row space-x-2 items-center"}
+                              >
+                                <label
+                                  className={"w-1/2 text-right font-medium"}
+                                  htmlFor={field.name}
+                                >
+                                  {field.name}
+                                </label>
+                                <input
+                                  className={"rounded-full p-2 bg-transparent text-inherit w-1/2"}
+                                  type={field.type} name={field.name}
+                                />
+                              </div>
+                            );
+                          })}
+                          <button
+                            className={`flex rounded-full px-2 py-1 font-medium text-white flex-grow-0 flex-shrink ${event.enabled ? "bg-green-700" : "bg-slate-900"} `}
+                            disabled={net.petriNet.enabledEvents[event.id] !== null ? !net.petriNet.enabledEvents[event.id] : true}
+                            type="submit"
+                          >{net.petriNet.enabledEvents[event.id] ? "Send" : "Disabled"}</button>
+                        </form>
+                      </div>
+                    );
+                  }
+                )}
+              </div>
+              </div>
+            );
+          })
+          }
+        </div>
+
       </div>
-      <div className={"w-full"}>
+      <div className={"w-screen h-1/4"}>
         <Suspense fallback={<div>Loading...</div>}>
           {net && run &&
             <Timeline sequence={run} />

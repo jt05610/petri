@@ -6,7 +6,10 @@ export const DeviceInputSchema = z.object({
   name: z.string(),
   authorID: z.string().cuid(),
   description: z.string(),
-  netIDs: z.array(z.string().cuid()).optional()
+  netIDs: z.preprocess((netIDs) => {
+    if (typeof netIDs === "string") return [netIDs];
+    return netIDs;
+  }, z.array(z.string().cuid()).optional())
 });
 
 export type DeviceInput = z.infer<typeof DeviceInputSchema>;

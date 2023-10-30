@@ -6,6 +6,7 @@ datasource db {
 generator client {
   provider = "prisma-client-js"
 }
+
 generator db {
   provider = "go run github.com/steebchen/prisma-client-go"
 }
@@ -30,6 +31,7 @@ model User {
   devices   Device[]
   instances Instance[]
   sessions  Session[]
+  Sample    Sample[]
 }
 
 model Password {
@@ -237,6 +239,8 @@ model Run {
   netID       String
   sessions    Session[]
   steps       Step[]
+  Batch       Batch[]
+  Sample      Sample[]
 }
 
 model Instrument {
@@ -290,11 +294,29 @@ model Datum {
   analysisId   String?
 }
 
+model Batch {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  samples   Sample[]
+  run       Run?     @relation(fields: [runID], references: [id])
+  runID     String?
+}
+
 model Sample {
   id        String   @id @default(cuid())
+  name      String
+  group     String
+  user      User     @relation(fields: [userID], references: [id])
+  userID    String
+  batch     Batch?   @relation(fields: [batchId], references: [id])
+  batchId   String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   data      Datum[]
+  run       Run?     @relation(fields: [runID], references: [id])
+  runID     String?
   params    Json
 }
 

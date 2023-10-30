@@ -16,7 +16,11 @@ type GridHeaderItemProps = {
 function GridHeaderItem({ col }: GridHeaderItemProps) {
   return (
     <div
-      className={`px-2 row-start-1 col-start-${col} ${col == 0 && "text-right"} sticky top-0 z-10 bg-white dark:bg-gradient-to-b dark:from-slate-600 dark:to-slate-700 border-slate-100 dark:border-black/10 bg-clip-padding text-slate-900 dark:text-slate-200 border-b text-sm font-medium py-2`}
+      className={`
+      px-2 
+      row-start-1 
+      col-start-${col} ${col == 1 ? "text-right max-w-xs" : "max-w-md"}
+      sticky top-0 z-10 min-w-xs bg-white dark:bg-gradient-to-b dark:from-slate-600 dark:to-slate-700 border-slate-100 dark:border-black/10 bg-clip-padding text-slate-900 dark:text-slate-200 border-b text-sm font-medium py-2`}
     >
       {(col > 1 ? `${col - 1}` : "Step")}
     </div>
@@ -30,7 +34,7 @@ type GridCellProps = {
 function GridCell({ children }: GridCellProps) {
   return (
     <div
-      className={`border-slate-100 dark:border-slate-200/5 border-b border-r`}
+      className={`border-slate-100 dark:border-slate-200/5 border-b border-r min-w-xs max-w-md`}
     >
       {children}
     </div>
@@ -46,7 +50,7 @@ type GridRowProps = {
 function GridHeaderCell({ children, row }: GridRowProps) {
   return (
     <div
-      className={`col-start-1 border-slate-100 dark:border-slate-200/5 border-r text-xs p-1.5 text-right text-slate-400 uppercase sticky left-0 bg-white dark:bg-slate-800 font-medium`}>
+      className={`col-start-1 max-w-xs border-slate-100 dark:border-slate-200/5 border-r text-xs p-1.5 text-right text-slate-400 uppercase sticky left-0 bg-white dark:bg-slate-800 font-medium`}>
       {children}
     </div>
   );
@@ -350,7 +354,7 @@ export function RecordRunGridView({ nCols, nRows, deviceNames, sequence }: Recor
       <div className="relative rounded-xl overflow-auto">
         <div className="mx-4 bg-white dark:bg-slate-800 shadow-xl overflow-hidden">
           <div
-            className={`overflow-scroll grid  grid-cols-${nCols + 1} grid-rows-${nRows + 1}`}>
+            className={`overflow-scroll grid`}>
             {Array.from({ length: nRows + 1 }).map((_, row) => {
               return Array.from({ length: nCols + 1 }).map((_, col) => {
                   if (row === 0) {

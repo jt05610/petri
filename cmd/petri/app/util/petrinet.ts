@@ -234,7 +234,7 @@ export class PetriNet {
     }
     for (let child of this.net.children) {
       if (child.devices) {
-        child.devices.forEach(({device}) => {
+        child.devices.forEach(({ device }) => {
           if (!device.instances) {
             return;
           }

@@ -13,7 +13,6 @@ import {
   StartDocument, StopSessionDocument
 } from "~/models/__generated__/graphql";
 import { useRef, type ReactNode, Suspense } from "react";
-import type { Parameter } from "~/models/net.run.session.data.server";
 import type { ParameterWithValue } from "~/lib/context/session";
 import { RunSessionActionType, RunSessionContext, RunSessionProvider } from "~/lib/context/session";
 import { useMutation, useQuery } from "@apollo/client";
@@ -23,6 +22,7 @@ import { PetriNetContext } from "~/lib/context/petrinet";
 import { PlayIcon } from "@heroicons/react/24/solid";
 import { SessionState } from "@prisma/client";
 import { PauseIcon, StopIcon } from "@heroicons/react/24/outline";
+import { getParameters, toParameterRecord } from "~/util/parameters";
 
 export const loader = async ({ params, request }: LoaderArgs) => {
   const { sessionID } = params;
@@ -36,65 +36,6 @@ export const loader = async ({ params, request }: LoaderArgs) => {
   console.log(runDevices);
   return json({ session: details, runParams: toParameterRecord(parameters), runDevices });
 };
-
-type EventConstant = {
-  event: RunSessionDetails["run"]["steps"][0]["action"]["event"]
-  order: number
-  constants: RunSessionDetails["run"]["steps"][0]["action"]["constants"]
-  deviceID: string
-}
-
-
-function toParameterRecord(parameters: Record<string, Parameter[]>): Record<string, Record<number, Record<string, ParameterWithValue>>> {
-  const pr: Record<string, Record<number, Record<string, ParameterWithValue>>> = {};
-  Object.entries(parameters).forEach(([deviceID, parameters]) => {
-      pr[deviceID] = {};
-      parameters.forEach((param) => {
-        pr[deviceID][param.order] = {
-          ...pr[deviceID][param.order],
-          [param.fieldID]: {
-            parameter: param,
-            value: ""
-          }
-        };
-      });
-    }
-  );
-  console.log("param record", pr);
-  return pr;
-}
-
-function getParameters(run: RunSessionDetails["run"]): Record<string, Parameter[]> {
-  // make all EventConstants from the run
-  const eventConstants: EventConstant[] = run.steps.map(({ action, order }) => {
-    return {
-      order,
-      deviceID: action.device.id,
-      event: action.event!,
-      constants: action.constants
-    };
-  });
-  console.log(eventConstants);
-  const params: Record<string, Parameter[]> = {};
-  eventConstants.forEach(({ order, event, constants, deviceID }) => {
-    event.fields.forEach((field) => {
-      const constant = constants.find((constant) => constant.field.id === field.id);
-      if (constant) return;
-      console.log(event);
-      if (!params[deviceID]) params[deviceID] = [];
-      params[deviceID].push({
-        order,
-        eventID: event.id,
-        deviceID: deviceID,
-        fieldID: field.id,
-        fieldName: field.name,
-        fieldType: field.type
-      });
-    });
-  });
-  console.log("params", params);
-  return params;
-}
 
 type DeviceCardProps = {
   device: RunSessionDetails["run"]["steps"][0]["action"]["device"]

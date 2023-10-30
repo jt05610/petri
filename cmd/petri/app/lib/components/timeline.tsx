@@ -6,7 +6,6 @@ import { RecordRunGridView } from "~/lib/components/displayGrid";
 import { useState } from "react";
 import { PetriNetContext } from "~/lib/context/petrinet";
 import { useNavigate } from "@remix-run/react";
-import { RecordRunContext } from "~/context";
 
 
 type RunViewProps = {
@@ -69,8 +68,8 @@ export default function Timeline({ sequence }: TimelineProps) {
       </button>
       {
         sequence && <RunView
-          minCols={40}
-          minRows={10}
+          minCols={sequence.actions.length + 1}
+          minRows={petriNet?.net.devices.length ?? 10}
           deviceNames={petriNet?.net.devices.map((d) => d.name) ?? []}
           sequence={sequence}
         />

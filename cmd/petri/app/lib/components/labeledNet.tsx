@@ -15,18 +15,18 @@ export function LabeledNet(props: LabeledNetProps) {
   useEffect(() => {
     const graph = props.net.toGraphViz(
       props.placeSize || 1,
-      colorProfiles["default"],
+      colorProfiles["default"]
     );
     setGraph(graph);
   }, [props]);
 
   return (
-    <div className="flex flex-col items-center border dark:border-slate-200 border-md rounded-lg m-2">
+    <div className="flex flex-col flex-grow items-center border dark:border-slate-200 border-md rounded-lg m-2">
       <Suspense fallback={<div>Loading...</div>}>
         {graph && (
           <Graphviz
             dot={graph}
-            options={{ zoom: true, height: 720, width: 1280 }} />
+            options={{ zoom: true, fit: true }} />
         )}
       </Suspense>
     </div>

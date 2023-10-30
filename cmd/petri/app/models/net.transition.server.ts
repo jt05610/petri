@@ -11,7 +11,6 @@ export const TransitionInputSchema = z.object({
 
 export type TransitionInput = z.infer<typeof TransitionInputSchema>;
 
-
 export type TransitionDetails =
   Pick<Transition, "id" | "name" | "description" | "condition" | "createdAt" | "updatedAt">
   & {
@@ -145,6 +144,7 @@ export async function updateTransition(input: UpdateTransitionInput) {
     data: { name, description, condition }
   });
 }
+
 export async function deleteTransition({ id }: Pick<Transition, "id">) {
   return prisma.transition.deleteMany({
     where: {

@@ -42,6 +42,18 @@ export async function addConstant(input: AddConstantToAction): Promise<ConstantD
           id: actionId
         }
       }
+    },
+    select: {
+      id: true,
+      fieldID: true,
+      value: true,
+      field: {
+        select: {
+          id: true,
+          name: true,
+          type: true
+        }
+      }
     }
   });
 }
@@ -306,12 +318,15 @@ export const getRunInputSchema = z.object({
 
 export type GetRunInput = z.infer<typeof getRunInputSchema>;
 
-export type ConstantDetails = Pick<Constant, "id" | "fieldID" | "value">
+export type ConstantDetails = Pick<Constant, "id" | "fieldID" | "value"> & {
+  field: Pick<Field, "id" | "name" | "type">
+}
 
 export type ActionDetails = Pick<Action, "id"> & {
   event: {
     id: string
     name: string
+    description: string | null
     fields: Pick<Field, "id" | "name" | "type">[]
   }
   device: {
@@ -364,6 +379,7 @@ export async function getRunDetails(input: GetRunInput): Promise<RunDetails> {
                 select: {
                   id: true,
                   name: true,
+                  description: true,
                   fields: {
                     select: {
                       id: true,
@@ -377,7 +393,15 @@ export async function getRunDetails(input: GetRunInput): Promise<RunDetails> {
                 select: {
                   id: true,
                   fieldID: true,
-                  value: true
+                  value: true,
+                  field: {
+                    select: {
+                      id: true,
+                      name: true,
+                      type: true
+                    }
+                  }
+
                 }
               }
             }

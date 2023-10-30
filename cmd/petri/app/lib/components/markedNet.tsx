@@ -53,7 +53,7 @@ export function MarkedNet(props: MarkedNetProps) {
         {graph && (
           <Graphviz
             dot={graph}
-            options={{ zoom: true, height: 720, width: 1280 }} />
+            options={{ zoom: true }} />
         )}
       </Suspense>
     </div>

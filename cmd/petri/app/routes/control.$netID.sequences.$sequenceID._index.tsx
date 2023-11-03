@@ -8,23 +8,27 @@ import { requireUserId } from "~/session.server";
 import { getUserById } from "~/models/user.server";
 import { Form, useLoaderData, useActionData } from "@remix-run/react";
 import JSZip from "jszip";
-import { getParameterRecord } from "~/util/parameters";
+import { getParameterRecord, initialParameters } from "~/util/parameters";
 
 import type { FieldConfig } from "@conform-to/react";
 import { conform, useFieldList, useFieldset, useForm, list } from "@conform-to/react";
 import { z } from "zod";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { MinusCircleIcon, PlusCircleIcon } from "@heroicons/react/24/outline";
-import { ExperimentDesignResult, ExperimentSample, makeExperiment } from "~/models/experiment.server";
-import {
+import type { ExperimentDesignResult, ExperimentSample } from "~/models/experiment.server";
+import { makeExperiment } from "~/models/experiment.server";
+import type {
   BatchInput,
-  createBatch,
-  getSamples,
   SampleDetails,
   SampleInput
 } from "~/models/net.run.session.sample.server";
+import {
+  createBatch,
+  getSamples
+} from "~/models/net.run.session.sample.server";
 import invariant from "tiny-invariant";
 import { createColumnHelper, useReactTable, getCoreRowModel, flexRender } from "@tanstack/react-table";
+import type { ParameterWithValue } from "~/lib/context/session";
 
 enum ExperimentType {
   lhs = "lhs",
@@ -293,8 +297,60 @@ const inputClass = "block rounded-full w-full px-3 py-2 border border-gray-300 s
 const labelClass = "block text-sm font-medium text-gray-700 dark:text-gray-300";
 const errorClass = "block text-sm font-medium text-red-700 dark:text-red-300";
 
+type SequenceParameterEditorProps = {
+  sequence: RunDetails
+}
+
+function SequenceParameterEditor({ sequence }: SequenceParameterEditorProps) {
+  const paramRecord = getParameterRecord(sequence);
+  const [params, setParams] = useState(initialParameters(paramRecord));
+
+  function setParameter(index: number, value: string | number) {
+    const param = params[index];
+    const newParams = [...params, {
+      ...param,
+      value: value.toString()
+    }];
+    setParams(newParams);
+  }
+
+  function updateExpression(index: number, value: string) {
+    const param = params[index];
+    const newParams = [...params, {
+      ...param,
+      expressions: value.split("\n")
+    }];
+    setParams(newParams);
+  }
+
+  return (
+    <div className={"flex flex-wrap gap-2 w-full"}>
+      {params.map(({ parameter, value }, index) => {
+        const paramName = `${parameter.name}_${parameter.step}`;
+        return (
+          <div key={index}>
+            <label className={labelClass} htmlFor={paramName}>{paramName}</label>
+            <textarea
+              id={paramName}
+              className={`rounded-md w-full px-3 py-2 border border-gray-300 shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm dark:bg-slate-800 dark:border-slate-400 dark:text-gray-300`}
+              onChange={(e) => updateExpression(index, e.target.value)}
+            />
+          </div>
+        );
+      })}
+    </div>
+  );
+
+}
+
 export default function SequenceIndexPage() {
   const { samples } = useLoaderData<typeof loader>();
+  const sequence = useContextSelector(RunContext, (context) => context?.run);
+  const [parameters, setParameters] = useState<Record<string, Record<string, Record<string, ParameterWithValue>>>>();
+  useEffect(() => {
+    if (!sequence) return;
+    setParameters(getParameterRecord(sequence));
+  }, [sequence]);
   const lastSubmission = useActionData<typeof action>();
   const [form, { id_stem, axes, n_samples, strength, kind }] = useForm({
     lastSubmission,
@@ -305,11 +361,14 @@ export default function SequenceIndexPage() {
       return sub;
     }
   });
+
   const axisList = useFieldList(form.ref, axes);
-  const [expressions, setExpressions] = useState<string[]>([]);
 
   return (
     <div>
+      {sequence && (
+        <SequenceParameterEditor sequence={sequence} />
+      )}
       <DownloadComponent />
       <Form method="post" {...form.props} className={"w-96"}>
         <div>

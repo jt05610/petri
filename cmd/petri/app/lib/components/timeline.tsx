@@ -30,6 +30,7 @@ type TimelineProps = {
 export default function Timeline({ sequence }: TimelineProps) {
   const petriNet = useContextSelector(PetriNetContext, (context) => context?.petriNet);
   const [name, setName] = useState("");
+
   const navigate = useNavigate();
 
   async function handleSubmit() {
@@ -44,10 +45,11 @@ export default function Timeline({ sequence }: TimelineProps) {
       console.log("response", res);
     });
   }
-
   return (
     <div className={"w-full bottom-0 space-x-2"}>
+
       <h4>Timeline</h4>
+
       <label
         htmlFor={"name"}
       >
@@ -67,13 +69,14 @@ export default function Timeline({ sequence }: TimelineProps) {
         Save
       </button>
       {
-        sequence && <RunView
+        sequence && (<RunView
           minCols={sequence.actions.length + 1}
           minRows={petriNet?.net.devices.length ?? 10}
           deviceNames={petriNet?.net.devices.map((d) => d.name) ?? []}
           sequence={sequence}
-        />
+        />)
       }
     </div>
-  );
+  )
+    ;
 }

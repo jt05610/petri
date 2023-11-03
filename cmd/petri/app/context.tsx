@@ -26,12 +26,17 @@ type ConstantDeletedPayload = {
   actionIndex: number;
 }
 
-type RunActionPayload = ActionAddedPayload | ActionRemovedPayload | ConstantDeletedPayload;
+type ExpressionChangedPayload = {
+  expression: string;
+}
+
+type RunActionPayload = ActionAddedPayload | ActionRemovedPayload | ConstantDeletedPayload | ExpressionChangedPayload;
 
 export enum RunActionType {
   ActionAdded = "actionAdded",
   ActionRemoved = "actionRemoved",
   ConstantDeleted = "removeConstant",
+  ExpressionChanged = "expressionChanged",
 }
 
 type RunAction = {
@@ -44,7 +49,8 @@ const defaultInitial: RunInputDisplay = {
   description: "",
   name: "",
   netID: "",
-  actions: []
+  actions: [],
+  expression: ""
 };
 
 
@@ -90,6 +96,10 @@ function runReducer(state: RunInputDisplay, action: RunAction): RunInputDisplay 
       const constants = runAction.constants.filter((c) => c.fieldID !== fieldID);
       actions[actionIndex] = { ...runAction, constants };
       return { ...state, actions };
+    }
+    case RunActionType.ExpressionChanged: {
+      const { expression } = action.payload as ExpressionChangedPayload;
+      return { ...state, expression };
     }
     default:
       throw Error("Invalid action type");

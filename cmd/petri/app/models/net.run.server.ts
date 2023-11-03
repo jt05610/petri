@@ -226,6 +226,7 @@ export const RunInputSchema = z.object({
   name: z.string(),
   description: z.string(),
   netID: z.string().cuid(),
+  expression: z.string().optional(),
   actions: z.array(ActionInputSchema)
 });
 
@@ -234,6 +235,7 @@ export const RunInputDisplaySchema = z.object({
   description: z.string(),
   netID: z.string().cuid(),
   deviceNames: z.array(z.string()),
+  expression: z.string().optional(),
   actions: z.array(ActionInputDisplaySchema)
 });
 
@@ -242,11 +244,12 @@ export type RunInputDisplay = z.infer<typeof RunInputDisplaySchema>;
 export type RunInput = z.infer<typeof RunInputSchema>;
 
 export async function addRun(input: RunInput) {
-  const { name, description, netID, actions } = RunInputSchema.parse(input);
+  const { name, description, netID, actions, expression } = RunInputSchema.parse(input);
   return prisma.run.create({
     data: {
       name,
       description,
+      expression,
       net: {
         connect: {
           id: netID

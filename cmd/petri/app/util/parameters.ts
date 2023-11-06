@@ -1,5 +1,5 @@
 import type { ParameterWithValue } from "~/lib/context/session";
-import type { RunDetails } from "~/models/net.run.server";
+import type { RunDetails } from "~/models/net.run";
 import * as math from "mathjs";
 
 export function toParameterRecord(parameters: Record<string, ParameterWithValue[]>): Record<string, Record<number, Record<string, ParameterWithValue>>> {
@@ -126,7 +126,7 @@ export function initialParameters(pr: ParameterRecord): ExperimentParameterWithV
   });
 }
 
-export function evaluateEntry(parser: math.Parser, entry: string): string {
+export function evaluateEntry(scope: Map<string, any>, entry: string): string {
   // get everything from the entry in between {}
   const expressions = entry.match(/{(.*?)}/g);
   if (!expressions) {
@@ -140,9 +140,9 @@ export function evaluateEntry(parser: math.Parser, entry: string): string {
     let value;
 
     try {
-      value = parser.get(variableName);
+      value = math.evaluate(variableName, scope);
     } catch (e) {
-      throw e
+      throw e;
     }
 
     // Replace {variable} with its value in the evaluatedEntry
@@ -152,16 +152,33 @@ export function evaluateEntry(parser: math.Parser, entry: string): string {
   return evaluatedEntry;
 }
 
-export function listParameters(parser: math.Parser): string[] {
-  return Object.keys(parser.getAll())
+export function listParameters(scope: Map<string, any>): string[] {
+  const parameters: string[] = [];
+  scope.forEach((value, key) => {
+    if (typeof value === "number" || typeof value === "string") {
+      parameters.push(key);
+    }
+  });
+  return parameters;
 }
 
-export function validEntry(parser: math.Parser, entry: string): boolean {
+export function validEntry(scope: Map<string, any>, entry: string): boolean {
   try {
-    evaluateEntry(parser, entry);
+    evaluateEntry(scope, entry);
   } catch (e) {
     return false;
   }
   return true;
+}
+
+export function parameterScope(params?: RunDetails["parameters"]) {
+  if (!params) {
+    return new Map<string, any>();
+  }
+  const ret = new Map<string, any>();
+  params.forEach((param) => {
+    ret.set(param.name, param.expression);
+  });
+  return ret;
 }
 

@@ -1,50 +1,42 @@
 import type { ActionArgs } from "@remix-run/node";
 import { json, redirect } from "@remix-run/node";
 import { Form, useActionData } from "@remix-run/react";
-import { useEffect, useRef } from "react";
-
-import { createNet } from "~/models/net.server";
+import { parse } from "@conform-to/zod";
+import { updateNet } from "~/models/net.server";
 import { requireUserId } from "~/session.server";
+import invariant from "tiny-invariant";
+import { getUserById } from "~/models/user.server";
+import { UpdateNetSchema } from "~/models/net";
+import { useForm } from "@conform-to/react";
+import { Field, FieldList, FieldTextArea, SelectField } from "~/lib/components/FormFieldSet";
+import React from "react";
+import { useNet } from "~/lib/context/NetContext";
 
-export const action = async ({ request }: ActionArgs) => {
+export const action = async ({ params, request }: ActionArgs) => {
   const authorID = await requireUserId(request);
-
+  const netID = params.netID;
+  invariant(netID, "netID is required");
+  const user = await getUserById(authorID);
+  invariant(user, "user is required");
   const formData = await request.formData();
-  const name = formData.get("title");
-  const description = formData.get("desc");
-
-  if (typeof name !== "string" || name.length === 0) {
-    return json(
-      { errors: { body: null, title: "Title is required" } },
-      { status: 400 }
-    );
+  const submission = parse(formData, { schema: UpdateNetSchema });
+  if (submission.intent !== "submit" || !submission.value) {
+    return json(submission);
   }
-
-  if (typeof description !== "string" || description.length === 0) {
-    return json(
-      { errors: { body: "Description is required", title: null } },
-      { status: 400 }
-    );
-  }
-
-  const net = await createNet({ name, description, authorID });
-
-  return redirect(`/design/${net.id}`);
+  const net = await updateNet(netID, submission.value);
+  return redirect(`/nets/${net.id}`);
 };
 
-export default function NetNetPage() {
-  const actionData = useActionData<typeof action>();
-  const titleRef = useRef<HTMLInputElement>(null);
-  const bodyRef = useRef<HTMLTextAreaElement>(null);
-
-  useEffect(() => {
-    if (actionData?.errors?.title) {
-      titleRef.current?.focus();
-    } else if (actionData?.errors?.body) {
-      bodyRef.current?.focus();
+export default function EditNetPage() {
+  const lastSubmission = useActionData<typeof action>();
+  const net = useNet();
+  const [form, { name, description, visibility, sharedWith }] = useForm({
+    lastSubmission,
+    shouldValidate: "onBlur",
+    onValidate({ formData }) {
+      return parse(formData, { schema: UpdateNetSchema });
     }
-  }, [actionData]);
-
+  });
   return (
     <Form
       method="post"
@@ -54,56 +46,17 @@ export default function NetNetPage() {
         gap: 8,
         width: "100%"
       }}
+      {...form.props}
     >
-      <div>
-        <label className="flex w-full flex-col gap-1">
-          <span>Name: </span>
-          <input
-            ref={titleRef}
-            name="title"
-            className="flex-1 rounded-md border-2 border-blue-500 px-3 text-lg leading-loose"
-            aria-invalid={actionData?.errors?.title ? true : undefined}
-            aria-errormessage={
-              actionData?.errors?.title ? "title-error" : undefined
-            }
-          />
-        </label>
-        {actionData?.errors?.title ? (
-          <div className="pt-1 text-red-700" id="title-error">
-            {actionData.errors.title}
-          </div>
-        ) : null}
-      </div>
-
-      <div>
-        <label className="flex w-full flex-col gap-1">
-          <span>Description: </span>
-          <textarea
-            ref={bodyRef}
-            name="desc"
-            rows={8}
-            className="w-full flex-1 rounded-md border-2 border-blue-500 px-3 py-2 text-lg leading-6"
-            aria-invalid={actionData?.errors?.body ? true : undefined}
-            aria-errormessage={
-              actionData?.errors?.body ? "body-error" : undefined
-            }
-          />
-        </label>
-        {actionData?.errors?.body ? (
-          <div className="pt-1 text-red-700" id="body-error">
-            {actionData.errors.body}
-          </div>
-        ) : null}
-      </div>
-
-      <div className="text-right">
-        <button
-          type="submit"
-          className="rounded bg-blue-500 px-4 py-2 text-white hover:bg-blue-600 focus:bg-blue-400"
-        >
-          Save
-        </button>
-      </div>
+      <Field {...name} defaultValue={net.name} />
+      <FieldTextArea {...description} defaultValue={net.description} />
+      <SelectField {...visibility} options={["PRIVATE", "PUBLIC"]} defaultValue={net.visibility} />
+      <FieldList {...sharedWith} defaultValue={net.sharedWith.map((user) => user.user.email)} />
+      <button
+        type="submit"
+        className={"block rounded-full w-full px-3 py-2 border border-gray-300 shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm dark:bg-slate-800 dark:border-slate-400 dark:text-gray-300"}
+      >Submit
+      </button>
     </Form>
   );
 }

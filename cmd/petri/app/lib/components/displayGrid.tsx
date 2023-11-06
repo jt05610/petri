@@ -1,6 +1,6 @@
 import type { MutableRefObject, ReactNode } from "react";
 import { Suspense } from "react";
-import type { ConstantInput, RunDetails, RunInputDisplay } from "~/models/net.run.server";
+import type { ConstantInput, RunDetails, RunInputDisplay } from "~/models/net.run";
 import { useContextSelector } from "use-context-selector";
 import { RecordRunContext, RunActionType } from "~/context";
 import { BackspaceIcon } from "@heroicons/react/24/outline";
@@ -348,13 +348,13 @@ export function RecordRunGridView({ nCols, nRows, deviceNames, sequence }: Recor
   const [petriNet, petriNetDispatch] = useContextSelector(PetriNetContext, (context) => [context!.petriNet.net, context!.dispatch]);
   const dispatch = useContextSelector(RecordRunContext, (context) => context?.dispatch);
   return (
-    <div className="not-prose relative bg-slate-50 rounded-xl overflow-hidden dark:bg-slate-800/25">
+    <div className="flex w-full not-prose relative bg-slate-50 rounded-xl overflow-hidden dark:bg-slate-800/25">
       <div
-        className="absolute inset-0 bg-grid-slate-100 [mask-image:linear-gradient(0deg,#fff,rgba(255,255,255,0.6))] dark:bg-grid-slate-700/25 dark:[mask-image:linear-gradient(0deg,rgba(255,255,255,0.1),rgba(255,255,255,0.5))]"></div>
-      <div className="relative rounded-xl overflow-auto">
-        <div className="mx-4 bg-white dark:bg-slate-800 shadow-xl overflow-hidden">
+        className="absolute inset-0 w-full flex bg-grid-slate-100 [mask-image:linear-gradient(0deg,#fff,rgba(255,255,255,0.6))] dark:bg-grid-slate-700/25 dark:[mask-image:linear-gradient(0deg,rgba(255,255,255,0.1),rgba(255,255,255,0.5))]"></div>
+      <div className="flex w-full relative rounded-xl overflow-auto">
+        <div className="flex w-full mx-4 bg-white dark:bg-slate-800 shadow-xl overflow-hidden">
           <div
-            className={`overflow-scroll grid`}>
+            className={`w-full overflow-scroll grid`}>
             {Array.from({ length: nRows + 1 }).map((_, row) => {
               return Array.from({ length: nCols + 1 }).map((_, col) => {
                   if (row === 0) {
@@ -416,7 +416,7 @@ export function RecordRunGridView({ nCols, nRows, deviceNames, sequence }: Recor
                       );
                     }
                   }
-                  return <GridCell key={`${row}.${col}`} />;
+                  return <GridCell key={`${row}.${col}`} />
                 }
               );
             })

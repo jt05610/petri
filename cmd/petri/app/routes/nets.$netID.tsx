@@ -10,6 +10,8 @@ import { Listbox } from "@headlessui/react";
 import { useContextSelector } from "use-context-selector";
 import { NetsContext } from "~/lib/context/nets";
 import { PetriNet } from "~/util/petrinet";
+import { NetProvider } from "~/lib/context/NetContext";
+import { useUser } from "~/lib/context/UserContext";
 
 
 export const loader = async ({ params, request }: LoaderArgs) => {
@@ -73,42 +75,47 @@ function LinkList(props: LinkListProps) {
 
 export default function NetDetailsPage() {
   const data = useLoaderData<typeof loader>();
+  const user = useUser();
   const nets = useContextSelector(NetsContext, (context) => context);
   const [insertNets, setInsertNets] = useState<string[]>([]);
   const petriNet = useMemo(() => {
     return new PetriNet(data.net);
   }, [data.net]);
   return (
-    <div className={"flex flex-row space-y-2"}>
-      <div className={"flex flex-grow"}>
-        <LabeledNet net={petriNet} />
-      </div>
-      <div className={"flex flex-col bg-slate-100 dark:bg-slate-700 space-y-1 p-2"}>
-        <div className={"flex flex-col "}>
-          <h3 className="text-lg font-bold">{data.net.name}</h3>
-          <p className="text-md">{data.net.description}</p>
+    <NetProvider {...data}>
+      <div className={"flex flex-row space-y-2"}>
+        <div className={"flex flex-grow"}>
+          <LabeledNet net={petriNet} />
         </div>
-        <div>
-          <h2>Child nets</h2>
-          <NetDropdown value={insertNets} setValue={setInsertNets} options={nets?.map((net) => {
-            return net.id;
-          })} />
-        </div>
-
-        <div>
-          <LinkList btnClass={"text-white p-2"} routes={[
-            { name: "Places", path: "places" },
-            { name: "Transitions", path: "transitions" },
-            { name: "Arcs", path: "arcs" },
-            { name: "Sequence", path: `/control/${data.net.id}/record` },
-            { name: "Devices", path: "devices" }
-          ]} />
-          <div className={"overflow-auto h-full"}>
-            <Outlet />
+        {data.net.authorID === user.id && (
+          <div className={"flex flex-col bg-slate-100 dark:bg-slate-700 space-y-1 p-2"}>
+            <div className={"flex flex-col "}>
+              <h3 className="text-lg font-bold">{data.net.name}</h3>
+              <p className="text-md">{data.net.description}</p>
+            </div>
+            <div>
+              <h2>Child nets</h2>
+              <NetDropdown value={insertNets} setValue={setInsertNets} options={nets?.map((net) => {
+                return net.id;
+              })} />
+            </div>
+            <div>
+              <LinkList btnClass={"text-white p-2"} routes={[
+                { name: "Edit", path: "edit" },
+                { name: "Places", path: "places" },
+                { name: "Transitions", path: "transitions" },
+                { name: "Arcs", path: "arcs" },
+                { name: "Sequence", path: `/control/${data.net.id}/record` },
+                { name: "Devices", path: "devices" }
+              ]} />
+              <div className={"overflow-auto h-full"}>
+                <Outlet />
+              </div>
+            </div>
           </div>
-        </div>
+        )}
       </div>
-    </div>
+    </NetProvider>
   );
 };
 

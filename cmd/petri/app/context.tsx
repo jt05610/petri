@@ -3,18 +3,22 @@ import { createContext } from "use-context-selector";
 import type { PetriNet } from "~/util/petrinet";
 import { useReducer } from "react";
 import type {
-  ActionInputDisplay,
+  ActionInputDisplay, RunDetails,
   RunInputDisplay
-} from "~/models/net.run.server";
+} from "~/models/net.run";
 import type { DataListItem } from "~/models/net.run.session.data.server";
 import type { RunSessionDetails } from "~/models/net.run.session.server";
+import { validEntry } from "~/util/parameters";
 
 export const RecordRunContext = createContext<({
   run: RunInputDisplay;
   dispatch: Dispatch<RunAction>;
 }) | null>(null);
 
-type ActionAddedPayload = ActionInputDisplay;
+type ActionAddedPayload = {
+  input: ActionInputDisplay
+  scope: Map<string, any>;
+};
 
 
 type ActionRemovedPayload = {
@@ -44,18 +48,21 @@ type RunAction = {
   payload: RunActionPayload;
 }
 
-const defaultInitial: RunInputDisplay = {
-  deviceNames: [],
-  description: "",
-  name: "",
-  netID: "",
-  actions: [],
-  expression: ""
+const defaultInitial = (netID: string, initial: RunDetails) => {
+  return {
+    deviceNames: [],
+    description: initial.description,
+    name: initial.name,
+    parameters: initial.parameters,
+    netID: netID,
+    actions: []
+  };
 };
 
 
 type RecordRunProviderProps = {
-  initialRun?: RunInputDisplay;
+  netID: string;
+  initialRun: RunDetails;
   children: ReactNode;
 }
 
@@ -66,8 +73,8 @@ export const addDeviceNames = (run: RunInputDisplay, pNet: PetriNet): RunInputDi
   };
 };
 
-export function RecordRunProvider({ initialRun, children }: RecordRunProviderProps) {
-  const [run, dispatch] = useReducer<Reducer<RunInputDisplay, RunAction>>(runReducer, initialRun || defaultInitial);
+export function RecordRunProvider({ netID, initialRun, children }: RecordRunProviderProps) {
+  const [run, dispatch] = useReducer<Reducer<RunInputDisplay, RunAction>>(runReducer, defaultInitial(netID, initialRun));
   return (
     <RecordRunContext.Provider value={{ run, dispatch }}>
       {children}
@@ -78,9 +85,14 @@ export function RecordRunProvider({ initialRun, children }: RecordRunProviderPro
 function runReducer(state: RunInputDisplay, action: RunAction): RunInputDisplay {
   switch (action.type) {
     case RunActionType.ActionAdded: {
-      const payload = action.payload as ActionAddedPayload;
+      const { input, scope } = action.payload as ActionAddedPayload;
+      input.constants.forEach((c) => {
+        if (!validEntry(scope, c.value)) {
+          throw Error("Invalid constant value");
+        }
+      });
       const actions = [...state.actions];
-      actions.push(payload);
+      actions.push(input);
       return { ...state, actions };
     }
     case RunActionType.ActionRemoved: {
@@ -96,10 +108,6 @@ function runReducer(state: RunInputDisplay, action: RunAction): RunInputDisplay 
       const constants = runAction.constants.filter((c) => c.fieldID !== fieldID);
       actions[actionIndex] = { ...runAction, constants };
       return { ...state, actions };
-    }
-    case RunActionType.ExpressionChanged: {
-      const { expression } = action.payload as ExpressionChangedPayload;
-      return { ...state, expression };
     }
     default:
       throw Error("Invalid action type");
@@ -139,6 +147,7 @@ type SessionContext = {
 export const RunSessionContext = createContext<SessionContext | null>(null);
 
 type SessionProviderProps = {
+  netID: string;
   sessionDetails: RunSessionDetails;
   children: ReactNode;
 }

@@ -9,7 +9,8 @@ import {
   ServerStackIcon
 } from "@heroicons/react/24/outline";
 import { Sidebar } from "~/routes/nets";
-import { ReactNode, useState } from "react";
+import type { ReactNode } from "react";
+import { useState } from "react";
 import type { LoaderArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { requireUserId } from "~/session.server";

@@ -1,70 +1,81 @@
 import type { ActionArgs, LoaderArgs, V2_MetaFunction } from "@remix-run/node";
 import { json, redirect } from "@remix-run/node";
 import { Form, Link, useActionData, useSearchParams } from "@remix-run/react";
-import type { ReactNode, RefObject } from "react";
-import { useEffect, useRef } from "react";
+import type { ReactNode } from "react";
+import { useId } from "react";
 
-import { verifyLogin } from "~/models/user.server";
+import type { VerifyLoginInput } from "~/models/user.server";
+import { verifyLogin, VerifyLoginSchema } from "~/models/user.server";
 import { createUserSession, getUserId } from "~/session.server";
-import { safeRedirect, validateEmail } from "~/utils";
+import { safeRedirect } from "~/utils";
+import { parse } from "@conform-to/zod";
+import type { Submission } from "@conform-to/react";
+import { conform, useForm } from "@conform-to/react";
 
 export const loader = async ({ request }: LoaderArgs) => {
+  console.log("request", request);
   const userId = await getUserId(request);
   if (userId) return redirect("/");
   return json({});
 };
 
+function validateForm(form: FormData): Submission<VerifyLoginInput> {
+  return parse(
+    form,
+    { schema: VerifyLoginSchema }
+  );
+}
+
+function validateJSON(json: any): VerifyLoginInput | unknown {
+  try {
+    return VerifyLoginSchema.parse(json);
+  } catch (e) {
+    return e;
+  }
+}
+
 export const action = async ({ request }: ActionArgs) => {
-  const formData = await request.formData();
-  const email = formData.get("email");
-  const password = formData.get("password");
-  const redirectTo = safeRedirect(formData.get("redirectTo"), "/");
-  const remember = formData.get("remember");
-
-  if (!validateEmail(email)) {
-    return json(
-      { errors: { email: "Email is invalid", password: null } },
-      { status: 400 }
-    );
+  let submission: VerifyLoginInput;
+  if (request.headers.get("Content-Type")?.includes("application/json")) {
+    const sub = validateJSON(await request.json());
+    if (sub instanceof Error) {
+      return json({ errors: sub });
+    }
+    submission = sub as VerifyLoginInput;
+  } else {
+    const sub = validateForm(await request.formData());
+    if (!sub.value || sub.intent !== "submit") {
+      return sub;
+    }
+    submission = sub.value;
+  }
+  if (!submission) {
+    return json({ errors: { email: "Email is required", password: "Password is required" } });
+  }
+  if (!submission.redirectTo) {
+    submission.redirectTo = "/";
   }
 
-  if (typeof password !== "string" || password.length === 0) {
-    return json(
-      { errors: { email: null, password: "Password is required" } },
-      { status: 400 }
-    );
+  if (submission.remember === undefined) {
+    submission.remember = false;
   }
 
-  if (password.length < 8) {
-    return json(
-      { errors: { email: null, password: "Password is too short" } },
-      { status: 400 }
-    );
-  }
-
-  const user = await verifyLogin(email, password);
+  const user = await verifyLogin(submission);
 
   if (!user) {
-    return json(
-      { errors: { email: "Invalid email or password", password: null } },
-      { status: 400 }
-    );
+    return json({ errors: { email: "Invalid email or password", password: "Invalid email or password" } });
   }
 
-  return createUserSession({
-    redirectTo,
-    remember: remember === "on",
+  console.log("user", user);
+  return await createUserSession({
+    redirectTo: safeRedirect(submission.redirectTo),
+    remember: submission.remember,
     request,
     userId: user.id
   });
 };
 
 export const meta: V2_MetaFunction = () => [{ title: "Login" }];
-
-enum FormFieldType {
-  Email = "email",
-  Password = "password"
-}
 
 enum FormLayoutType {
   Horizontal = "horizontal",
@@ -94,74 +105,47 @@ function FormLayout({ children, type }: FormLayoutProps) {
   }
 }
 
-type FormFieldProps = {
-  ref: RefObject<HTMLInputElement>
-  name: string
-  autofocus?: boolean
-  type: FormFieldType
-  error?: string | null
-  children?: ReactNode
-}
-
-export function FormField({ ref, name, error, type, children, autofocus }: FormFieldProps) {
-  return (
-    <div>
-      <label
-        htmlFor={name}
-        className="block text-sm font-medium text-gray-700 dark:text-gray-200"
-      >
-        {children}
-      </label>
-      <div className="mt-1">
-        <input
-          ref={ref}
-          id={name}
-          required
-          autoFocus={autofocus}
-          name={name}
-          type={type}
-          autoComplete={name}
-          aria-invalid={error ? true : undefined}
-          aria-describedby={error ? `${name}-error` : undefined}
-          className="w-full rounded-full border border-gray-500 px-2 py-1 text-lg dark:bg-slate-500 dark:text-gray-200"
-        />
-        {error ? (
-          <div className="pt-1 text-red-700" id="email-error">
-            {error}
-          </div>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
 export default function LoginPage() {
   const [searchParams] = useSearchParams();
-  const redirectTo = searchParams.get("redirectTo") || "/nets";
+  const redirect = searchParams.get("redirectTo") || "/nets";
   const actionData = useActionData<typeof action>();
-  const emailRef = useRef<HTMLInputElement>(null);
-  const passwordRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (actionData?.errors?.email) {
-      emailRef.current?.focus();
-    } else if (actionData?.errors?.password) {
-      passwordRef.current?.focus();
-    }
-  }, [actionData]);
+  const id = useId();
+  const [form, { email, password, remember, redirectTo }] = useForm({
+    id,
+    lastSubmission: actionData as Submission<VerifyLoginInput>
+  });
 
   return (
     <div className="flex min-h-full flex-col justify-center">
       <div className="mx-auto w-full max-w-md px-8">
-        <Form method="post" className="space-y-6">
-          <input type="hidden" name="redirectTo" value={redirectTo} />
-          <FormField ref={emailRef} name={"email"} type={FormFieldType.Email} error={actionData?.errors?.email} autofocus={true}>
-            Email address
-          </FormField>
-          <FormField ref={passwordRef} name={"password"} type={FormFieldType.Password}
-                     error={actionData?.errors?.password}>
-            Password
-          </FormField>
+        <Form method="post" className="space-y-6" {...form.props}>
+          <input {...conform.input(redirectTo, { type: "hidden" })} value={redirect} />
+          <div>
+            <label
+              htmlFor={email.id}
+              className="block text-sm font-medium text-gray-700 dark:text-gray-200"
+            >
+              Email
+            </label>
+            <input
+              {...conform.input(email, { type: "email" })}
+              className="w-full rounded-full border border-gray-500 px-2 py-1 text-lg dark:bg-slate-500 dark:text-gray-200"
+            />
+            <div id={email.errorId}>{email.errors}</div>
+          </div>
+          <div>
+            <label
+              htmlFor={password.id}
+              className="block text-sm font-medium text-gray-700 dark:text-gray-200"
+            >
+              Password
+            </label>
+            <input
+              {...conform.input(password, { type: "password" })}
+              className="w-full rounded-full border border-gray-500 px-2 py-1 text-lg dark:bg-slate-500 dark:text-gray-200"
+            />
+            <div id={password.errorId}>{password.errors}</div>
+          </div>
           <button
             type="submit"
             className="w-full rounded-full bg-blue-500 dark:bg-teal-700 px-4 py-2 text-white hover:bg-blue-600 focus:bg-blue-400"
@@ -171,10 +155,9 @@ export default function LoginPage() {
           <FormLayout type={FormLayoutType.Horizontal}>
             <div className="flex items-center">
               <input
-                id="remember"
-                name="remember"
-                type="checkbox"
+                {...conform.input(remember, { type: "checkbox" })}
                 className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                value={"true"}
               />
               <label
                 htmlFor="remember"

@@ -3,17 +3,12 @@ import { prisma } from "~/db.server";
 import type {
   Instance,
   SessionState,
-  Constant,
   Device,
-  Field,
-  Event,
   Session,
   User,
-  Datum,
-  Run,
-  Action
+  Datum
 } from "@prisma/client";
-import { RunDetails } from "./net.run.server";
+import type { RunDetails } from "./net.run";
 
 export const RunSessionCreateInputSchema = z.object({
   runID: z.string().cuid(),
@@ -97,6 +92,12 @@ export async function getRunSession(input: GetRunSessionInput): Promise<RunSessi
           id: true,
           name: true,
           description: true,
+          parameters: {
+            select: {
+              name: true,
+              expression: true
+            }
+          },
           steps: {
             select: {
               id: true,

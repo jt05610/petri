@@ -19,7 +19,7 @@ type GraphVizParams = {
   rankdir?: "LR" | "TB" | "BT" | "RL";
 }
 
-type DeviceWithEvents = {
+export type DeviceWithEvents = {
   id: string;
   name: string;
   instances: {

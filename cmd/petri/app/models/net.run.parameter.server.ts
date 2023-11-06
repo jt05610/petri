@@ -1,30 +1,6 @@
-import { z } from "zod";
 import { prisma } from "~/db.server";
-
-export const UserParameterSchema = z.object({
-  name: z.string(),
-  expression: z.string(),
-  userId: z.string()
-});
-
-export const RunParameterSchema = z.object({
-  name: z.string(),
-  expression: z.string(),
-  runId: z.string()
-});
-
-export const DeviceParameterSchema = z.object({
-  name: z.string(),
-  expression: z.string(),
-  deviceId: z.string()
-});
-
-export const ParameterSchema = z.union([UserParameterSchema, RunParameterSchema, DeviceParameterSchema]);
-
-export type UserParameter = z.infer<typeof UserParameterSchema>;
-export type RunParameter = z.infer<typeof RunParameterSchema>;
-export type DeviceParameter = z.infer<typeof DeviceParameterSchema>;
-export type Parameter = z.infer<typeof ParameterSchema>;
+import type { Parameter } from "~/models/parameter";
+import { ParameterSchema } from "~/models/parameter";
 
 
 export function createParameter(parameter: Parameter) {

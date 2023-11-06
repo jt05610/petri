@@ -1,7 +1,7 @@
 import type { LoaderArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { NavLink, Outlet, useLoaderData } from "@remix-run/react";
-import type { RunListItem } from "~/models/net.run.server";
+import type { RunListItem } from "~/models/net.run";
 import { listRuns } from "~/models/net.run.server";
 import { requireUserId } from "~/session.server";
 import { getUserById } from "~/models/user.server";

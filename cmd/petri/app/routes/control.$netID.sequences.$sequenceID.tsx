@@ -9,6 +9,8 @@ import { getRunDetails } from "~/models/net.run.server";
 import type { ReactNode } from "react";
 import { Suspense } from "react";
 import Dropdown, { DropdownItem } from "~/lib/components/dropdown";
+import { ParserProvider } from "~/lib/context/ParserContext";
+import { parameterScope } from "~/util/parameters";
 
 
 type ActionDropdownItemProps = {
@@ -70,7 +72,9 @@ export default function SequencePage() {
         <Suspense fallback={<div>Loading...</div>}>
           {run &&
             <RunProvider runDetails={run}>
-              <Outlet />
+              <ParserProvider scope={parameterScope(run.parameters)}>
+                <Outlet />
+              </ParserProvider>
             </RunProvider>
           }
         </Suspense>

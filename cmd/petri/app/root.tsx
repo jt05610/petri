@@ -12,6 +12,7 @@ import {
 
 import { getUser } from "./session.server";
 import stylesheet from "./tailwind.css";
+import { ThemeProvider } from "~/lib/context/Theme";
 
 export const links: LinksFunction = () => [
   { rel: "stylesheet", href: stylesheet },
@@ -23,7 +24,6 @@ export const loader = async ({ request }: LoaderArgs) => {
 };
 
 export default function App() {
-
   return (
     <html lang="en" className="h-full dark">
     <head>
@@ -32,12 +32,15 @@ export default function App() {
       <Meta />
       <Links /><title>Petri</title>
     </head>
-    <body className="h-full antialiased text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-900">
-    <Outlet />
-    <ScrollRestoration />
-    <Scripts />
-    <LiveReload />
-    </body>
+    <ThemeProvider>
+      <body className={`h-full antialiased dark:text-slate-400 bg-white dark:bg-slate-900`}>
+      <Outlet />
+      <ScrollRestoration />
+      <Scripts />
+      <LiveReload />
+      </body>
+    </ThemeProvider>
+
     </html>
   );
 }

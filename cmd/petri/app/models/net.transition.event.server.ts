@@ -1,35 +1,11 @@
 import type { Transition, Event, Field } from "@prisma/client";
 import { prisma } from "~/db.server";
 import { z } from "zod";
+import type { EventInput } from "~/models/net.transition.event";
+import { EventFieldSchema, EventInputSchema } from "~/models/net.transition.event";
 
-export const EventFieldSchema = z.object({
-  name: z.string(),
-  description: z.string().optional(),
-  type: z.string()
-});
-
-export const EventInputSchema = z.object({
-  transitionID: z.string().cuid(),
-  name: z.string(),
-  description: z.string().optional(),
-  fields: z.preprocess((val) => {
-    if (typeof val === "string") return [];
-    if (!Array.isArray(val)) {
-      return [val];
-    }
-    if (typeof val[0] === "string") {
-      return val.map((name) => ({ name, type: "string" }));
-    }
-    return val;
-  }, z.array(EventFieldSchema).optional())
-});
-
-export type EventInput = z.infer<typeof EventInputSchema>;
-
-export type EventField = z.infer<typeof EventFieldSchema>;
-
-export async function addEvent(input: EventInput) {
-  const { transitionID, name, description, fields } = EventInputSchema.parse(input);
+export async function addEvent(transitionID: string, input: EventInput) {
+  const { name, description, fields } = EventInputSchema.parse(input);
   return prisma.event.create({
     data: {
       transitions: {

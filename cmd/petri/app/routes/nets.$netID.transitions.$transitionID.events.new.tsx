@@ -3,21 +3,23 @@ import { redirect } from "@remix-run/node";
 import { requireUserId } from "~/session.server";
 import invariant from "tiny-invariant";
 import { getUserById } from "~/models/user.server";
-import type { EventField, EventInput } from "~/models/net.transition.event.server";
-import { addEvent, EventFieldSchema, EventInputSchema } from "~/models/net.transition.event.server";
-import { Form, useActionData, useSubmit } from "@remix-run/react";
+import type { EventInput } from "~/models/net.transition.event";
+import { EventInputSchema } from "~/models/net.transition.event";
+import { addEvent } from "~/models/net.transition.event.server";
+import { Form, useActionData } from "@remix-run/react";
 import { parse } from "@conform-to/zod";
 import { badRequest } from "~/util/request.server";
-import { list, useFieldList, useForm } from "@conform-to/react";
-import FormContent from "~/lib/layouts/form";
-import type { FormEvent } from "react";
+import { useFieldList, useForm } from "@conform-to/react";
 import { Suspense, useState } from "react";
 import Modal from "~/lib/components/modal";
+import { Field, FieldSetTable, FieldTextArea } from "~/lib/components/FormFieldSet";
 
 export const action = async ({ params, request }: LoaderArgs) => {
-  invariant(params.transitionID, "transitionID not found");
+  console.log("params", params);
+  const transitionID = params.transitionID;
+  invariant(transitionID, "transitionID not found");
   let formData = await request.formData();
-  formData.set("transitionID", params.transitionID);
+  formData.set("transitionID", transitionID);
   const submission = parse(formData, {
     schema: EventInputSchema
   });
@@ -25,8 +27,8 @@ export const action = async ({ params, request }: LoaderArgs) => {
     return badRequest(submission);
   }
 
-  const newEvent = await addEvent(submission.value);
-  return redirect(`/nets/${params.netID}/events/${newEvent.id}`);
+  const newEvent = await addEvent(transitionID, submission.value);
+  return redirect(`/nets/${params.netID}/transitions/${transitionID}/events/${newEvent.id}`);
 };
 
 export const loader = async ({ request }: LoaderArgs) => {
@@ -38,19 +40,19 @@ export const loader = async ({ request }: LoaderArgs) => {
   return {};
 };
 
-
 export default function Event() {
   const [isOpen, setIsOpen] = useState(true); // handle modal open state
   const lastSubmission = useActionData<typeof action>();
   const [form, { name, description, fields }] = useForm<EventInput>({
     lastSubmission,
-    onValidate({formData}) {
-      return parse(formData, { schema: EventInputSchema });
+    onValidate({ formData }) {
+      const sub = parse(formData, { schema: EventInputSchema });
+      console.log("sub", sub);
+      return sub;
     },
-    shouldValidate: 'onBlur',
+    shouldValidate: "onBlur"
   });
   const fieldsList = useFieldList(form.ref, fields);
-  const submit = useSubmit();
 
   if (!isOpen) return null; // if not open, do not render modal and content
 
@@ -60,34 +62,34 @@ export default function Event() {
       {isOpen ? (
         // if open then we want to show the modal
         <Modal isOpen={isOpen} setIsOpen={setIsOpen} name={"New event"}>
-          <Form className={`flex flex-col`} method={"post"} {...form.props} onSubmit={(e: FormEvent) => {
-            const formData = new FormData(e.target as HTMLFormElement);
-            console.log(formData);
-            submit(formData, { method: "post", replace: true });
-          }
-          }>
-            <FormContent fields={[
+          <Form className={`flex flex-col`} method={"post"} {...form.props}>
+            <Field {...name} />
+            <FieldTextArea {...description} />
+            <h2 className={`text-xl font-bold`}>Fields</h2>
+            <FieldSetTable config={fields} fields={[
+              "name",
               {
-                type: "text",
-                name: "name",
-                content: name.form,
-                error: name.error
+                name: "type",
+                options: ["string", "number", "boolean",]
               },
-              {
-                name: description.name,
-                type: "textarea",
-                content: description ? description.form : "",
-                error: description.error
-              },
-              {
-                name: fields.name,
-                type: "array",
-                content: fields.form,
-                error: fields.error,
-                arraySchema: EventFieldSchema,
-                arrayFields: fieldsList,
-              }
-            ]} />
+              "description",
+              "min",
+              "max",
+              "choices",
+              "unit"
+            ]}
+                           fieldList={fieldsList} defaultValue={{
+              name: "event",
+              description: "event description",
+              type: "string",
+              choices: []
+            }} />
+            <button
+              type="submit"
+              className={`bg-blue-900 text-white rounded-full p-2`}
+            >
+              Submit
+            </button>
           </Form>
         </Modal>
 

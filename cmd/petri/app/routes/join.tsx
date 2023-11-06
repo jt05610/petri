@@ -46,20 +46,20 @@ export const action = async ({ request }: ActionArgs) => {
       {
         errors: {
           email: "A user already exists with this email",
-          password: null,
-        },
+          password: null
+        }
       },
       { status: 400 }
     );
   }
 
-  const user = await createUser(email, password);
+  const user = await createUser({ email, password });
 
   return createUserSession({
     redirectTo,
     remember: false,
     request,
-    userId: user.id,
+    userId: user.id
   });
 };
 
@@ -152,7 +152,7 @@ export default function Join() {
                 className="text-blue-500 underline"
                 to={{
                   pathname: "/login",
-                  search: searchParams.toString(),
+                  search: searchParams.toString()
                 }}
               >
                 Log in

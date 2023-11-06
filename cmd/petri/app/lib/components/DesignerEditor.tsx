@@ -1,10 +1,11 @@
 import { type Monaco, Editor } from "@monaco-editor/react";
 import { useContextSelector } from "use-context-selector";
 import { EditorChangeAction, RunEditorContext } from "~/lib/components/DesignerContext";
-import { ActivePetriNet, PetriNetContext } from "~/lib/context/petrinet";
+import type { ActivePetriNet } from "~/lib/context/petrinet";
+import { PetriNetContext } from "~/lib/context/petrinet";
 import Writer, { pascalCase } from "../writers/language/typescript/interfaceWriter";
 import { Component, Suspense, useState } from "react";
-import { editor } from "monaco-editor";
+import type { editor } from "monaco-editor";
 
 const writer = new Writer();
 
@@ -23,7 +24,6 @@ function writeInterfaceTypeFile(userID: string, petriNet: ActivePetriNet): File 
     filePath: path
   };
 }
-
 
 class RunButton extends Component {
   handleClick() {
@@ -49,8 +49,11 @@ export default function RunEditor() {
   }
 
   function handleEditorWillMount(monaco: Monaco) {
-    writeInterfaceTypeFile(petriNet?.userID!, petriNet!);
-    const { content, filePath } = writeInterfaceTypeFile(petriNet?.userID!, petriNet!);
+    if (!petriNet) {
+      return;
+    }
+    writeInterfaceTypeFile(petriNet.userID!, petriNet!);
+    const { content, filePath } = writeInterfaceTypeFile(petriNet.userID!, petriNet!);
 
     monaco.languages.typescript.typescriptDefaults.setCompilerOptions({
       target: monaco.languages.typescript.ScriptTarget.ES2016,
@@ -62,7 +65,7 @@ export default function RunEditor() {
     });
     monaco.languages.typescript.typescriptDefaults.addExtraLib(
       content,
-      `file:///node_modules/@types/system/index.d.ts`
+      filePath
     );
   }
 
@@ -81,7 +84,7 @@ export default function RunEditor() {
       keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter],
       contextMenuGroupId: "navigation",
       contextMenuOrder: 1.5,
-      run: function(ed, ...args) {
+      run: function() {
         run();
       }
     });
@@ -127,6 +130,13 @@ export default function RunEditor() {
             }
           }}
         />
+      </div>
+
+      <div className={"flex flex-row justify-end"}>
+        <RunButton />
+      </div>
+      <div>
+        {runResult}
       </div>
     </Suspense>
   );

@@ -1,14 +1,18 @@
-import type { User, Net, Arc, Transition, Place, Event } from "@prisma/client";
+import type {
+  Arc,
+  Transition,
+  Place,
+  Event,
+  Net,
+  User,
+  SharedNet
+} from "@prisma/client";
+import {
+  Visibility
+} from "@prisma/client";
 import { prisma } from "~/db.server";
-import { z } from "zod";
-
-export const NetInputSchema = z.object({
-  name: z.string(),
-  authorID: z.string().cuid(),
-  description: z.string()
-});
-
-export type NetInput = z.infer<typeof NetInputSchema>;
+import type { NetInput, UpdateNet } from "~/models/net";
+import { NetInputSchema, UpdateNetSchema } from "~/models/net";
 
 export async function createNet(input: NetInput) {
   const { name, authorID, description } = NetInputSchema.parse(input);
@@ -21,21 +25,24 @@ export async function createNet(input: NetInput) {
   });
 }
 
-export const NetUpdateSchema = z.object({
-  id: z.string().cuid().optional(),
-  name: z.string().optional(),
-  description: z.string().optional()
-});
-
-export type NetUpdate = z.infer<typeof NetUpdateSchema>;
-
-export async function updateNet(input: NetUpdate) {
-  const { id, name, description } = NetUpdateSchema.parse(input);
+export async function updateNet(id: string, input: UpdateNet) {
+  const { name, description, visibility, sharedWith } = UpdateNetSchema.parse(input);
   return prisma.net.update({
     where: { id },
     data: {
       name,
-      description
+      description,
+      visibility,
+      sharedWith: {
+        deleteMany: {},
+        create: sharedWith?.map(email => ({
+          user: {
+            connect: {
+              email
+            }
+          }
+        })) ?? []
+      }
     }
   });
 }
@@ -56,8 +63,12 @@ export type TransitionWithEvents = Pick<Transition, "id" | "name"> & {
   events?: EventDetails[]
 };
 
-export type NetDetails = Pick<Net, "id" | "name" | "description" | "initialMarking"> & {
-  places: Pick<Place, "id" | "name" | "bound">[]
+export type NetDetails = Pick<Net, "id" | "name" | "description" | "initialMarking" | "authorID"> & {
+  places: Pick<Place, "id" | "name" | "bound">[],
+  visibility: Net["visibility"],
+  sharedWith: {
+    user: Pick<User, "id" | "email">
+  }[],
   placeInterfaces: {
     id: string
     name: string
@@ -186,7 +197,18 @@ export async function getNet({
           }
         }
       },
-      initialMarking: true
+      initialMarking: true,
+      visibility: true,
+      sharedWith: {
+        select: {
+          user: {
+            select: {
+              id: true,
+              email: true
+            }
+          }
+        }
+      }
     }
   };
 
@@ -200,10 +222,17 @@ export async function getNet({
     }
   };
 
-  return prisma.net.findFirstOrThrow({
-    where: { id, authorID },
+  const net = await prisma.net.findFirstOrThrow({
+    where: { id },
     ...netSelectWithChildren
   });
+  if (net.visibility === Visibility.PRIVATE && net.authorID !== authorID) {
+    const sharedWith = net.sharedWith.map(({ user }) => user.id);
+    if (!sharedWith.includes(authorID)) {
+      throw new Error("Not authorized");
+    }
+  }
+  return net;
 }
 
 export type NetListItem = {
@@ -224,12 +253,26 @@ export async function getNetListItems({ authorID }: {
   });
 }
 
-export function getNetsWithEvents({ authorID }: {
+export async function getNetsWithEvents({ authorID }: {
   authorID: User["id"]
 }) {
   return prisma.net.findMany({
     where: {
-      authorID,
+      OR: [
+        {
+          visibility: Visibility.PUBLIC
+        },
+        {
+          sharedWith: {
+            some: {
+              userID: authorID
+            }
+          }
+        },
+        {
+          authorID: authorID
+        }
+      ],
       children: {
         some: {
           transitions: {
@@ -250,7 +293,7 @@ export function getNetsWithEvents({ authorID }: {
   });
 }
 
-export function getNetsWithDevice({ authorID }: {
+export async function getNetsWithDevice({ authorID }: {
   authorID: User["id"]
 }) {
   return prisma.net.findMany({
@@ -268,10 +311,124 @@ export function getNetsWithDevice({ authorID }: {
   });
 }
 
-export function deleteNet({ id, authorID }: Pick<Net, "id"> & {
+export async function deleteNet({ id, authorID }: Pick<Net, "id"> & {
   authorID: User["id"]
 }) {
   return prisma.net.deleteMany({
     where: { id, authorID }
+  });
+}
+
+export async function shareNetWithUser({ id, authorEmail }: Pick<Net, "id"> & {
+  authorEmail: User["email"]
+}) {
+  return prisma.net.update({
+    where: { id },
+    data: {
+      sharedWith: {
+        create: {
+          user: {
+            connect: {
+              email: authorEmail
+            }
+          }
+        }
+      }
+    }
+  });
+}
+
+export async function unshareNet({ id, shareID }: Pick<Net, "id"> & {
+  shareID: SharedNet["id"]
+}) {
+  return prisma.net.update({
+    where: { id },
+    data: {
+      sharedWith: {
+        delete: {
+          id: shareID
+        }
+      }
+    }
+  });
+}
+
+export async function getSharedNets({ userID }: {
+  userID: User["id"]
+}) {
+  return prisma.net.findMany({
+    where: {
+      sharedWith: {
+        some: {
+          userID
+        }
+      }
+    },
+    select: {
+      id: true,
+      name: true,
+      description: true
+    }
+  });
+}
+
+export async function makeNetPublic({ id, authorID }: Pick<Net, "id"> & {
+  authorID: User["id"]
+}) {
+  const net = await prisma.net.findFirst({
+    where: { id, authorID }
+  });
+  if (!net) throw new Error("Net not found");
+  if (net.authorID !== authorID) throw new Error("Not authorized");
+  return prisma.net.update({
+    where: { id },
+    data: {
+      visibility: Visibility.PUBLIC
+    }
+  });
+}
+
+export async function getPublicNets() {
+  return prisma.net.findMany({
+    where: {
+      visibility: Visibility.PUBLIC
+    },
+    select: {
+      id: true,
+      name: true,
+      description: true
+    }
+  });
+}
+
+export async function getNetsVisibleToUser({ userID }: {
+  userID: User["id"]
+}) {
+  return prisma.net.findMany({
+    where: {
+      OR: [
+        {
+          visibility: Visibility.PUBLIC
+        },
+        {
+          sharedWith: {
+            some: {
+              userID
+            }
+          }
+        },
+        {
+          authorID: userID
+        }
+      ]
+    },
+    select: {
+      id: true,
+      name: true,
+      description: true,
+      authorID: true,
+      createdAt: true,
+      updatedAt: true
+    }
   });
 }

@@ -19,19 +19,42 @@ enum UserRole {
   USER
 }
 
-model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  role      UserRole
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+enum Visibility {
+  NONE
+  PUBLIC
+  PRIVATE
+}
 
-  password  Password?
-  nets      Net[]
-  devices   Device[]
-  instances Instance[]
-  sessions  Session[]
-  Sample    Sample[]
+model Parameter {
+  id         String   @id @default(cuid())
+  name       String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  expression String
+
+  User     User?   @relation(fields: [userId], references: [id])
+  userId   String?
+  Device   Device? @relation(fields: [deviceId], references: [id])
+  deviceId String?
+  Run      Run?    @relation(fields: [runId], references: [id])
+  runId    String?
+}
+
+model User {
+  id         String      @id @default(cuid())
+  email      String      @unique
+  role       UserRole
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  parameters Parameter[]
+  password   Password?
+  nets       Net[]
+  devices    Device[]
+  instances  Instance[]
+  sessions   Session[]
+  Sample     Sample[]
+  runs       Run[]
+  sharedNets SharedNet[]
 }
 
 model Password {
@@ -45,6 +68,7 @@ model Net {
   id                   String                @id @default(cuid())
   name                 String
   description          String
+  visibility           Visibility            @default(PRIVATE)
   initialMarking       Int[]
   createdAt            DateTime              @default(now())
   updatedAt            DateTime              @updatedAt
@@ -60,6 +84,17 @@ model Net {
   placeInterfaces      PlaceInterface[]
   transitionInterfaces TransitionInterface[]
   runs                 Run[]
+  sharedWith           SharedNet[]
+}
+
+model SharedNet {
+  id        String   @id @default(cuid())
+  net       Net      @relation(fields: [netID], references: [id])
+  netID     String
+  user      User     @relation(fields: [userID], references: [id])
+  userID    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // PlaceInterface is a place that connect
@@ -133,15 +168,20 @@ model DevicesOnNets {
 }
 
 model Field {
-  id        String     @id @default(cuid())
-  name      String
-  type      String
-  condition String?
-  event     Event      @relation(fields: [eventID], references: [id])
-  eventID   String
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
-  constants Constant[]
+  id          String     @id @default(cuid())
+  name        String
+  description String?
+  type        String
+  min         String?
+  max         String?
+  choices     String[]
+  unit        String?
+  condition   String?
+  event       Event      @relation(fields: [eventID], references: [id])
+  eventID     String
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  constants   Constant[]
 }
 
 model Event {
@@ -191,6 +231,7 @@ model Device {
   instances   Instance[]
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
+  parameter   Parameter[]
   netIDs      String[]
   nets        DevicesOnNets[]
   actions     Action[]
@@ -207,17 +248,19 @@ model Constant {
 }
 
 model Action {
-  id        String     @id @default(cuid())
-  input     Json
-  output    Json
-  device    Device     @relation(fields: [deviceId], references: [id])
-  deviceId  String
-  event     Event      @relation(fields: [eventID], references: [id])
-  eventID   String
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
-  constants Constant[]
-  steps     Step[]
+  id            String     @id @default(cuid())
+  input         Json
+  output        Json
+  device        Device     @relation(fields: [deviceId], references: [id])
+  deviceId      String
+  instruction   String?
+  documentation String?
+  event         Event      @relation(fields: [eventID], references: [id])
+  eventID       String
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  constants     Constant[]
+  steps         Step[]
 }
 
 model Step {
@@ -230,14 +273,15 @@ model Step {
 }
 
 model Run {
-  id          String    @id @default(cuid())
+  id          String      @id @default(cuid())
   name        String
   description String
-  expression  String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  net         Net       @relation(fields: [netID], references: [id])
+  parameters  Parameter[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  net         Net         @relation(fields: [netID], references: [id])
   netID       String
+  availabeTo  User[]
   sessions    Session[]
   steps       Step[]
   Batch       Batch[]
@@ -262,6 +306,7 @@ model Figure {
   analysis   Analysis @relation(fields: [analysisId], references: [id])
   analysisId String
   data       Datum[]
+  path       String
 }
 
 model Analysis {

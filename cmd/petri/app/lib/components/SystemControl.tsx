@@ -7,10 +7,9 @@ import { PetriNetContext } from "~/lib/context/petrinet";
 import { DeviceControl } from "~/lib/components/DeviceControl";
 import { ParserProvider } from "~/lib/context/ParserContext";
 import ParameterEditor from "~/lib/components/ParameterEditor";
-import { RunDetails } from "~/models/net.run";
 import { parameterScope } from "~/util/parameters";
 
-export function SystemControl(props: {}) {
+export function SystemControl() {
   const net = useContextSelector(PetriNetContext, (context) => context);
   const run = useContextSelector(RecordRunContext, (context) => context?.run);
   return (

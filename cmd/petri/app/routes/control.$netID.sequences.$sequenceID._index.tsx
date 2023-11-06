@@ -1,18 +1,12 @@
 import type { ActionArgs, LoaderArgs } from "@remix-run/node";
 import { json, redirect } from "@remix-run/node";
 import { parse } from "@conform-to/zod";
-import { useContextSelector } from "use-context-selector";
-import { RunContext } from "~/lib/context/run";
-import type { RunDetails } from "~/models/net.run";
 import { requireUserId } from "~/session.server";
 import { getUserById } from "~/models/user.server";
 import { Form, useLoaderData, useActionData } from "@remix-run/react";
-import JSZip from "jszip";
-import { getParameterRecord } from "~/util/parameters";
 
 import type { FieldConfig } from "@conform-to/react";
 import { conform, useFieldList, useFieldset, useForm, list } from "@conform-to/react";
-import { z } from "zod";
 import { useRef, useState } from "react";
 import { MinusCircleIcon, PlusCircleIcon } from "@heroicons/react/24/outline";
 import type { ExperimentDesignResult, ExperimentSample } from "~/models/experiment.server";
@@ -28,9 +22,10 @@ import {
 } from "~/models/net.run.session.sample.server";
 import invariant from "tiny-invariant";
 import { createColumnHelper, useReactTable, getCoreRowModel, flexRender } from "@tanstack/react-table";
-import SequenceParameterEditor from "~/lib/components/SequenceParameterEditor";
-import { useParserContext } from "~/lib/context/ParserContext";
 import ParameterEditor from "~/lib/components/ParameterEditor";
+import DownloadComponent from "~/lib/components/DownloadComponent";
+import type { Axis, NumberAxis } from "~/models/experiment";
+import { ExperimentSchema } from "~/models/experiment";
 
 enum ExperimentType {
   lhs = "lhs",
@@ -44,55 +39,6 @@ const labelClass = "block text-sm font-medium text-gray-700 dark:text-gray-300";
 const errorClass = "block text-sm font-medium text-red-700 dark:text-red-300";
 
 
-const numberAxisSchema = z.object({
-  min: z.preprocess((x) => {
-    if (typeof x === "string") {
-      return parseFloat(x);
-    }
-    return x;
-  }, z.number()),
-  max: z.preprocess((x) => {
-    if (typeof x === "string") {
-      return parseFloat(x);
-    }
-    return x;
-  }, z.number()),
-  step: z.preprocess((x) => {
-    if (typeof x === "string") {
-      return parseFloat(x);
-    }
-    return x;
-  }, z.number())
-});
-
-const categoricalAxisSchema = z.array(z.string());
-
-const axisSchema = z.object({
-  name: z.string(),
-  values: categoricalAxisSchema.optional(),
-  axis: numberAxisSchema.optional()
-});
-
-const schema = z.object({
-  kind: z.nativeEnum(ExperimentType),
-  axes: z.array(axisSchema),
-  n_samples: z.preprocess((x) => {
-      if (typeof x === "string") {
-        return parseInt(x);
-      }
-      return x;
-    },
-    z.number().int().positive()),
-  strength: z.preprocess((x) => {
-      if (typeof x === "string") {
-        return parseInt(x);
-      }
-      return x;
-    }
-    , z.number().int().positive()),
-  id_stem: z.string().optional()
-});
-
 export const action = async ({ params, request }: ActionArgs) => {
   const authorID = await requireUserId(request);
   const runID = params.sequenceID;
@@ -102,7 +48,7 @@ export const action = async ({ params, request }: ActionArgs) => {
     throw new Error("User not found");
   }
   const formData = await request.formData();
-  const sub = parse(formData, { schema });
+  const sub = parse(formData, { schema: ExperimentSchema });
   if (sub.intent !== "submit" || !sub.value) {
     return json(sub);
   }
@@ -181,7 +127,7 @@ function uniqueColumns(samples: SampleDetails[]) {
 
 
 function sentenceCase(str: string) {
-  const rg = /(^\w{1}|\.\s*\w{1})/gi;
+  const rg = /(^\w|\.\s*\w)/gi;
   return str.replace(rg, (toReplace) => {
     return toReplace.toUpperCase();
   });
@@ -238,69 +184,6 @@ function SamplesTable({ samples }: SamplesTableProps) {
   );
 }
 
-type DeviceInstanceInput = {
-  deviceID: string
-  instanceID: string
-}
-
-function getRunDevices(run: RunDetails): DeviceInstanceInput[] {
-  return run.steps.map(({ action }) => {
-    return {
-      deviceID: action.device.id,
-      instanceID: ""
-    };
-  }).filter((device, index, self) => {
-    return self.findIndex((d) => d.deviceID === device.deviceID) === index;
-  });
-}
-
-function DownloadComponent() {
-  const sequence = useContextSelector(RunContext, (context) => context?.run);
-  const user = useLoaderData<typeof loader>().user;
-
-  function makeSessionRequest(d: RunDetails) {
-    return {
-      sequenceID: d.id,
-      userID: user.id,
-      instances: getRunDevices(d)
-    };
-  }
-
-  function makeStartRequest(d: RunDetails) {
-    return {
-      sessionID: "",
-      parameters: getParameterRecord(d)
-    };
-  }
-
-  async function handleDownload() {
-    if (!sequence) return;
-    let zip = new JSZip();
-    const sessionReq = makeSessionRequest(sequence);
-    zip.file(".gitignore", "data");
-    zip.file("data/start.json", JSON.stringify(makeStartRequest(sequence), null, 2));
-    zip.file("data/run.json", JSON.stringify(sessionReq, null, 2));
-    const blob = await zip.generateAsync({ type: "blob" });
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `${sequence.name}.zip`;
-    link.click();
-  }
-
-  return (
-    <button
-      type={"button"}
-      className={"px-2 py-1 text-white hover:text-sky-500 dark:hover:text-sky-400 bg-gradient-to-b from-sky-700 to-sky-800 rounded-full"}
-      onClick={handleDownload}
-    >
-      Download
-    </button>
-
-  );
-}
-
-
 export default function SequenceIndexPage() {
   const { samples } = useLoaderData<typeof loader>();
   const lastSubmission = useActionData<typeof action>();
@@ -308,7 +191,7 @@ export default function SequenceIndexPage() {
     lastSubmission,
     shouldValidate: "onBlur",
     onValidate({ formData }) {
-      const sub = parse(formData, { schema });
+      const sub = parse(formData, { schema: ExperimentSchema });
       console.log(sub);
       return sub;
     }
@@ -318,6 +201,7 @@ export default function SequenceIndexPage() {
 
   return (
     <div>
+      <DownloadComponent />
       <ParameterEditor />
       <Form method="post" {...form.props} className={"w-96"}>
         <div>
@@ -381,7 +265,7 @@ export default function SequenceIndexPage() {
   );
 }
 
-function AxisFieldset({ config }: { config: FieldConfig<z.infer<typeof axisSchema>> }) {
+function AxisFieldset({ config }: { config: FieldConfig<Axis> }) {
   const ref = useRef<HTMLFieldSetElement>(null);
   const options = ["Continuous", "Categorical"];
   const [selectedKind, setSelectedKind] = useState(options[0]);
@@ -417,7 +301,7 @@ function AxisFieldset({ config }: { config: FieldConfig<z.infer<typeof axisSchem
 }
 
 
-function NumberAxisFieldSet({ config }: { config: FieldConfig<z.infer<typeof numberAxisSchema>> }) {
+function NumberAxisFieldSet({ config }: { config: FieldConfig<NumberAxis> }) {
   const ref = useRef<HTMLFieldSetElement>(null);
   const { min, max, step } = useFieldset(ref, config);
   return (
@@ -441,7 +325,7 @@ function NumberAxisFieldSet({ config }: { config: FieldConfig<z.infer<typeof num
   );
 }
 
-function CategoricalFieldSet({ config }: { config: FieldConfig<z.infer<typeof axisSchema>> }) {
+function CategoricalFieldSet({ config }: { config: FieldConfig<Axis> }) {
   const ref = useRef<HTMLFieldSetElement>(null);
   const { values } = useFieldset(ref, config);
   const categoryList = useFieldList(ref, values);

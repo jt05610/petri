@@ -18,8 +18,12 @@ export function splitSnakeCase(str?: string) {
   return str.replace(/_/g, " ");
 }
 
+function keepAfterPeriod(str: string) {
+  return str.split(".").pop() || "";
+}
+
 export function split(str: string) {
-  return splitCamelCase(splitSnakeCase(str));
+  return splitCamelCase(splitSnakeCase(keepAfterPeriod(str)));
 }
 
 
@@ -58,7 +62,6 @@ export function FieldSelectInput<T>(config: FieldSelectInputProps<T>) {
     <select
       {...conform.select(config)}
       className={"block rounded-full w-full px-3 py-2 border border-gray-300 shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm dark:bg-slate-800 dark:border-slate-400 dark:text-gray-300"}
-      defaultValue={config.defaultValue?.toString()}
     >
       {config.options.map((option, index) => (
         <option key={index} value={option}>
@@ -101,6 +104,22 @@ export function Field<T>(config: FieldConfig<T>) {
   );
 }
 
+export function CheckboxField<T>(config: FieldConfig<T>) {
+  return (
+    <div className={"flex-row justify-items-between w-full"}>
+      <FieldLabel {...config} />
+      <input
+        name={config.name}
+        type={"checkbox"}
+        className={"block rounded-full w-full px-3 py-2 border border-gray-300 shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm dark:bg-slate-800 dark:border-slate-400 dark:text-gray-300"}
+        defaultChecked={config.defaultValue as unknown as boolean}
+        value={"true"}
+      />
+      <FieldError {...config} />
+    </div>
+  );
+}
+
 export function FieldTextArea<T>(config: FieldConfig<T>) {
   return (
     <div className={"p-2"}>
@@ -138,7 +157,7 @@ export function FieldSet<T>(config: FieldConfig<T> & {
 export function FieldSetRow<T>({ config, fields, parent, idx }: {
   config: FieldConfig<T>,
   fields: (string | { name: string, options: string[] })[],
-  parent: FieldConfig<T[]>,
+  parent: FieldConfig<T[] | undefined>,
   idx: number
 }) {
   const ref = useRef<HTMLFieldSetElement>(null);
@@ -158,7 +177,7 @@ export function FieldSetRow<T>({ config, fields, parent, idx }: {
               />
               <FieldError {...fieldset[field]} />
             </div> : (
-              <FieldSelectInput {...field} />
+              <FieldSelectInput name={`${config.name}.${field.name}`} options={field.options} />
             )}
         </td>
       ))}
@@ -222,12 +241,12 @@ export function FieldSetList<T>({ config, fields, fieldList, defaultValue }: {
 }
 
 export function FieldSetTable<T>({ config, fields, fieldList, defaultValue }: {
-  config: FieldConfig<T[]>,
+  config: FieldConfig<T[] | undefined>,
   fields: (string | { name: string, options: string[] })[],
   fieldList: ({
     key: string
   } & FieldConfig<T>)[],
-  defaultValue?: T
+  defaultValue?: T | undefined
 }) {
   return (
     <div>

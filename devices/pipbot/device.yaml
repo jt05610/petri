@@ -1,0 +1,332 @@
+innerdevice:
+    id: clnlwymg60034jgoc7ee2igmj
+    authorid: clm11uw2s0000jg4kcwlstqq1
+    name: PipBot
+    description: Pipetting bot
+    createdat: 2023-10-11T15:36:32.547Z
+    updatedat: 2023-10-11T15:36:32.547Z
+    netids: []
+relationsdevice:
+    author: null
+    instances: []
+    nets:
+        - innerdevicesonnets:
+            deviceid: clnlwymg60034jgoc7ee2igmj
+            netid: clnj7tn4v0001jgv0u7qfaghq
+          relationsdevicesonnets:
+            device: null
+            net:
+                innernet:
+                    id: clnj7tn4v0001jgv0u7qfaghq
+                    name: fluid_handler
+                    description: A fluid handler controlled by a syringe
+                    initialmarking:
+                        - 1
+                        - 0
+                        - 0
+                        - 0
+                        - 0
+                        - 0
+                        - 0
+                        - 0
+                        - 0
+                        - 0
+                        - 0
+                    createdat: 2023-10-09T18:17:17.403Z
+                    updatedat: 2023-10-09T18:17:17.403Z
+                    authorid: clm11uw2s0000jg4kcwlstqq1
+                    parentid: clm11uw6a0083jg4knghxsy84
+                relationsnet:
+                    author: null
+                    arcs:
+                        - innerarc:
+                            id: clnj849bf000njgv0sfjpfgf6
+                            netid: clnj7tn4v0001jgv0u7qfaghq
+                            fromplace: true
+                            placeid: clnj7u0mx0002jgv0v0aficaf
+                            transitionid: clnj7yb62000cjgv0hhblvzod
+                            createdat: 2023-10-09T18:25:32.716Z
+                            updatedat: 2023-10-09T18:25:32.716Z
+                          relationsarc:
+                            net: null
+                            place: null
+                            transition: null
+                        - innerarc:
+                            id: clnj84kf3000ojgv09xcsaz8f
+                            netid: clnj7tn4v0001jgv0u7qfaghq
+                            fromplace: false
+                            placeid: clnj7u8bk0003jgv01r8d9wky
+                            transitionid: clnj7yb62000cjgv0hhblvzod
+                            createdat: 2023-10-09T18:25:47.104Z
+                            updatedat: 2023-10-09T18:25:47.104Z
+                          relationsarc:
+                            net: null
+                            place: null
+                            transition: null
+                        - innerarc:
+                            id: clnj8bgcr0013jgv07vzfsow5
+                            netid: clnj7tn4v0001jgv0u7qfaghq
+                            fromplace: false
+                            placeid: clnj7u0mx0002jgv0v0aficaf
+                            transitionid: clnj841ls000mjgv0u4iuuoqm
+                            createdat: 2023-10-09T18:31:08.428Z
+                            updatedat: 2023-10-09T18:31:08.428Z
+                          relationsarc:
+                            net: null
+                            place: null
+                            transition: null
+                        - innerarc:
+                            id: clnj852j6000pjgv0fczwpjco
+                            netid: clnj7tn4v0001jgv0u7qfaghq
+                            fromplace: true
+                            placeid: clnj7u8bk0003jgv01r8d9wky
+                            transitionid: clnj841ls000mjgv0u4iuuoqm
+                            createdat: 2023-10-09T18:26:10.578Z
+                            updatedat: 2023-10-11T15:27:00.872Z
+                          relationsarc:
+                            net: null
+                            place: null
+                            transition: null
+                    places:
+                        - innerplace:
+                            id: clnj7u0mx0002jgv0v0aficaf
+                            name: Idle
+                            description: ""
+                            createdat: 2023-10-09T18:17:34.905Z
+                            updatedat: 2023-10-09T18:17:34.905Z
+                            bound: 1
+                          relationsplace:
+                            arcs: []
+                            nets: []
+                            interfaces: []
+                        - innerplace:
+                            id: clnj7u8bk0003jgv01r8d9wky
+                            name: Transferring
+                            description: ""
+                            createdat: 2023-10-09T18:17:44.864Z
+                            updatedat: 2023-10-09T18:17:44.864Z
+                            bound: 1
+                          relationsplace:
+                            arcs: []
+                            nets: []
+                            interfaces: []
+                    transitions:
+                        - innertransition:
+                            id: clnj7yb62000cjgv0hhblvzod
+                            condition: null
+                            description: start the transfer by passing the source and destination for the transfer
+                            name: Start transfer
+                            createdat: 2023-10-09T18:20:55.178Z
+                            updatedat: 2023-10-09T18:20:55.178Z
+                          relationstransition:
+                            arcs: []
+                            events:
+                                - innerevent:
+                                    id: clnj94jty001bjgv0uvqtkybh
+                                    name: StartTransfer
+                                    description: Begin the transfer
+                                    createdat: 2023-10-09T18:53:45.958Z
+                                    updatedat: 2023-10-09T18:53:45.958Z
+                                    placeinterfaceid: null
+                                    transitioninterfaceid: null
+                                  relationsevent:
+                                    transitions: []
+                                    fields:
+                                        - innerfield:
+                                            id: clnj94jty001cjgv09ub3yvjf
+                                            name: SourceGrid
+                                            type: string
+                                            condition: null
+                                            eventid: clnj94jty001bjgv0uvqtkybh
+                                            createdat: 2023-10-09T18:53:45.958Z
+                                            updatedat: 2023-10-09T18:53:45.958Z
+                                          relationsfield:
+                                            event: null
+                                            constants: []
+                                        - innerfield:
+                                            id: clnj9stpo000008jg34uz0vey
+                                            name: DestGrid
+                                            type: string
+                                            condition: null
+                                            eventid: clnj94jty001bjgv0uvqtkybh
+                                            createdat: 2023-10-09T18:53:45.958Z
+                                            updatedat: 2023-10-09T18:53:45.958Z
+                                          relationsfield:
+                                            event: null
+                                            constants: []
+                                        - innerfield:
+                                            id: clnj9sq5c00012gjghacrgg4f
+                                            name: SourcePos
+                                            type: string
+                                            condition: null
+                                            eventid: clnj94jty001bjgv0uvqtkybh
+                                            createdat: 2023-10-09T18:53:45.958Z
+                                            updatedat: 2023-10-09T18:53:45.958Z
+                                          relationsfield:
+                                            event: null
+                                            constants: []
+                                        - innerfield:
+                                            id: clnj9sq5a00002gjg0i4c2rjr
+                                            name: DestPos
+                                            type: string
+                                            condition: null
+                                            eventid: clnj94jty001bjgv0uvqtkybh
+                                            createdat: 2023-10-09T18:53:45.958Z
+                                            updatedat: 2023-10-09T18:53:45.958Z
+                                          relationsfield:
+                                            event: null
+                                            constants: []
+                                        - innerfield:
+                                            id: clnj9stpp000108jg2er192c7
+                                            name: Multi
+                                            type: number
+                                            condition: null
+                                            eventid: clnj94jty001bjgv0uvqtkybh
+                                            createdat: 2023-10-09T18:53:45.958Z
+                                            updatedat: 2023-10-09T18:53:45.958Z
+                                          relationsfield:
+                                            event: null
+                                            constants: []
+                                        - innerfield:
+                                            id: clnj9wdsd00009cjgc7o11f2u
+                                            name: FlowRate
+                                            type: number
+                                            condition: null
+                                            eventid: clnj94jty001bjgv0uvqtkybh
+                                            createdat: 2023-10-09T18:53:45.958Z
+                                            updatedat: 2023-10-09T18:53:45.958Z
+                                          relationsfield:
+                                            event: null
+                                            constants: []
+                                        - innerfield:
+                                            id: clnlwtp2w00003ojg0uik6a5o
+                                            name: Volume
+                                            type: number
+                                            condition: null
+                                            eventid: clnj94jty001bjgv0uvqtkybh
+                                            createdat: 2023-10-11T15:32:42Z
+                                            updatedat: 2023-10-11T15:32:42Z
+                                          relationsfield:
+                                            event: null
+                                            constants: []
+                                        - innerfield:
+                                            id: clnlwtp2x00013ojg8yryba6u
+                                            name: Technique
+                                            type: number
+                                            condition: null
+                                            eventid: clnj94jty001bjgv0uvqtkybh
+                                            createdat: 2023-10-11T15:32:42Z
+                                            updatedat: 2023-10-11T15:32:42Z
+                                          relationsfield:
+                                            event: null
+                                            constants: []
+                                    commands: []
+                                    data: []
+                                    transitioninterface: null
+                            nets: []
+                            interfaces: []
+                        - innertransition:
+                            id: clnj841ls000mjgv0u4iuuoqm
+                            condition: null
+                            description: ""
+                            name: Finish transfer
+                            createdat: 2023-10-09T18:25:22.721Z
+                            updatedat: 2023-10-09T18:25:22.721Z
+                          relationstransition:
+                            arcs: []
+                            events:
+                                - innerevent:
+                                    id: clnj9at1e001vjgv0xrfth576
+                                    name: FinishTransfer
+                                    description: End the transfer sequence
+                                    createdat: 2023-10-09T18:58:37.826Z
+                                    updatedat: 2023-10-09T18:58:37.826Z
+                                    placeinterfaceid: null
+                                    transitioninterfaceid: null
+                                  relationsevent:
+                                    transitions: []
+                                    fields:
+                                        - innerfield:
+                                            id: clnj9at1e001wjgv08giazm22
+                                            name: Message
+                                            type: string
+                                            condition: null
+                                            eventid: clnj9at1e001vjgv0xrfth576
+                                            createdat: 2023-10-09T18:58:37.826Z
+                                            updatedat: 2023-10-09T18:58:37.826Z
+                                          relationsfield:
+                                            event: null
+                                            constants: []
+                                    commands: []
+                                    data: []
+                                    transitioninterface: null
+                            nets: []
+                            interfaces: []
+                    parent: null
+                    children: []
+                    devices: []
+                    placeinterfaces: []
+                    transitioninterfaces: []
+                    runs: []
+        - innerdevicesonnets:
+            deviceid: clnlwymg60034jgoc7ee2igmj
+            netid: clm5bj7x10001jgy0isa0dt6p
+          relationsdevicesonnets:
+            device: null
+            net:
+                innernet:
+                    id: clm5bj7x10001jgy0isa0dt6p
+                    name: Waste
+                    description: A generic net for discarding things
+                    initialmarking: []
+                    createdat: 2023-09-04T20:12:40.786Z
+                    updatedat: 2023-09-04T20:12:40.786Z
+                    authorid: clm11uw2s0000jg4kcwlstqq1
+                    parentid: null
+                relationsnet:
+                    author: null
+                    arcs:
+                        - innerarc:
+                            id: clm5bl4bu0004jgy0qpn6a4l0
+                            netid: clm5bj7x10001jgy0isa0dt6p
+                            fromplace: true
+                            placeid: clm5bka2j0002jgy09j9e0pxk
+                            transitionid: clm5bkptg0003jgy03lhq846x
+                            createdat: 2023-09-04T20:14:09.45Z
+                            updatedat: 2023-09-04T20:28:39.062Z
+                          relationsarc:
+                            net: null
+                            place: null
+                            transition: null
+                    places:
+                        - innerplace:
+                            id: clm5bka2j0002jgy09j9e0pxk
+                            name: Input
+                            description: The thing to dispose of
+                            createdat: 2023-09-04T20:13:30.235Z
+                            updatedat: 2023-09-04T20:13:30.235Z
+                            bound: 1
+                          relationsplace:
+                            arcs: []
+                            nets: []
+                            interfaces: []
+                    transitions:
+                        - innertransition:
+                            id: clm5bkptg0003jgy03lhq846x
+                            condition: null
+                            description: The thing was disposed
+                            name: Disposed
+                            createdat: 2023-09-04T20:13:50.645Z
+                            updatedat: 2023-09-04T20:13:50.645Z
+                          relationstransition:
+                            arcs: []
+                            events: []
+                            nets: []
+                            interfaces: []
+                    parent: null
+                    children: []
+                    devices: []
+                    placeinterfaces: []
+                    transitioninterfaces: []
+                    runs: []
+    actions: []

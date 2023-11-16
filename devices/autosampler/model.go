@@ -11,6 +11,10 @@ type Autosampler struct {
 	stateChange chan autosampler.InjectState
 }
 
+var (
+	_ Command = (*InjectRequest)(nil)
+)
+
 type InjectRequest struct {
 	InjectionVolume float64 `json:"injectionvolume"`
 	Position        string  `json:"position"`
@@ -18,6 +22,11 @@ type InjectRequest struct {
 	ExcessVolume    float64 `json:"excessvolume"`
 	FlushVolume     float64 `json:"flushvolume"`
 	NeedleDepth     float64 `json:"needledepth"`
+}
+
+func (r *InjectRequest) Bytes() []byte {
+	//TODO implement me
+	panic("implement me")
 }
 
 type InjectResponse struct {

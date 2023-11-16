@@ -56,7 +56,7 @@ func Run(ctx context.Context, srv marlin.MarlinServer) {
 		failOnError(err, "Failed to close channel")
 	}()
 
-	d := NewFractionCollector(srv, pipbot.MakeGrid(31.5-29, 40-17))
+	d := NewFractionCollector(srv, pipbot.MakeGrid(36-35.7, 102-92.9))
 	dev := d.load()
 	logger, err = zap.NewProduction()
 	failOnError(err, "Error creating logger")

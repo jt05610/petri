@@ -9,6 +9,7 @@ import (
 	"github.com/jt05610/petri/labeled"
 	marlin "github.com/jt05610/petri/marlin/proto/v1"
 	"github.com/jt05610/petri/yaml"
+	"go.uber.org/zap"
 	"log"
 	"strconv"
 	"sync/atomic"
@@ -56,7 +57,7 @@ func AutosamplerGrid(xOffset, yOffset float32) *pipbot.Layout {
 		Matrices: make([]*pipbot.Matrix, 5),
 	}
 
-	ret.Matrices[0] = pipbot.NewMatrix(pipbot.Unknown, "autosampler", &pipbot.Position{X: 37.5 + xOffset, Y: 55.2 + yOffset, Z: 91.7}, 15.1,
+	ret.Matrices[0] = pipbot.NewMatrix(pipbot.Unknown, "autosampler", &pipbot.Position{X: 38 + xOffset, Y: 54 + yOffset, Z: 91.7}, 15.1,
 		15.1, 10, 10, 9.75, pipbot.CylinderFluidLevelFunc(9.75))
 
 	ret.Matrices[1] = pipbot.NewMatrix(pipbot.Stock, "diluent", &pipbot.Position{X: 28.8 + xOffset, Y: 230 + yOffset, Z: 87},
@@ -151,17 +152,20 @@ const (
 	Plate       Grid = "plate"
 )
 
-func NewPipBot(grid Grid, tipGrids []int, firstTip int, srv marlin.MarlinServer) *PipBot {
+func NewPipBot(grid Grid, tipGrids []int, firstTip int, srv marlin.MarlinServer, logger *zap.Logger) *PipBot {
 	d := &PipBot{
 		MarlinServer: srv,
 		state:        new(atomic.Pointer[State]),
 		transferCh:   make(chan *TransferPlan),
 		transferring: new(atomic.Bool),
+		batchRunning: new(atomic.Bool),
 		RedisClient:  NewRedisClient(":"),
+		logger:       logger,
 	}
 	state := InitialState
 	state.TipIndex = firstTip
 	d.transferring.Store(false)
+	d.batchRunning.Store(false)
 	if grid == Autosampler {
 		state.Layout = AutosamplerGrid(0, 0)
 	} else {

@@ -9,11 +9,11 @@ import (
 )
 
 var (
-	ClearHeight    = float32(40)
-	DispenseHeight = float32(0)
-	Speed          = float32(2000)
-	flowRate       = float32(2) // mL/min
-	wasteX         = float32(0)
+	ClearHeight    = float32(55)
+	DispenseHeight = float32(25)
+	Speed          = float32(3000)
+
+	wasteX = float32(0)
 )
 
 func (d *FractionCollector) rowIndexFromLetter(grid int, letter string) int {
@@ -47,7 +47,7 @@ func (d *FractionCollector) goTo(p *pipbot.Cell) {
 }
 
 func (d *FractionCollector) park(vol float32) {
-	wasteTime := (vol / flowRate) * 60000
+	wasteTime := (vol / d.flowRate) * 60000
 	time.Sleep(time.Duration(wasteTime) * time.Millisecond)
 }
 
@@ -74,6 +74,7 @@ func (d *FractionCollector) goToWaste() {
 }
 
 func (d *FractionCollector) Collect(ctx context.Context, req *CollectRequest) (*CollectResponse, error) {
+	d.flowRate = req.FlowRate
 	if d.wasting {
 		_, err := d.FanOff(context.Background(), &marlin.FanOffRequest{})
 		if err != nil {

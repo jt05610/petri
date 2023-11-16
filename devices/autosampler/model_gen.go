@@ -50,8 +50,8 @@ func (r *InjectRequest) FromEvent(event *labeled.Event) error {
 	if event.Name != "inject" {
 		return fmt.Errorf("expected event name inject, got %s", event.Name)
 	}
-	if event.Data["injectionvolume"] != nil {
-		ds := event.Data["injectionvolume"].(string)
+	if event.Data["injectionVolume"] != nil {
+		ds := event.Data["injectionVolume"].(string)
 
 		d, err := strconv.ParseFloat(ds, 64)
 		if err != nil {
@@ -66,8 +66,8 @@ func (r *InjectRequest) FromEvent(event *labeled.Event) error {
 		r.Position = ds
 	}
 
-	if event.Data["aircushion"] != nil {
-		ds := event.Data["aircushion"].(string)
+	if event.Data["airCushion"] != nil {
+		ds := event.Data["airCushion"].(string)
 
 		d, err := strconv.ParseFloat(ds, 64)
 		if err != nil {
@@ -76,8 +76,8 @@ func (r *InjectRequest) FromEvent(event *labeled.Event) error {
 		r.AirCushion = d
 	}
 
-	if event.Data["excessvolume"] != nil {
-		ds := event.Data["excessvolume"].(string)
+	if event.Data["excessVolume"] != nil {
+		ds := event.Data["excessVolume"].(string)
 
 		d, err := strconv.ParseFloat(ds, 64)
 		if err != nil {
@@ -86,8 +86,8 @@ func (r *InjectRequest) FromEvent(event *labeled.Event) error {
 		r.ExcessVolume = d
 	}
 
-	if event.Data["flushvolume"] != nil {
-		ds := event.Data["flushvolume"].(string)
+	if event.Data["flushVolume"] != nil {
+		ds := event.Data["flushVolume"].(string)
 
 		d, err := strconv.ParseFloat(ds, 64)
 		if err != nil {
@@ -96,8 +96,8 @@ func (r *InjectRequest) FromEvent(event *labeled.Event) error {
 		r.FlushVolume = d
 	}
 
-	if event.Data["needledepth"] != nil {
-		ds := event.Data["needledepth"].(string)
+	if event.Data["needleDepth"] != nil {
+		ds := event.Data["needleDepth"].(string)
 
 		d, err := strconv.ParseFloat(ds, 64)
 		if err != nil {
@@ -114,7 +114,7 @@ func (r *InjectResponse) Event() *labeled.Event {
 		Name: "inject",
 		Fields: []*labeled.Field{
 			{
-				Name: "injectionvolume",
+				Name: "injectionVolume",
 				Type: "number",
 			},
 
@@ -124,22 +124,22 @@ func (r *InjectResponse) Event() *labeled.Event {
 			},
 
 			{
-				Name: "aircushion",
+				Name: "airCushion",
 				Type: "number",
 			},
 
 			{
-				Name: "excessvolume",
+				Name: "excessVolume",
 				Type: "number",
 			},
 
 			{
-				Name: "flushvolume",
+				Name: "flushVolume",
 				Type: "number",
 			},
 
 			{
-				Name: "needledepth",
+				Name: "needleDepth",
 				Type: "number",
 			},
 		},

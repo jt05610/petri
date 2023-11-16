@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/jt05610/petri/devices/fraction_collector/pipbot"
 	marlin "github.com/jt05610/petri/marlin/proto/v1"
+	"go.uber.org/zap"
 	"strconv"
 )
 
@@ -127,10 +128,20 @@ func (p *TransferPlan) getTip(s *State) (*State, []*marlin.MoveRequest) {
 		needsPreRinse: p.PreRinses > 0,
 		extruderPos:   s.extruderPos,
 	}
+	raisePos := &pipbot.Position{
+		Z: tipLoc.Z + 5,
+	}
+	lowPos := &pipbot.Position{
+		Z: tipLoc.Z - 1,
+	}
 	return newState, []*marlin.MoveRequest{
 		p.clear(s),
 		p.XY(tipLoc),
 		p.Z(tipLoc),
+		p.Z(raisePos),
+		p.Z(lowPos),
+		p.Z(raisePos),
+		p.Z(lowPos),
 		p.clear(newState),
 	}
 }
@@ -352,13 +363,17 @@ func (d *PipBot) makePlan(req *StartTransferRequest) (*TransferPlan, error) {
 }
 
 func (d *PipBot) do(ctx context.Context, mr []*marlin.MoveRequest) error {
-	for _, r := range mr {
+	nMoves := len(mr)
+	for i, r := range mr {
+		d.logger.Info("Move", zap.Int("move", i), zap.Int("total", nMoves), zap.Any("request", r))
 		select {
 		case <-ctx.Done():
 			return nil
 		default:
+			d.logger.Info("Sending move", zap.Any("request", r))
 			_, err := d.Move(ctx, r)
 			if err != nil {
+				d.logger.Error("Error sending move", zap.Error(err))
 				return err
 			}
 		}

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/jt05610/petri/devices/fraction_collector/pipbot"
 	marlin "github.com/jt05610/petri/marlin/proto/v1"
+	"go.uber.org/zap"
 	"strconv"
 	"sync/atomic"
 )
@@ -48,6 +49,7 @@ type State struct {
 }
 
 type PipBot struct {
+	logger *zap.Logger
 	marlin.MarlinServer
 	*RedisClient
 	state        *atomic.Pointer[State]

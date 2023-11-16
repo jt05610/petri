@@ -1,0 +1,207 @@
+innerdevice:
+  id: clo35zqxg0001jgwoh4b8sm1a
+  authorid: clm11uw2s0000jg4kcwlstqq1
+  name: pump_bank
+  description: a bank of pumps
+  createdat: 2023-10-23T17:21:26.545Z
+  updatedat: 2023-10-23T17:21:26.545Z
+  netids: [ ]
+relationsdevice:
+  author: null
+  instances: [ ]
+  nets:
+    - innerdevicesonnets:
+        deviceid: clo35zqxg0001jgwoh4b8sm1a
+        netid: clo35jjx20001jgp4ay4yvvwe
+      relationsdevicesonnets:
+        device: null
+        net:
+          innernet:
+            id: clo35jjx20001jgp4ay4yvvwe
+            name: pump_bank
+            description: a bank of syringe pumps
+            initialmarking:
+              - 1
+              - 0
+            createdat: 2023-10-23T17:08:50.962Z
+            updatedat: 2023-10-23T17:08:50.962Z
+            authorid: clm11uw2s0000jg4kcwlstqq1
+            parentid: clm11uw6a0083jg4knghxsy84
+          relationsnet:
+            author: null
+            arcs:
+              - innerarc:
+                  id: clo35mgmu0007jgp4gspxw0jw
+                  netid: clo35jjx20001jgp4ay4yvvwe
+                  fromplace: false
+                  placeid: clo35kjzx0003jgp4xeqru6ty
+                  transitionid: clo35lwi70004jgp4szjduuex
+                  createdat: 2023-10-23T17:11:06.679Z
+                  updatedat: 2023-10-23T17:11:06.679Z
+                relationsarc:
+                  net: null
+                  place: null
+                  transition: null
+              - innerarc:
+                  id: clo35mplm0008jgp4hkf84az3
+                  netid: clo35jjx20001jgp4ay4yvvwe
+                  fromplace: true
+                  placeid: clo35kjzx0003jgp4xeqru6ty
+                  transitionid: clo35m29j0005jgp4ses0pvnl
+                  createdat: 2023-10-23T17:11:18.298Z
+                  updatedat: 2023-10-23T17:11:18.298Z
+                relationsarc:
+                  net: null
+                  place: null
+                  transition: null
+              - innerarc:
+                  id: clo35n13h0009jgp4vwc4l0gl
+                  netid: clo35jjx20001jgp4ay4yvvwe
+                  fromplace: false
+                  placeid: clo35k9zl0002jgp40q9shhvy
+                  transitionid: clo35m29j0005jgp4ses0pvnl
+                  createdat: 2023-10-23T17:11:33.198Z
+                  updatedat: 2023-10-23T17:11:33.198Z
+                relationsarc:
+                  net: null
+                  place: null
+                  transition: null
+              - innerarc:
+                  id: clo35m96b0006jgp4gykwlhib
+                  netid: clo35jjx20001jgp4ay4yvvwe
+                  fromplace: true
+                  placeid: clo35k9zl0002jgp40q9shhvy
+                  transitionid: clo35lwi70004jgp4szjduuex
+                  createdat: 2023-10-23T17:10:57.011Z
+                  updatedat: 2023-10-23T17:11:58.067Z
+                relationsarc:
+                  net: null
+                  place: null
+                  transition: null
+            places:
+              - innerplace:
+                  id: clo35k9zl0002jgp40q9shhvy
+                  name: Idle
+                  description: The pumps are ready
+                  createdat: 2023-10-23T17:09:24.754Z
+                  updatedat: 2023-10-23T17:09:24.754Z
+                  bound: 1
+                relationsplace:
+                  arcs: [ ]
+                  nets: [ ]
+                  interfaces: [ ]
+              - innerplace:
+                  id: clo35kjzx0003jgp4xeqru6ty
+                  name: Pumping
+                  description: The pumps are pumping
+                  createdat: 2023-10-23T17:09:37.726Z
+                  updatedat: 2023-10-23T17:09:37.726Z
+                  bound: 1
+                relationsplace:
+                  arcs: [ ]
+                  nets: [ ]
+                  interfaces: [ ]
+            transitions:
+              - innertransition:
+                  id: clo35lwi70004jgp4szjduuex
+                  condition: null
+                  description: ""
+                  name: PumpStarted
+                  createdat: 2023-10-23T17:10:40.592Z
+                  updatedat: 2023-10-23T17:10:40.592Z
+                relationstransition:
+                  arcs: [ ]
+                  events:
+                    - innerevent:
+                        id: clo35r5wk000ajgp4j3hj1p6r
+                        name: StartPump
+                        description: Start pumping
+                        createdat: 2023-10-23T17:14:46.052Z
+                        updatedat: 2023-10-23T17:14:46.052Z
+                        placeinterfaceid: null
+                        transitioninterfaceid: null
+                      relationsevent:
+                        transitions: [ ]
+                        fields:
+                          - innerfield:
+                              id: clo35r5wk000bjgp4ronw3f5i
+                              name: TFR
+                              type: number
+                              condition: null
+                              eventid: clo35r5wk000ajgp4j3hj1p6r
+                              createdat: 2023-10-23T17:14:46.052Z
+                              updatedat: 2023-10-23T17:14:46.052Z
+                            relationsfield:
+                              event: null
+                              constants: [ ]
+                          - innerfield:
+                              id: clo35w5le0000tkjgbrpyh0qd
+                              name: FRR
+                              type: number
+                              condition: null
+                              eventid: clo35r5wk000ajgp4j3hj1p6r
+                              createdat: 2023-10-23T17:14:46.052Z
+                              updatedat: 2023-10-23T17:14:46.052Z
+                            relationsfield:
+                              event: null
+                              constants: [ ]
+                          - innerfield:
+                              id: clo35w5lf0001tkjgg79vadkt
+                              name: Volume
+                              type: number
+                              condition: null
+                              eventid: clo35r5wk000ajgp4j3hj1p6r
+                              createdat: 2023-10-23T17:14:46.052Z
+                              updatedat: 2023-10-23T17:14:46.052Z
+                            relationsfield:
+                              event: null
+                              constants: [ ]
+                        commands: [ ]
+                        data: [ ]
+                        transitioninterface: null
+                  nets: [ ]
+                  interfaces: [ ]
+              - innertransition:
+                  id: clo35m29j0005jgp4ses0pvnl
+                  condition: null
+                  description: ""
+                  name: PumpFinished
+                  createdat: 2023-10-23T17:10:48.056Z
+                  updatedat: 2023-10-23T17:10:48.056Z
+                relationstransition:
+                  arcs: [ ]
+                  events:
+                    - innerevent:
+                        id: clo35rgso000cjgp4ego9v4ue
+                        name: PumpFinished
+                        description: ""
+                        createdat: 2023-10-23T17:15:00.168Z
+                        updatedat: 2023-10-23T17:15:00.168Z
+                        placeinterfaceid: null
+                        transitioninterfaceid: null
+                      relationsevent:
+                        transitions: [ ]
+                        fields:
+                          - innerfield:
+                              id: clo35rgso000djgp4pqeg4jwa
+                              name: message
+                              type: string
+                              condition: null
+                              eventid: clo35rgso000cjgp4ego9v4ue
+                              createdat: 2023-10-23T17:15:00.168Z
+                              updatedat: 2023-10-23T17:15:00.168Z
+                            relationsfield:
+                              event: null
+                              constants: [ ]
+                        commands: [ ]
+                        data: [ ]
+                        transitioninterface: null
+                  nets: [ ]
+                  interfaces: [ ]
+            parent: null
+            children: [ ]
+            devices: [ ]
+            placeinterfaces: [ ]
+            transitioninterfaces: [ ]
+            runs: [ ]
+  actions: [ ]

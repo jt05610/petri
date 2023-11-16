@@ -57,7 +57,6 @@ func (r *CollectRequest) FromEvent(event *labeled.Event) error {
 		}
 		r.WasteVol = d
 	}
-
 	if event.Data["collectVol"] != nil {
 		ds := event.Data["collectVol"].(string)
 
@@ -67,7 +66,15 @@ func (r *CollectRequest) FromEvent(event *labeled.Event) error {
 		}
 		r.CollectVol = d
 	}
+	if event.Data["flowRate"] != nil {
+		ds := event.Data["flowRate"].(string)
 
+		d, err := strconv.ParseFloat(ds, 32)
+		if err != nil {
+			return err
+		}
+		r.FlowRate = float32(d)
+	}
 	return nil
 }
 

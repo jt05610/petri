@@ -7,13 +7,15 @@ import (
 
 type FractionCollector struct {
 	marlin.MarlinServer
-	wasting bool
+	flowRate float32
+	wasting  bool
 	*pipbot.Layout
 }
 
 type CollectRequest struct {
 	WasteVol   float64 `json:"wastevol"`
 	CollectVol float64 `json:"collectvol"`
+	FlowRate   float32 `json:"flowrate"`
 }
 
 type CollectResponse struct {

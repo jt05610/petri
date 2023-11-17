@@ -170,8 +170,7 @@ class SerialInterface:
     def __init__(self, port: str, baud: int, timeout: float):
         self._serial = serial.Serial(port, baud, timeout=timeout)
         self._status = AutosamplerStatus(0, 0, 0)
-        self._serial.rts = True
-        self._serial.dtr = True
+
 
     def reset_status(self):
         self._status = AutosamplerStatus(0, 0, 0)
@@ -182,7 +181,7 @@ class SerialInterface:
     def _write(self, command: Command) -> bytes:
         self._serial.write(bytes(command))
         ret = self._read()
-        print("Wrote: ", command, "Received: ", ret)
+        print("Wrote: ", bytes(command), "Received: ", ret)
         return ret
 
     def _close(self):

@@ -1,19 +1,25 @@
 package autosampler
 
 import (
-	autosampler "github.com/jt05610/petri/devices/autosampler/proto"
-	"sync/atomic"
+	"context"
+	"strconv"
 )
 
 type Autosampler struct {
-	client      autosampler.AutosamplerClient
-	state       *atomic.Int32
-	stateChange chan autosampler.InjectState
+	*Server
+	finish context.CancelFunc
 }
 
-var (
-	_ Command = (*InjectRequest)(nil)
-)
+// vialFromGrid converts a grid position to a vial number. However, the rows increment backwards from J to A.
+// Example J1 -> 1, J2 -> 2, A1 -> 90. The number of rows and columns are required to calculate the vial number.
+func vialFromGrid(pos string, nRows, nCols int) (int32, error) {
+	row := int(pos[0]-'A') + 1
+	col, err := strconv.Atoi(pos[1:])
+	if err != nil {
+		return 0, err
+	}
+	return int32((nRows-row)*nCols + col), nil
+}
 
 type InjectRequest struct {
 	InjectionVolume float64 `json:"injectionvolume"`
@@ -24,9 +30,8 @@ type InjectRequest struct {
 	NeedleDepth     float64 `json:"needledepth"`
 }
 
-func (r *InjectRequest) Bytes() []byte {
-	//TODO implement me
-	panic("implement me")
+func (r *InjectRequest) Requests() ([]*Request, error) {
+	return InjectionSettings(r)
 }
 
 type InjectResponse struct {

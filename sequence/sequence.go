@@ -29,11 +29,14 @@ func fLower(s string) string {
 }
 func (a *Action) ParameterMap() map[string]interface{} {
 	ret := make(map[string]interface{})
+	for _, c := range a.Constants {
+		if strings.Contains(c.Value.(string), "{") {
+			continue
+		}
+		ret[fLower(c.Field.Name)] = c.Value
+	}
 	for _, p := range a.Parameters {
 		ret[fLower(p.Field.Name)] = p.Value
-	}
-	for _, c := range a.Constants {
-		ret[fLower(c.Field.Name)] = c.Value
 	}
 	return ret
 }
@@ -72,9 +75,6 @@ func (a *Action) ExtractParameters() {
 		a.Parameters[f.ID] = &Parameter{
 			Field: f,
 		}
-	}
-	for _, c := range a.Constants {
-		delete(a.Parameters, c.Field.ID)
 	}
 }
 
@@ -124,8 +124,10 @@ func (s *Sequence) ApplyParameters(params map[string]interface{}) error {
 			} else {
 				sp := stepParams.(map[string]interface{})
 				for _, c := range step.Constants {
-					sp[c.Field.ID] = map[string]interface{}{
-						"value": c.Value,
+					if !strings.Contains(c.Value.(string), "{") {
+						sp[c.Field.ID] = map[string]interface{}{
+							"value": c.Value,
+						}
 					}
 				}
 				err := step.ApplyParameters(sp)

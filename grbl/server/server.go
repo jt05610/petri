@@ -40,6 +40,7 @@ func (s *Server) status() *grbl.Status {
 func (s *Server) do(cmd []byte, synchronous bool, check func(state *proto.State) bool) error {
 	for !s.Cts.Load() {
 	}
+	s.logger.Debug("Sending command", zap.String("cmd", string(cmd)))
 	s.TxChan <- cmd
 	if synchronous {
 		for {
@@ -390,6 +391,7 @@ func (s *Server) Listen(ctx context.Context) error {
 				s.logger.Error("Failed to read message", zap.Error(err))
 				continue
 			}
+			s.logger.Debug("Received response", zap.String("response", string(bb)))
 			buf := bytes.NewBuffer(bb)
 			parser := grbl.NewParser(buf)
 			upd, err := parser.Parse()

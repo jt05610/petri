@@ -18,7 +18,6 @@ import (
 	"google.golang.org/grpc"
 	"os/signal"
 
-	"net"
 	"os"
 	"strconv"
 )
@@ -112,24 +111,29 @@ func main() {
 	}
 	resp, err := s.FloodOn(ctx, &proto.FloodOnRequest{})
 	logger.Info("Flood on", zap.Any("resp", resp))
-	lis, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", environ.Port))
-	if err != nil {
-		logger.Fatal("Failed to listen", zap.Error(err))
-	}
+	// lis, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", environ.Port))
+	//if err != nil {
+	//	logger.Fatal("Failed to listen", zap.Error(err))
+	//}
 	opts := make([]grpc.ServerOption, 0)
 	grpcServer := grpc.NewServer(opts...)
 	proto.RegisterGRBLServer(grpcServer, s)
 	logger.Info("Starting grpc server", zap.Int("port", environ.Port))
 	go func() {
-		err := grpcServer.Serve(lis)
+		//err := grpcServer.Serve(lis)
 		if err != nil {
 			logger.Fatal("Failed to serve grpc", zap.Error(err))
 		}
 	}()
-	conn, err := amqp.Dial(amqpEnv())
-	if err != nil {
-		logger.Fatal("Failed to dial amqp", zap.Error(err))
+	connections := make([]*amqp.Connection, 5)
+	for i := 0; i < 5; i++ {
+		conn, err := amqp.Dial(amqpEnv())
+		if err != nil {
+			logger.Fatal("Failed to dial amqp", zap.Error(err))
+		}
+		connections[i] = conn
 	}
+
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
 	go func() {
@@ -137,16 +141,18 @@ func main() {
 		cancel()
 	}()
 	defer func() {
-		err := conn.Close()
-		if err != nil {
-			logger.Error("Failed to close amqp connection", zap.Error(err))
+		for _, conn := range connections {
+			err := conn.Close()
+			if err != nil {
+				logger.Error("Failed to close amqp connection", zap.Error(err))
+			}
 		}
 	}()
-	go organicpump.Run(ctx, conn, s)
-	go aqueouspump.Run(ctx, conn, s)
-	go rheogrande.Run(ctx, conn, s)
-	go rheoten.Run(ctx, conn, s)
-	go twvalve.Run(ctx, conn, s)
+	go organicpump.Run(ctx, connections[0], s)
+	go aqueouspump.Run(ctx, connections[1], s)
+	go rheogrande.Run(ctx, connections[2], s)
+	go rheoten.Run(ctx, connections[3], s)
+	go twvalve.Run(ctx, connections[4], s)
 
 	<-ctx.Done()
 }

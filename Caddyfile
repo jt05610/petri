@@ -1,4 +1,11 @@
 :4000 {
+    handle /experiment/* {
+        reverse_proxy :8000
+    }
+    handle /pipbot/* {
+        reverse_proxy :8000
+    }
+
     handle /api/* {
         reverse_proxy :8081
     }

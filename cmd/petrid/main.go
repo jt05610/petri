@@ -59,7 +59,7 @@ func main() {
 			},
 		),
 	)
-	srv.AddTransport(transport.SSE{}) // <---- This is the important
+	srv.AddTransport(transport.SSE{})
 
 	// default server
 	srv.AddTransport(transport.Options{})
@@ -80,5 +80,6 @@ func main() {
 
 	http.Handle("/", srv)
 	http.Handle("/playground", playground.Handler("Session", "/api/"))
+	http.Handle("/schema", http.FileServer(http.Dir("public")))
 	log.Fatal(http.ListenAndServe(":8081", nil))
 }

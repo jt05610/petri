@@ -8,6 +8,7 @@ import (
 	proto "github.com/jt05610/petri/marlin/proto/v1"
 	"go.uber.org/zap"
 	"io"
+	"math"
 	"sync/atomic"
 	"time"
 )
@@ -182,25 +183,29 @@ func goToMsg(pos *proto.MoveRequest) []byte {
 	return ret
 }
 
+func Round(x float32, unit float64) float32 {
+	return float32(math.Round(float64(x)/unit) * unit)
+}
+
 func (s *Server) Move(ctx context.Context, req *proto.MoveRequest) (*proto.Response, error) {
 	err := s.do(goToMsg(req), true, func(state *proto.State) bool {
 		if req.X != nil {
-			if state.Position.X != *req.X {
+			if state.Position.X != Round(req.GetX(), .01) {
 				return false
 			}
 		}
 		if req.Y != nil {
-			if state.Position.Y != *req.Y {
+			if state.Position.Y != Round(req.GetY(), .01) {
 				return false
 			}
 		}
 		if req.Z != nil {
-			if state.Position.Z != *req.Z {
+			if state.Position.Z != Round(req.GetZ(), .01) {
 				return false
 			}
 		}
 		if req.E != nil {
-			if state.Position.E != *req.E {
+			if Round(state.Position.E, .1) != Round(req.GetE(), .1) {
 				return false
 			}
 		}
@@ -233,7 +238,7 @@ func (s *Server) UpdateStatus(status StatusUpdate) {
 	}
 
 	if upd, ok := status.(*Status); ok {
-		s.logger.Debug("Received status update", zap.Any("status", upd))
+		// s.logger.Debug("Received status update", zap.Any("status", upd))
 		s.machineStatus.Store(upd)
 		newState := &proto.State{
 			Position: &proto.Position{
@@ -264,7 +269,7 @@ func (s *Server) RunHeartbeat(ctx context.Context) {
 				continue
 			}
 			s.cts.Store(false)
-			s.logger.Debug("Sending heartbeat")
+			// s.logger.Debug("Sending heartbeat")
 			s.TxChan <- []byte(HeartbeatMsg)
 		}
 	}
@@ -281,7 +286,6 @@ func (s *Server) Listen(ctx context.Context) error {
 				s.logger.Error("Failed to read message", zap.Error(err))
 				continue
 			}
-			s.logger.Debug("Received message", zap.String("msg", string(bb)))
 			buf := bytes.NewBuffer(bb)
 			parser := NewParser(buf)
 			upd, err := parser.Parse()

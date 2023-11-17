@@ -3,24 +3,26 @@ package autosampler
 import (
 	"context"
 	"fmt"
+	"github.com/jt05610/petri/comm/serial"
 	"github.com/jt05610/petri/control"
 	"github.com/jt05610/petri/device"
-	autosampler "github.com/jt05610/petri/devices/autosampler/proto"
 	"github.com/jt05610/petri/labeled"
 	"github.com/jt05610/petri/yaml"
+	"go.uber.org/zap"
 	"log"
 	"strconv"
-	"sync/atomic"
 )
 
-func NewAutosampler(client autosampler.AutosamplerClient) *Autosampler {
+func NewAutosampler(port *serial.Port, logger *zap.Logger) *Autosampler {
 	d := &Autosampler{
-		client:      client,
-		state:       new(atomic.Int32),
-		stateChange: make(chan autosampler.InjectState),
+		Server: New(port, logger),
 	}
-	d.state.Store(int32(autosampler.InjectState_Idle))
 	return d
+}
+
+func (d *Autosampler) Do(ctx context.Context, cmd *Request) error {
+	d.logger.Debug("Sending command", zap.String("command", string(cmd.Bytes())))
+	return d.do(cmd.Bytes())
 }
 
 func (d *Autosampler) Load() *device.Device {

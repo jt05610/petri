@@ -310,10 +310,13 @@ func (c *Controller) pruneInstances() {
 	defer c.mu.Unlock()
 	for k, vv := range c.Known {
 		for instanceKey, v := range vv {
+			if v == nil {
+				continue
+			}
 			v.liveness--
 			if v.liveness <= 0 {
 				log.Printf("Pruning instance %s for device %s", v.ID, k)
-				delete(c.Known[k], instanceKey)
+				c.Known[k][instanceKey] = nil
 			}
 		}
 	}

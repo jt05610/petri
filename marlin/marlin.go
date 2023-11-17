@@ -214,7 +214,6 @@ func (p *Parser) parseFloat() float32 {
 		panic(p.errorf(pos, "expected float, got %q", lit))
 	}
 	return float32(f)
-
 }
 
 func (p *Parser) parsePosition() *Position {

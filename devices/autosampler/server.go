@@ -5,7 +5,6 @@ import (
 	"embed"
 	"github.com/jt05610/petri/amqp"
 	"github.com/jt05610/petri/amqp/server"
-	autosampler "github.com/jt05610/petri/devices/autosampler/proto"
 	"go.uber.org/zap"
 	"log"
 	"os"
@@ -15,10 +14,10 @@ import (
 //go:embed device.yaml
 var deviceYaml embed.FS
 
-func Run(ctx context.Context, conn *amqp.Connection, client autosampler.AutosamplerClient) {
+func Run(ctx context.Context, conn *amqp.Connection) {
 	logger, err := zap.NewProduction()
 	failOnError(err, "Error creating logger")
-	d := NewAutosampler(client)
+	d := NewAutosampler(nil, nil)
 	dev := d.Load()
 	// any additional initialization goes here
 

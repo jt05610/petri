@@ -76,9 +76,18 @@ func (s *Server) route(ctx context.Context, data *control.Command) (*control.Eve
 	return res, nil
 }
 
+func toLowerNoSnake(s string) string {
+	return strings.ReplaceAll(strings.ToLower(s), " ", "_")
+}
+
 func New(net *labeled.Net, ch *amqp.Channel, exchange string, deviceID string, instanceID string, eventMap map[string]*petri.Transition, handlers control.Handlers, logger *zap.Logger) *Server {
+	evIds := make(map[string]string)
+	for _, ev := range net.Events {
+		evIds[toLowerNoSnake(ev.Name)] = ev.ID
+	}
+
 	for ev, h := range handlers {
-		err := net.AddHandler(ev, eventMap[ev], h)
+		err := net.AddHandler(ev, evIds[ev], eventMap[ev], h)
 		failOnError(err, "Failed to add handler")
 	}
 
@@ -187,11 +196,11 @@ func (s *Server) Listen(ctx context.Context) {
 					failOnError(err, "Failed to flush command")
 					err = s.ch.PublishWithContext(ctx, s.exchange, s.instanceID+".state.current", false, false, resp)
 				case "commands":
-					event, err := s.route(context.Background(), data)
+					event, err := s.route(ctx, data)
 					failOnError(err, "Failed to handle data")
 					resp, err := s.cmd.Flush(ctx, event.Event, s.MarkingMap())
 					log.Printf("Sending response %v", resp)
-					err = s.ch.PublishWithContext(context.Background(),
+					err = s.ch.PublishWithContext(ctx,
 						s.exchange,
 						event.RoutingKey(),
 						false,

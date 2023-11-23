@@ -41,7 +41,6 @@ type Controller struct {
 	dataCh          chan *control.Event
 	q               *amqpGo.Queue
 	Routes          map[string]*Instance
-	StepQueue       []*sequence.Step
 	CurrentStep     *atomic.Int32
 	Sequence        *sequence.Sequence
 	Net             *labeled.Net
@@ -213,12 +212,20 @@ func (c *Controller) CloseRelay() {
 	c.dataRelay = nil
 }
 
+func channelSteps(stepQueue []*sequence.Step) <-chan *sequence.Step {
+	ch := make(chan *sequence.Step)
+	go func() {
+		for _, step := range stepQueue {
+			ch <- step
+		}
+		close(ch)
+	}()
+	return ch
+}
+
 func (c *Controller) Start(ctx context.Context) {
 	c.logger.Info("Starting sequence", zap.String("sequence", c.Sequence.Name))
-	c.StepQueue = make([]*sequence.Step, len(c.Sequence.Steps))
-	for i, step := range c.Sequence.Steps {
-		c.StepQueue[i] = step
-	}
+	stepCh := channelSteps(c.Sequence.Steps)
 	c.CurrentStep.Store(0)
 	go func() {
 		for {
@@ -226,7 +233,12 @@ func (c *Controller) Start(ctx context.Context) {
 			case <-ctx.Done():
 				return
 			default:
-				step := c.StepQueue[0]
+				step, ok := <-stepCh
+				if !ok {
+					c.logger.Info("Sequence complete", zap.String("sequence", c.Sequence.Name))
+					c.CurrentStep.Store(0)
+					return
+				}
 				c.logger.Info("Starting step", zap.String("step", step.Name))
 				inst := c.Routes[step.Device.ID]
 				if inst == nil {
@@ -237,18 +249,13 @@ func (c *Controller) Start(ctx context.Context) {
 					log.Println(err)
 				}
 				data := <-c.dataCh
-				if data.From == inst.ID {
-					c.logger.Info("Received event", zap.String("event", data.Name))
-					if c.dataRelay != nil {
-						c.dataRelay <- data
-					}
+				c.logger.Info("Received event", zap.String("event", data.Name))
+				if c.dataRelay != nil {
+					c.dataRelay <- data
 				}
-				if len(c.StepQueue) == 1 {
-					c.logger.Info("Sequence complete", zap.String("sequence", c.Sequence.Name))
-					c.CurrentStep.Store(0)
-					return
+				if step.Action.Event.ID != data.Event.ID {
+					log.Fatalf("Expected event %s (id: %s) but got %s (id: %s)", step.Action.Event.Name, step.Action.Event.ID, data.Event.Name, data.Event.ID)
 				}
-				c.StepQueue = c.StepQueue[1:]
 				c.CurrentStep.Add(1)
 			}
 		}
@@ -261,7 +268,7 @@ func (c *Controller) startStep(ctx context.Context, step *sequence.Step) error {
 		return errors.New("device not found")
 	}
 	cmd := step.Command(to.ID)
-	fmt.Printf("Sending %s to %s with data %v\n", cmd.Name, cmd.To, cmd.Data)
+	fmt.Printf("Sending %s (id: %s) to %s with data %v\n", cmd.Name, cmd.ID, cmd.To, cmd.Data)
 	done := make(chan struct{})
 	var sendErr error
 	go func() {
@@ -284,7 +291,9 @@ func (c *Controller) registerInstance(deviceID, instanceID string, marking contr
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.Known[deviceID] == nil {
+		c.logger.Debug("Registering device", zap.String("device", deviceID))
 		c.Known[deviceID] = make(map[string]*Instance)
+		c.logger.Debug("Registering instance", zap.String("device", deviceID), zap.String("instance", instanceID))
 		c.Known[deviceID][instanceID] = &Instance{
 			ID:       instanceID,
 			liveness: MaxLiveness,
@@ -297,6 +306,7 @@ func (c *Controller) registerInstance(deviceID, instanceID string, marking contr
 		c.Known[deviceID][instanceID].Marking = marking
 		return
 	}
+	c.logger.Debug("Registering instance", zap.String("device", deviceID), zap.String("instance", instanceID))
 	c.Known[deviceID][instanceID] = &Instance{
 		ID:       instanceID,
 		liveness: MaxLiveness,
@@ -355,7 +365,7 @@ func (c *Controller) Listen(ctx context.Context) {
 					continue
 				}
 				if data.Topic == "device" {
-					go c.registerInstance(data.Name, data.From, data.Marking)
+					c.registerInstance(data.Name, data.From, data.Marking)
 					continue
 				}
 				fmt.Printf("Received %s from %s\n", data.Name, data.From)

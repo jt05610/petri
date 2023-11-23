@@ -18,10 +18,17 @@ func (a *CommandService) Load(_ context.Context, data amqp.Delivery) (*control.C
 	to := sk[0]
 	topic := sk[1]
 	command := sk[2]
+	id := ""
+	if data.Headers != nil {
+		if data.Headers["x-event-id"] != nil {
+			id = data.Headers["x-event-id"].(string)
+		}
+	}
 	res := &control.Command{
 		To:    to,
 		Topic: topic,
 		Event: &labeled.Event{
+			ID:   id,
 			Name: command,
 		},
 	}
@@ -39,6 +46,7 @@ func (a *CommandService) Flush(_ context.Context, event *labeled.Event, mark ...
 	}
 	headers := amqp.Table{
 		"x-event-name": event.Name,
+		"x-event-id":   event.ID,
 	}
 	if len(mark) > 0 {
 		m := mark[0]
@@ -67,7 +75,11 @@ func (a *EventService) Load(_ context.Context, data amqp.Delivery) (*control.Eve
 	from := sk[0]
 	topic := sk[1]
 	event := sk[2]
+	id := ""
 	if data.Headers != nil {
+		if data.Headers["x-event-id"] != nil {
+			id = data.Headers["x-event-id"].(string)
+		}
 		if data.Headers["x-marking"] != nil {
 			var m control.Marking
 			if err := json.Unmarshal(data.Headers["x-marking"].([]byte), &m); err != nil {
@@ -76,17 +88,19 @@ func (a *EventService) Load(_ context.Context, data amqp.Delivery) (*control.Eve
 			ret := &control.Event{
 				From:    from,
 				Topic:   topic,
-				Event:   &labeled.Event{Name: event},
+				Event:   &labeled.Event{ID: id, Name: event},
 				Marking: m,
 			}
 			return ret, json.Unmarshal(data.Body, &ret.Data)
 		}
+
 	}
 	res := &control.Event{
 		From:  from,
 		Topic: topic,
 		Event: &labeled.Event{
 			Name: event,
+			ID:   id,
 		},
 	}
 	if len(data.Body) == 0 {

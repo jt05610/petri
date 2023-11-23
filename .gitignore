@@ -5,3 +5,4 @@
 /cmd/petrid/graph/generated/
 /devices/grbl/organicpump/config.go
 /devices/grbl/rheogrande/config.go
+/prisma/db/query-engine-windows_gen.go

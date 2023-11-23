@@ -2,7 +2,6 @@ package control
 
 import (
 	"github.com/jt05610/petri/labeled"
-	"github.com/jt05610/petri/prisma/db"
 	"strings"
 )
 
@@ -26,28 +25,6 @@ type Event struct {
 	Topic   string
 	From    string
 	Marking Marking
-}
-
-func NewEvent(from string, fields []db.FieldModel, event *db.EventModel) *Event {
-	ef := make([]*labeled.Field, len(fields))
-	for i, f := range fields {
-		ef[i] = &labeled.Field{
-			Name: f.Name,
-			Type: labeled.FieldType(f.Type),
-		}
-	}
-	eventData := make(map[string]interface{})
-	for _, f := range event.Data() {
-		eventData[f.Event().Name] = f.Value
-	}
-	return &Event{
-		Event: &labeled.Event{
-			Name:   event.Name,
-			Data:   eventData,
-			Fields: ef,
-		},
-		From: from,
-	}
 }
 
 func (e *Event) snakeCaseName() string {

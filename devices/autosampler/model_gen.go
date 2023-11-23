@@ -54,8 +54,7 @@ func (r *InjectRequest) FromEvent(event *labeled.Event) error {
 	}
 	if event.Data["injectionVolume"] != nil {
 		ds := event.Data["injectionVolume"].(string)
-
-		d, err := strconv.ParseFloat(ds, 64)
+		d, err := strconv.Atoi(ds)
 		if err != nil {
 			return err
 		}
@@ -71,7 +70,7 @@ func (r *InjectRequest) FromEvent(event *labeled.Event) error {
 	if event.Data["airCushion"] != nil {
 		ds := event.Data["airCushion"].(string)
 
-		d, err := strconv.ParseFloat(ds, 64)
+		d, err := strconv.Atoi(ds)
 		if err != nil {
 			return err
 		}
@@ -81,7 +80,7 @@ func (r *InjectRequest) FromEvent(event *labeled.Event) error {
 	if event.Data["excessVolume"] != nil {
 		ds := event.Data["excessVolume"].(string)
 
-		d, err := strconv.ParseFloat(ds, 64)
+		d, err := strconv.Atoi(ds)
 		if err != nil {
 			return err
 		}
@@ -91,7 +90,7 @@ func (r *InjectRequest) FromEvent(event *labeled.Event) error {
 	if event.Data["flushVolume"] != nil {
 		ds := event.Data["flushVolume"].(string)
 
-		d, err := strconv.ParseFloat(ds, 64)
+		d, err := strconv.Atoi(ds)
 		if err != nil {
 			return err
 		}
@@ -101,7 +100,7 @@ func (r *InjectRequest) FromEvent(event *labeled.Event) error {
 	if event.Data["needleDepth"] != nil {
 		ds := event.Data["needleDepth"].(string)
 
-		d, err := strconv.ParseFloat(ds, 64)
+		d, err := strconv.Atoi(ds)
 		if err != nil {
 			return err
 		}

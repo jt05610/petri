@@ -3,6 +3,7 @@ package autosampler
 import (
 	"context"
 	"errors"
+	"go.uber.org/zap"
 )
 
 var ErrNotClearToInject = errors.New("not clear to inject")
@@ -37,18 +38,17 @@ func (d *Autosampler) currentState() State {
 
 func (d *Autosampler) Inject(ctx context.Context, req *InjectRequest) (*InjectResponse, error) {
 	if d.currentState() != Idle {
+		d.logger.Error("not clear to inject", zap.Int("state", int(d.currentState())))
 		return nil, ErrNotClearToInject
 	}
 	d.state.Store(uint32(Injecting))
 	hbCtx, can := context.WithCancel(ctx)
 	d.finish = can
-	go func() {
-		err := d.startInjection(hbCtx, req)
-		if err != nil {
-			panic(err)
-		}
-		d.RunHeartbeat(hbCtx)
-	}()
+	err := d.startInjection(hbCtx, req)
+	if err != nil {
+		panic(err)
+	}
+
 	return &InjectResponse{
 		Position:        req.Position,
 		InjectionVolume: req.InjectionVolume,

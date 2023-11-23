@@ -224,10 +224,13 @@ func (r *queryResolver) Devices(ctx context.Context, filter *string) ([]*model.D
 func (r *queryResolver) DeviceMarkings(ctx context.Context, input model.DeviceMarkingsInput) ([]*model.DeviceMarking, error) {
 	ret := make([]*model.DeviceMarking, 0)
 	for _, device := range input.Instances {
-		ret = append(ret, &model.DeviceMarking{
+		mark := &model.DeviceMarking{
 			DeviceID: device.DeviceID,
-			Marking:  r.Routes[device.DeviceID].Marking.JSON(),
-		})
+		}
+		if inst, found := r.Routes[device.DeviceID]; found {
+			mark.Marking = inst.Marking.JSON()
+		}
+		ret = append(ret)
 	}
 	return ret, nil
 }

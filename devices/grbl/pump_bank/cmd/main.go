@@ -13,6 +13,7 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"os/signal"
+	"time"
 
 	"os"
 	"strconv"
@@ -96,6 +97,26 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go s.RunHeartbeat(ctx)
+
+	_, err = s.SpindleOff(ctx, &proto.SpindleOffRequest{})
+	if err != nil {
+		logger.Fatal("Failed to spindle off", zap.Error(err))
+	}
+
+	_, err = s.FloodOn(ctx, &proto.FloodOnRequest{})
+	if err != nil {
+		logger.Fatal("Failed to flood on", zap.Error(err))
+	}
+	time.Sleep(1 * time.Second)
+	_, err = s.CoolantOff(ctx, &proto.CoolantOffRequest{})
+	if err != nil {
+		logger.Fatal("Failed to flood off", zap.Error(err))
+	}
+	_, err = s.SpindleOff(ctx, &proto.SpindleOffRequest{})
+	if err != nil {
+		logger.Fatal("Failed to spindle on", zap.Error(err))
+	}
+
 	_, err = s.Home(ctx, &proto.HomeRequest{})
 	s.TxChan <- []byte("G55\n")
 	if err != nil {

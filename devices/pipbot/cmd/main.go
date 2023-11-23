@@ -121,6 +121,6 @@ func main() {
 	}
 	// conn, err := amqp.Dial(&env.Environment{URI: environ.RabbitMqURI, Exchange: environ.AmqpExchange})
 
-	go fracCollector.Run(fracCollector.Autosampler, ctx, nil, s)
+	go fracCollector.Run(fracCollector.Plate, ctx, nil, s)
 	<-ctx.Done()
 }

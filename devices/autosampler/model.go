@@ -22,12 +22,12 @@ func vialFromGrid(pos string, nRows, nCols int) (int32, error) {
 }
 
 type InjectRequest struct {
-	InjectionVolume float64 `json:"injectionvolume"`
-	Position        string  `json:"position"`
-	AirCushion      float64 `json:"aircushion"`
-	ExcessVolume    float64 `json:"excessvolume"`
-	FlushVolume     float64 `json:"flushvolume"`
-	NeedleDepth     float64 `json:"needledepth"`
+	InjectionVolume int    `json:"injectionvolume"`
+	Position        string `json:"position"`
+	AirCushion      int    `json:"aircushion"`
+	ExcessVolume    int    `json:"excessvolume"`
+	FlushVolume     int    `json:"flushvolume"`
+	NeedleDepth     int    `json:"needledepth"`
 }
 
 func (r *InjectRequest) Requests() ([]*Request, error) {
@@ -35,12 +35,12 @@ func (r *InjectRequest) Requests() ([]*Request, error) {
 }
 
 type InjectResponse struct {
-	InjectionVolume float64 `json:"injectionvolume"`
-	Position        string  `json:"position"`
-	AirCushion      float64 `json:"aircushion"`
-	ExcessVolume    float64 `json:"excessvolume"`
-	FlushVolume     float64 `json:"flushvolume"`
-	NeedleDepth     float64 `json:"needledepth"`
+	InjectionVolume int    `json:"injectionvolume"`
+	Position        string `json:"position"`
+	AirCushion      int    `json:"aircushion"`
+	ExcessVolume    int    `json:"excessvolume"`
+	FlushVolume     int    `json:"flushvolume"`
+	NeedleDepth     int    `json:"needledepth"`
 }
 
 type InjectedRequest struct {

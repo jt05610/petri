@@ -32,21 +32,21 @@ func MakePlateGrid(xOffset, yOffset float32) *pipbot.Layout {
 		Matrices: make([]*pipbot.Matrix, 4),
 	}
 
-	ret.Matrices[0] = pipbot.NewMatrix(pipbot.Unknown, "Purp", &pipbot.Position{X: 29 + xOffset, Y: 17 + yOffset, Z: 59.4}, 42.5-29,
-		42.5-29, 5, 16, 9.32, pipbot.CylinderFluidLevelFunc(9.32))
+	ret.Matrices[0] = pipbot.NewMatrix(pipbot.Unknown, "Purp", &pipbot.Position{X: 31.5 + xOffset, Y: 22 + yOffset, Z: 60}, 13,
+		13, 5, 16, 9.32, pipbot.CylinderFluidLevelFunc(9.32))
 
-	ret.Matrices[1] = pipbot.NewMatrix(pipbot.Unknown, "96", &pipbot.Position{X: 35.7 + xOffset, Y: 92.9 + yOffset, Z: 61},
+	ret.Matrices[1] = pipbot.NewMatrix(pipbot.Unknown, "96", &pipbot.Position{X: 36.8 + xOffset, Y: 92 + yOffset, Z: 60},
 		9,
 		9, 8, 12, 6, pipbot.CylinderFluidLevelFunc(6))
 
-	ret.Matrices[2] = pipbot.NewMatrix(pipbot.Stock, "12", &pipbot.Position{X: 46 + xOffset, Y: 178.5 + xOffset, Z: 61},
+	ret.Matrices[2] = pipbot.NewMatrix(pipbot.Stock, "12", &pipbot.Position{X: 46 + xOffset, Y: 178.5 + xOffset, Z: 60},
 		72-46,
 		72-46, 3, 4, 21.3, pipbot.CylinderFluidLevelFunc(21.3))
 
-	ret.Matrices[3] = pipbot.NewMatrix(pipbot.Tip, "tips", &pipbot.Position{
-		X: 164 + xOffset,
-		Y: 106 + yOffset,
-		Z: 61,
+	ret.Matrices[3] = pipbot.NewMatrix(pipbot.Tip, "tip1", &pipbot.Position{
+		X: 165.7 + xOffset,
+		Y: 106.2 + yOffset,
+		Z: 63,
 	}, 8.87, 8.87, 12, 8, 12, nil)
 
 	return ret
@@ -57,7 +57,7 @@ func AutosamplerGrid(xOffset, yOffset float32) *pipbot.Layout {
 		Matrices: make([]*pipbot.Matrix, 5),
 	}
 
-	ret.Matrices[0] = pipbot.NewMatrix(pipbot.Unknown, "autosampler", &pipbot.Position{X: 38 + xOffset, Y: 54 + yOffset, Z: 91.7}, 15.1,
+	ret.Matrices[0] = pipbot.NewMatrix(pipbot.Unknown, "autosampler", &pipbot.Position{X: 38 + xOffset, Y: 54.4 + yOffset, Z: 91.7}, 15.1,
 		15.1, 10, 10, 9.75, pipbot.CylinderFluidLevelFunc(9.75))
 
 	ret.Matrices[1] = pipbot.NewMatrix(pipbot.Stock, "diluent", &pipbot.Position{X: 28.8 + xOffset, Y: 230 + yOffset, Z: 87},
@@ -84,18 +84,6 @@ func AutosamplerGrid(xOffset, yOffset float32) *pipbot.Layout {
 }
 
 func (d *PipBot) LoadMatrix(ctx context.Context, m *pipbot.Matrix) error {
-	levelMap, err := d.RedisClient.Load(ctx, m.Name)
-	if err != nil {
-		return err
-	}
-	if levelMap == nil {
-		return nil
-	}
-	for k, v := range levelMap {
-		m.FluidLevelMap[k] = v
-		row, col := m.FromAlphaNumeric(k)
-		m.SetLevel(row, col, float32(v))
-	}
 	for row := 0; row < m.Rows; row++ {
 		for col := 0; col < m.Columns; col++ {
 			level := m.Cells[row][col].Position.Z
@@ -119,10 +107,12 @@ func (d *PipBot) loadMatrices(ctx context.Context) error {
 
 func (d *PipBot) ChannelTips(matrices []int) chan *pipbot.Position {
 	ret := make(chan *pipbot.Position)
+	s := d.State()
 	go func() {
 		defer close(ret)
 		for _, m := range matrices {
-			for pos := range d.State().Layout.Matrices[m].Channel() {
+			layout := s.Layout
+			for pos := range layout.Matrices[m].Channel() {
 				ret <- pos
 			}
 		}
@@ -171,10 +161,9 @@ func NewPipBot(grid Grid, tipGrids []int, firstTip int, srv marlin.MarlinServer,
 	} else {
 		state.Layout = MakePlateGrid(0, 0)
 	}
-
+	d.state.Store(state)
 	state.TipChannel = d.ChannelTips(tipGrids)
 	state = discardTips(firstTip, state)
-	d.state.Store(state)
 	err := d.loadMatrices(context.Background())
 	if err != nil {
 		log.Fatal(err)

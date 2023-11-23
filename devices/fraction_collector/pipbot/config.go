@@ -11,10 +11,10 @@ func MakeGrid(xOffset, yOffset float32) *Layout {
 		Matrices: make([]*Matrix, 4),
 	}
 
-	ret.Matrices[0] = NewMatrix(Unknown, "Purp", &Position{X: 29 + xOffset, Y: 17 + yOffset, Z: 40}, 42.5-29,
-		42.5-29, 5, 16, 12, nil)
+	ret.Matrices[0] = NewMatrix(Unknown, "Purp", &Position{X: 31.5 + xOffset, Y: 22 + yOffset, Z: 40}, 13,
+		13, 5, 16, 12, nil)
 
-	ret.Matrices[1] = NewMatrix(Unknown, "96", &Position{X: 35.5 + xOffset, Y: 86.5 + yOffset, Z: 74.5},
+	ret.Matrices[1] = NewMatrix(Unknown, "96", &Position{X: 36.8 + xOffset, Y: 92 + yOffset, Z: 74.5},
 		9,
 		9, 8, 12, 12, nil)
 

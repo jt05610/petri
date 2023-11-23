@@ -34,6 +34,7 @@ type TransferPlan struct {
 	DispenseVolume float32
 	DispenseRate   float32
 	DwellTime      int
+	needsSourceMix bool
 }
 
 var (
@@ -42,9 +43,10 @@ var (
 	EjectX       = float32(10)
 	EjectZ       = float32(165)
 	MoveSpeed    = float32(4000)
-	Slope        = float32(1)
-	Intercept    = float32(0)
+	Slope        = float32(7.476142473118293)
+	Intercept    = float32(-10.104166666666742)
 	TipDepth     = float32(2)
+	AirCushion   = float32(50)
 )
 
 func (p *TransferPlan) needsNewTip(s *State) bool {
@@ -52,9 +54,9 @@ func (p *TransferPlan) needsNewTip(s *State) bool {
 		return true
 	}
 	if p.Source != nil && s.Pipette.Source != nil {
-
 		if !p.Source.Equals(s.Pipette.Source) {
 			if p.Source.Equals(s.Pipette.LastDest) {
+				p.needsSourceMix = true
 				return false
 			}
 			return true
@@ -78,7 +80,25 @@ func (p *TransferPlan) clear(s *State) *marlin.MoveRequest {
 	}
 }
 
+func (p *TransferPlan) resetAirCushion(s *State) (*State, *marlin.MoveRequest) {
+	newPos := volToMM(AirCushion, Intercept, Slope)
+	*newPos *= -1
+	return &State{
+			Pipette:       nil,
+			HasTip:        false,
+			TipChannel:    s.TipChannel,
+			Layout:        s.Layout,
+			TipIndex:      s.TipIndex,
+			needsPreRinse: s.needsPreRinse,
+			extruderPos:   s.extruderPos,
+		}, &marlin.MoveRequest{
+			E:     newPos,
+			Speed: &MoveSpeed,
+		}
+}
+
 func (p *TransferPlan) ejectTip(s *State) (*State, []*marlin.MoveRequest) {
+
 	return &State{
 			Pipette:       nil,
 			HasTip:        false,
@@ -128,20 +148,10 @@ func (p *TransferPlan) getTip(s *State) (*State, []*marlin.MoveRequest) {
 		needsPreRinse: p.PreRinses > 0,
 		extruderPos:   s.extruderPos,
 	}
-	raisePos := &pipbot.Position{
-		Z: tipLoc.Z + 5,
-	}
-	lowPos := &pipbot.Position{
-		Z: tipLoc.Z - 1,
-	}
 	return newState, []*marlin.MoveRequest{
 		p.clear(s),
 		p.XY(tipLoc),
 		p.Z(tipLoc),
-		p.Z(raisePos),
-		p.Z(lowPos),
-		p.Z(raisePos),
-		p.Z(lowPos),
 		p.clear(newState),
 	}
 }
@@ -166,12 +176,17 @@ func (p *TransferPlan) initialize(s *State) (*State, []*marlin.MoveRequest) {
 		ret = append(ret, moves...)
 		s = newState
 	}
+	if p.Technique == Forward {
+		newState, move := p.pickup(s, 50)
+		ret = append(ret, move)
+		s = newState
+	}
 	return s, ret
 }
 
 func (p *TransferPlan) moveToSource(s *State) (*State, []*marlin.MoveRequest) {
 	mat := s.Layout.Matrices[p.Source.Grid]
-	z := float32(mat.GetFluidLevel(p.Source.Row, p.Source.Col)) - TipDepth
+	z := mat.Home.Z + TipDepth
 	ret := []*marlin.MoveRequest{
 		p.clear(s),
 		p.XY(p.Source.Position(s.Layout)),
@@ -203,12 +218,12 @@ func (p *TransferPlan) pickup(s *State, vol float32) (*State, *marlin.MoveReques
 			TipIndex:      s.TipIndex,
 			extruderPos:   extruderPos,
 		}, &marlin.MoveRequest{
-			E:     dist,
+			E:     &extruderPos,
 			Speed: volToMM(p.AspirationRate, Intercept, Slope),
 		}
 }
 
-func (p *TransferPlan) deliver(s *State, vol, offset float32) (*State, *marlin.MoveRequest) {
+func (p *TransferPlan) deliver(s *State, vol, offset float32, move bool) (*State, *marlin.MoveRequest) {
 	curVol := float32(0)
 	if s.Pipette != nil {
 		curVol = s.Pipette.Volume
@@ -220,26 +235,37 @@ func (p *TransferPlan) deliver(s *State, vol, offset float32) (*State, *marlin.M
 	newFluid := &Fluid{Source: s.Pipette.Source, Volume: newVol, LastDest: p.Dest}
 	dist := volToMM(vol, Intercept, Slope)
 	ePos := s.extruderPos + *dist
-
+	if offset != 0 {
+		offsetDist := volToMM(offset, Intercept, Slope)
+		ePos += *offsetDist
+	}
 	s.Layout.Matrices[p.Dest.Grid].ChangeVolume(p.Dest.Row, p.Dest.Col, vol)
+	mat := s.Layout.Matrices[p.Dest.Grid]
+	req := &marlin.MoveRequest{
+		E:     &ePos,
+		Speed: volToMM(p.AspirationRate, Intercept, Slope),
+	}
+	if move {
+		z := float32(mat.GetFluidLevel(p.Dest.Row, p.Dest.Col))
+		dZ := float32(5)
+		z += dZ
+		req.Z = &z
+	}
 	return &State{
-			Pipette:       newFluid,
-			HasTip:        true,
-			TipChannel:    s.TipChannel,
-			Layout:        s.Layout,
-			needsPreRinse: s.needsPreRinse,
-			TipIndex:      s.TipIndex,
-			extruderPos:   ePos,
-		}, &marlin.MoveRequest{
-			E:     &ePos,
-			Speed: volToMM(p.AspirationRate, Intercept, Slope),
-		}
+		Pipette:       newFluid,
+		HasTip:        true,
+		TipChannel:    s.TipChannel,
+		Layout:        s.Layout,
+		needsPreRinse: s.needsPreRinse,
+		TipIndex:      s.TipIndex,
+		extruderPos:   ePos,
+	}, req
 }
 
 func (p *TransferPlan) rinse(s *State, vol float32) (*State, []*marlin.MoveRequest) {
 	ret := make([]*marlin.MoveRequest, 2)
 	s, ret[0] = p.pickup(s, vol)
-	s, ret[1] = p.deliver(s, vol, 0)
+	s, ret[1] = p.deliver(s, vol, 0, false)
 	return s, ret
 }
 
@@ -249,7 +275,7 @@ func (p *TransferPlan) aspirate(s *State) (*State, []*marlin.MoveRequest) {
 	if s.needsPreRinse {
 		doPreRinse = true
 	}
-	if doPreRinse {
+	if doPreRinse || p.needsSourceMix {
 		for i := 0; i < p.PreRinses; i++ {
 			newState, moves := p.rinse(s, p.FillVolume)
 			ret = append(ret, moves...)
@@ -264,7 +290,7 @@ func (p *TransferPlan) aspirate(s *State) (*State, []*marlin.MoveRequest) {
 
 func (p *TransferPlan) moveToDest(s *State) (*State, []*marlin.MoveRequest) {
 	mat := s.Layout.Matrices[p.Dest.Grid]
-	z := float32(mat.GetFluidLevel(p.Source.Row, p.Source.Col))
+	z := float32(mat.GetFluidLevel(p.Dest.Row, p.Dest.Col))
 	return s, []*marlin.MoveRequest{
 		p.clear(s),
 		p.XY(p.Dest.Position(s.Layout)),
@@ -274,7 +300,11 @@ func (p *TransferPlan) moveToDest(s *State) (*State, []*marlin.MoveRequest) {
 
 func (p *TransferPlan) dispense(s *State) (*State, []*marlin.MoveRequest) {
 	ret := make([]*marlin.MoveRequest, 0)
-	newState, move := p.deliver(s, p.DispenseVolume, 0)
+	offset := float32(0)
+	if p.Technique == Forward {
+		offset = AirCushion
+	}
+	newState, move := p.deliver(s, p.DispenseVolume, offset, true)
 	ret = append(ret, move)
 	return newState, ret
 }
@@ -359,6 +389,7 @@ func (d *PipBot) makePlan(req *StartTransferRequest) (*TransferPlan, error) {
 		AspirationRate: float32(req.FlowRate),
 		DispenseRate:   float32(req.FlowRate),
 		DwellTime:      0,
+		needsSourceMix: false,
 	}, nil
 }
 

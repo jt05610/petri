@@ -115,10 +115,10 @@ type ColdTransition struct {
 
 type Net struct {
 	*marked.Net
-	// Handlers are called when a transition is fired
 	EventMap      map[string]*ColdTransition
 	hot           map[string]bool
 	notifications map[string][]*Notification
+	EventIDs      map[string]string
 	Events        []*Event
 	eventCh       chan *Event
 }
@@ -137,6 +137,7 @@ func New(net *marked.Net) *Net {
 	n := &Net{
 		Net:           net,
 		EventMap:      make(map[string]*ColdTransition),
+		EventIDs:      make(map[string]string),
 		notifications: make(map[string][]*Notification),
 		hot:           make(map[string]bool),
 		eventCh:       make(chan *Event),
@@ -174,10 +175,11 @@ func (n *Net) AddEventHandler(event *Event, transition *petri.Transition, handle
 	}
 	n.hot[transition.Name] = false
 	n.Events = append(n.Events, event)
+	n.EventIDs[sentenceCaseToSnakeCase(event.Name)] = event.ID
 	return nil
 }
 
-func (n *Net) AddHandler(event string, transition *petri.Transition, handler Handler) error {
+func (n *Net) AddHandler(event string, id string, transition *petri.Transition, handler Handler) error {
 	n.EventMap[event] = &ColdTransition{
 		Transition: transition,
 		Handler:    handler,
@@ -187,9 +189,10 @@ func (n *Net) AddHandler(event string, transition *petri.Transition, handler Han
 	}
 	n.hot[transition.Name] = false
 	n.Events = append(n.Events, &Event{
+		ID:   id,
 		Name: event,
 	})
-
+	n.EventIDs[event] = id
 	return nil
 }
 
@@ -213,6 +216,7 @@ func (n *Net) AddNotification(name string, transition *petri.Transition, Getter 
 
 func (n *Net) Handle(ctx context.Context, event *Event) error {
 	handler, err := n.route(event.Name)
+	id := n.EventIDs[event.Name]
 	newEvents := make([]*Event, 0)
 	if err != nil {
 		return err
@@ -222,6 +226,7 @@ func (n *Net) Handle(ctx context.Context, event *Event) error {
 		return err
 	}
 	if ev != nil {
+		ev.ID = id
 		newEvents = append(newEvents, ev)
 	}
 	t := n.EventMap[event.Name]
@@ -252,6 +257,7 @@ func (n *Net) Handle(ctx context.Context, event *Event) error {
 						return err
 					}
 					newEvents = append(newEvents, &Event{
+						ID:   event.ID,
 						Name: h.Name,
 						Data: d,
 					})

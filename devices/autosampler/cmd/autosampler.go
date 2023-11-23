@@ -62,37 +62,13 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	c := make(chan os.Signal, 1)
+	go d.RunHeartbeat(ctx)
 	signal.Notify(c, os.Interrupt)
 	go func() {
 		<-c // Wait for SIGINT
 		cancel()
 	}()
 	logger.Info("Started 🐰 server")
-	nInj := 3
-	for i := 0; i < nInj; i++ {
-		req := &autosampler.InjectRequest{
-			InjectionVolume: 10,
-			Position:        "J1",
-			AirCushion:      10,
-			ExcessVolume:    0,
-			FlushVolume:     50,
-			NeedleDepth:     -10,
-		}
-		_, err := d.Inject(ctx, req)
-		if err != nil {
-			panic(err)
-		}
-		_, err = d.Injected(ctx, &autosampler.InjectedRequest{})
-		logger.Info("Injected", zap.Int("i", i))
-		if err != nil {
-			panic(err)
-		}
-		_, err = d.WaitForReady(ctx, &autosampler.WaitForReadyRequest{})
-		logger.Info("Ready", zap.Int("i", i))
-		if err != nil {
-			panic(err)
-		}
-	}
 	srv.Listen(ctx)
 	<-ctx.Done()
 	logger.Info("Shutting down 🐰 server")

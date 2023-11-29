@@ -1,15 +1,7 @@
-:4000 {
-    handle /experiment/* {
-        reverse_proxy :8000
-    }
-    handle /pipbot/* {
-        reverse_proxy :8000
-    }
-
-    handle /api/* {
-        reverse_proxy :8081
-    }
-    handle {
-        reverse_proxy :3000
-    }
+{
+    auto_https off
 }
+
+:80
+
+reverse_proxy /otto/* {$OTTO_PORT}

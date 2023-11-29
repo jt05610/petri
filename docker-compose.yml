@@ -4,50 +4,65 @@ services:
   db:
     image: postgres
     restart: always
+    hostname: ${POSTGRES_HOST}
     ports:
       - "5532:5532"
     environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: petri
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    networks:
+      - petri
+    volumes:
+      - ${POSTGRES_DATA_DIR}:/var/lib/postgresql/data
+      - ${POSTGRES_LOG_DIR}:/var/log/postgresql
 
-  web:
-    build: cmd/petri
-    ports:
-      - "8088:8088"
-    depends_on:
-      - db
-    environment:
-      DATABASE_URL: postgresql://user:password@db:5532/petri
-      RABBITMQ_EXCHANGE: topic_devices
-      RABBITMQ_URI: amqp://guest:guest@localhost:5672/
-      SESSION_SECRET: "super-duper-s3cret"
-      NODE_ENV: production
-
-  daemon:
-    build: .
-    depends_on:
-      - db
-      - rabbitmq
+  couchdb:
+    image: couchdb:latest
     restart: always
+    hostname: ${COUCHDB_HOST}
     ports:
-      - "8081:8081"
+      - "5984:5984"
     environment:
-      DATABASE_URL: postgresql://petri-dev:wY7B9svquGUQPGGDJeJEgngh3tiM4hi@localhost:5432/petri-dev
-      RABBITMQ_URI: amqp://jrt:GJWJLOABBoFnrE8xiUnSONfMLBzWn7m@SOP-4470A-1/petri
-      AMQP_EXCHANGE: topic_devices
+      - COUCHDB_USER=${COUCHDB_USER}
+      - COUCHDB_PASSWORD=${COUCHDB_PASSWORD}
+    volumes:
+      - ${COUCHDB_DATA_DIR}:/opt/couchdb/data
+      - ${COUCHDB_LOG_DIR}:/opt/couchdb/log
+      - ./couchdb/local.ini:/opt/couchdb/etc/local.ini
+    networks:
+      - petri
 
   rabbitmq:
     image: rabbitmq:3-management
     restart: always
+    hostname: ${RABBITMQ_HOST}
     ports:
       - "15672:15672"
       - "5672:5672"
+    environment:
+      - RABBITMQ_USER=${RABBITMQ_USER}
+      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
+      - RABBITMQ_VHOST=${RABBITMQ_VHOST}
     volumes:
-      - ~/.docker-conf/rabbitmq/data/:/var/lib/rabbitmq/
-      - ~/.docker-conf/rabbitmq/log/:/var/log/rabbitmq
+      - ${RABBITMQ_DATA_DIR}:/var/lib/rabbitmq
+      - ${RABBITMQ_LOG_DIR}:/var/log/rabbitmq
+      - ${RABBITMQ_CONF}:/etc/rabbitmq/rabbitmq.conf
     networks:
-      - rabbitmq_go_net
+      - petri
+
+  redis:
+    image: redis:latest
+    restart: always
+    hostname: ${REDIS_HOST}
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - REDIS_PORT=${REDIS_PORT}
+      - REDIS_HOST=${REDIS_HOST}
+    ports:
+      - "6379:6379"
+    networks:
+      - petri
 
   caddy:
     image: caddy:latest
@@ -58,13 +73,47 @@ services:
       - "443:443/udp"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile
-      - caddy_data:/data
-      - caddy_config:/config
+      - ./caddy/data:/data
+      - ./caddy/config:/config
 
-volumes:
-  caddy_data:
-  caddy_config:
+  web:
+    build: petri-ui
+    ports:
+      - "8088:8088"
+    depends_on:
+      - db
+
+  daemon:
+    build: .
+    depends_on:
+      - db
+      - rabbitmq
+    restart: always
+    ports:
+      - "8081:8081"
+    env_file:
+      - .env
+
+  otto:
+    build:
+      context: otto
+      dockerfile: Dockerfile
+    image: otto-image
+    hostname: otto
+    depends_on:
+      - couchdb
+      - rabbitmq
+    env_file:
+      - otto/secrets/.env
+    entrypoint:
+      - python
+      - -m
+      - otto.gp.entrypoints.fastapi
+    ports:
+      - ${OTTO_PORT}:80
+    networks:
+      - petri
 
 networks:
-  rabbitmq_go_net:
+  petri:
     driver: bridge

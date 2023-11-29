@@ -1,8 +1,5 @@
-/prisma/db/db_gen.go
-/prisma/db/query-engine-darwin-arm64_gen.go
 .env
 /devices/grbl/grbl/
-/cmd/petrid/graph/generated/
-/devices/grbl/organicpump/config.go
-/devices/grbl/rheogrande/config.go
-/prisma/db/query-engine-windows_gen.go
+generated
+data
+log

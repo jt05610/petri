@@ -47,14 +47,6 @@ func (a *Arc) String() string {
 	return a.Src.Identifier() + " -> " + a.Dest.Identifier()
 }
 
-func NewArc(id string, head, tail Node) *Arc {
-	return &Arc{
-		ID:   id,
-		Src:  head,
-		Dest: tail,
-	}
-}
-
 func (a *Arc) Kind() Kind { return ArcObject }
 
 type ArcInput struct {

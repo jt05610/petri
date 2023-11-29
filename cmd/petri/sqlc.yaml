@@ -1,9 +1,0 @@
-version: "2"
-sql:
-  - engine: "postgresql"
-    queries: "sqlc/query.sql"
-    schema: "sqlc/schema.sql"
-    gen:
-      go:
-        package: "db"
-        out: "../petrid/db"

@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/jt05610/petri/comm/grbl"
+	"github.com/jt05610/petri/comm/grbl/proto/v1"
 	"github.com/jt05610/petri/comm/serial"
-	"github.com/jt05610/petri/grbl"
-	proto "github.com/jt05610/petri/grbl/proto/v1"
 	"go.uber.org/zap"
 	"io"
 	"math"
@@ -14,22 +14,22 @@ import (
 	"time"
 )
 
-var _ proto.GRBLServer = (*Server)(nil)
+var _ v1.GRBLServer = (*Server)(nil)
 
 type Server struct {
 	*grbl.Parser
 	Cts           atomic.Bool
 	logger        *zap.Logger
 	machineStatus *atomic.Pointer[grbl.Status]
-	state         *atomic.Pointer[proto.State]
+	state         *atomic.Pointer[v1.State]
 	port          *serial.Port
 	rxChan        <-chan io.Reader
 	TxChan        chan []byte
 	listenCancel  context.CancelFunc
-	proto.UnimplementedGRBLServer
+	v1.UnimplementedGRBLServer
 }
 
-func (s *Server) currentState() *proto.State {
+func (s *Server) currentState() *v1.State {
 	return s.state.Load()
 }
 
@@ -37,7 +37,7 @@ func (s *Server) status() *grbl.Status {
 	return s.machineStatus.Load()
 }
 
-func (s *Server) do(cmd []byte, synchronous bool, check func(state *proto.State) bool) error {
+func (s *Server) do(cmd []byte, synchronous bool, check func(state *v1.State) bool) error {
 	for !s.Cts.Load() {
 	}
 	s.logger.Debug("Sending command", zap.String("cmd", string(cmd)))
@@ -54,14 +54,14 @@ func (s *Server) do(cmd []byte, synchronous bool, check func(state *proto.State)
 
 			if status.Error != nil {
 				if status.Error.Error != nil {
-					if *status.Error.Error != proto.ErrorCode_ErrorCode_NoError {
+					if *status.Error.Error != v1.ErrorCode_ErrorCode_NoError {
 						return fmt.Errorf("error: %d", status.Error.Message)
 					}
 				}
 			}
 			if status.Alarm != nil {
 				if status.Alarm.Alarm != nil {
-					if *status.Alarm.Alarm != proto.AlarmCode_AlarmCode_NoAlarm {
+					if *status.Alarm.Alarm != v1.AlarmCode_AlarmCode_NoAlarm {
 						return fmt.Errorf("alarm: %d", status.Alarm.Message)
 					}
 				}
@@ -72,19 +72,19 @@ func (s *Server) do(cmd []byte, synchronous bool, check func(state *proto.State)
 	return nil
 }
 
-func (s *Server) Home(ctx context.Context, req *proto.HomeRequest) (*proto.Response, error) {
+func (s *Server) Home(ctx context.Context, req *v1.HomeRequest) (*v1.Response, error) {
 	if req.Axis == nil {
 		s.TxChan <- []byte("$H\n")
 	} else {
-		if v, ok := req.Axis.(*proto.HomeRequest_X); ok {
+		if v, ok := req.Axis.(*v1.HomeRequest_X); ok {
 			if v.X {
 				s.TxChan <- []byte("$HX\n")
 			}
-		} else if v, ok := req.Axis.(*proto.HomeRequest_Y); ok {
+		} else if v, ok := req.Axis.(*v1.HomeRequest_Y); ok {
 			if v.Y {
 				s.TxChan <- []byte("$HY\n")
 			}
-		} else if v, ok := req.Axis.(*proto.HomeRequest_Z); ok {
+		} else if v, ok := req.Axis.(*v1.HomeRequest_Z); ok {
 			if v.Z {
 				s.TxChan <- []byte("$HZ\n")
 			}
@@ -106,7 +106,7 @@ func (s *Server) Home(ctx context.Context, req *proto.HomeRequest) (*proto.Respo
 			}
 		}
 	}
-	return &proto.Response{}, nil
+	return &v1.Response{}, nil
 }
 
 const waitFor = " unlock]"
@@ -144,7 +144,7 @@ func New(port *serial.Port, logger *zap.Logger) *Server {
 		rxChan:        rxCh,
 		Cts:           atomic.Bool{},
 		logger:        logger,
-		state:         &atomic.Pointer[proto.State]{},
+		state:         &atomic.Pointer[v1.State]{},
 		machineStatus: &atomic.Pointer[grbl.Status]{},
 		TxChan:        txCh,
 		listenCancel:  can,
@@ -164,7 +164,7 @@ func (s *Server) Close() error {
 	return s.port.Close()
 }
 
-func (s *Server) StateStream(req *proto.StateStreamRequest, server proto.GRBL_StateStreamServer) error {
+func (s *Server) StateStream(req *v1.StateStreamRequest, server v1.GRBL_StateStreamServer) error {
 	for {
 		select {
 		case <-server.Context().Done():
@@ -174,7 +174,7 @@ func (s *Server) StateStream(req *proto.StateStreamRequest, server proto.GRBL_St
 			if state == nil {
 				continue
 			}
-			err := server.Send(&proto.StateStreamResponse{
+			err := server.Send(&v1.StateStreamResponse{
 				State:     state,
 				Timestamp: time.Now().Format(time.RFC3339Nano),
 			})
@@ -185,7 +185,7 @@ func (s *Server) StateStream(req *proto.StateStreamRequest, server proto.GRBL_St
 	}
 }
 
-func goToMsg(pos *proto.MoveRequest) []byte {
+func goToMsg(pos *v1.MoveRequest) []byte {
 	bld := bytes.NewBuffer([]byte("G1"))
 	if pos.Speed != nil {
 		bld.WriteString(fmt.Sprintf(" F%.3f", *pos.Speed))
@@ -211,8 +211,8 @@ func floatEqual(a, b float32) bool {
 	return math.Abs(float64(a-b)) <= threshold
 }
 
-func (s *Server) Move(ctx context.Context, req *proto.MoveRequest) (*proto.Response, error) {
-	err := s.do(goToMsg(req), true, func(state *proto.State) bool {
+func (s *Server) Move(ctx context.Context, req *v1.MoveRequest) (*v1.Response, error) {
+	err := s.do(goToMsg(req), true, func(state *v1.State) bool {
 		if req.X != nil {
 			if floatEqual(state.Position.X, *req.X) && s.machineStatus.Load().State == "idle" {
 				return true
@@ -233,87 +233,87 @@ func (s *Server) Move(ctx context.Context, req *proto.MoveRequest) (*proto.Respo
 	if err != nil {
 		return nil, err
 	}
-	return &proto.Response{
+	return &v1.Response{
 		Message: "ok",
-		Response: &proto.Response_Move{
-			Move: &proto.MoveResponse{
+		Response: &v1.Response_Move{
+			Move: &v1.MoveResponse{
 				Message: "ok",
 			},
 		},
 	}, nil
 }
 
-func (s *Server) SpindleOn(ctx context.Context, req *proto.SpindleOnRequest) (*proto.Response, error) {
-	err := s.do([]byte("M3\n"), true, func(state *proto.State) bool {
+func (s *Server) SpindleOn(ctx context.Context, req *v1.SpindleOnRequest) (*v1.Response, error) {
+	err := s.do([]byte("M3\n"), true, func(state *v1.State) bool {
 		return true
 	})
 	if err != nil {
 		return nil, err
 	}
-	return &proto.Response{
+	return &v1.Response{
 		Message:  "ok",
-		Response: &proto.Response_SpindleOn{SpindleOn: &proto.SpindleOnResponse{Message: "ok"}},
+		Response: &v1.Response_SpindleOn{SpindleOn: &v1.SpindleOnResponse{Message: "ok"}},
 	}, nil
 }
 
-func (s *Server) SpindleOff(ctx context.Context, req *proto.SpindleOffRequest) (*proto.Response, error) {
-	err := s.do([]byte("M5\n"), true, func(state *proto.State) bool {
+func (s *Server) SpindleOff(ctx context.Context, req *v1.SpindleOffRequest) (*v1.Response, error) {
+	err := s.do([]byte("M5\n"), true, func(state *v1.State) bool {
 		return true
 	})
 	if err != nil {
 		return nil, err
 	}
-	return &proto.Response{
+	return &v1.Response{
 		Message:  "ok",
-		Response: &proto.Response_SpindleOff{SpindleOff: &proto.SpindleOffResponse{Message: "ok"}},
+		Response: &v1.Response_SpindleOff{SpindleOff: &v1.SpindleOffResponse{Message: "ok"}},
 	}, nil
 }
 
-func (s *Server) MistOn(ctx context.Context, req *proto.MistOnRequest) (*proto.Response, error) {
-	err := s.do([]byte("M7\n"), true, func(state *proto.State) bool {
+func (s *Server) MistOn(ctx context.Context, req *v1.MistOnRequest) (*v1.Response, error) {
+	err := s.do([]byte("M7\n"), true, func(state *v1.State) bool {
 		return true
 	})
 	if err != nil {
 		return nil, err
 	}
-	return &proto.Response{
+	return &v1.Response{
 		Message: "ok",
-		Response: &proto.Response_MistOn{
-			MistOn: &proto.MistOnResponse{
+		Response: &v1.Response_MistOn{
+			MistOn: &v1.MistOnResponse{
 				Message: "ok",
 			},
 		},
 	}, nil
 }
 
-func (s *Server) FloodOn(ctx context.Context, req *proto.FloodOnRequest) (*proto.Response, error) {
-	err := s.do([]byte("M8\n"), true, func(state *proto.State) bool {
+func (s *Server) FloodOn(ctx context.Context, req *v1.FloodOnRequest) (*v1.Response, error) {
+	err := s.do([]byte("M8\n"), true, func(state *v1.State) bool {
 		return true
 	})
 	if err != nil {
 		return nil, err
 	}
-	return &proto.Response{
+	return &v1.Response{
 		Message: "ok",
-		Response: &proto.Response_FloodOn{
-			FloodOn: &proto.FloodOnResponse{
+		Response: &v1.Response_FloodOn{
+			FloodOn: &v1.FloodOnResponse{
 				Message: "ok",
 			},
 		},
 	}, nil
 }
 
-func (s *Server) CoolantOff(ctx context.Context, req *proto.CoolantOffRequest) (*proto.Response, error) {
-	err := s.do([]byte("M9\n"), true, func(state *proto.State) bool {
+func (s *Server) CoolantOff(ctx context.Context, req *v1.CoolantOffRequest) (*v1.Response, error) {
+	err := s.do([]byte("M9\n"), true, func(state *v1.State) bool {
 		return true
 	})
 	if err != nil {
 		return nil, err
 	}
-	return &proto.Response{
+	return &v1.Response{
 		Message: "ok",
-		Response: &proto.Response_CoolantOff{
-			CoolantOff: &proto.CoolantOffResponse{
+		Response: &v1.Response_CoolantOff{
+			CoolantOff: &v1.CoolantOffResponse{
 				Message: "ok",
 			},
 		},
@@ -339,17 +339,17 @@ func (s *Server) UpdateStatus(status grbl.StatusUpdate) {
 	}
 	if upd, ok := status.(*grbl.Status); ok {
 		s.machineStatus.Store(upd)
-		newState := &proto.State{
-			Position: &proto.Position{
+		newState := &v1.State{
+			Position: &v1.Position{
 				X: upd.MachinePosition.X,
 				Y: upd.MachinePosition.Y,
 				Z: upd.MachinePosition.Z,
 			},
 		}
 		if upd.Error != nil {
-			ec := proto.ErrorCode(*upd.Error)
+			ec := v1.ErrorCode(*upd.Error)
 			s := ec.String()
-			newState.Error = &proto.Error{
+			newState.Error = &v1.Error{
 				Message: &s,
 				Error:   &ec,
 			}
@@ -358,22 +358,22 @@ func (s *Server) UpdateStatus(status grbl.StatusUpdate) {
 			fOvr := uint32(upd.Override.Feed)
 			rOvr := uint32(upd.Override.Rapid)
 			sOvr := uint32(upd.Override.Spindle)
-			newState.Offsets = &proto.Offsets{
+			newState.Offsets = &v1.Offsets{
 				Feed:    &fOvr,
 				Rapid:   &rOvr,
 				Spindle: &sOvr,
 			}
 		}
 		if upd.Active != nil {
-			newState.Active = make([]proto.Peripheral, 0, 4)
+			newState.Active = make([]v1.Peripheral, 0, 4)
 			if upd.Active.Flood {
-				newState.Active = append(newState.Active, proto.Peripheral_Flood)
+				newState.Active = append(newState.Active, v1.Peripheral_Flood)
 			}
 			if upd.Active.Mist {
-				newState.Active = append(newState.Active, proto.Peripheral_Mist)
+				newState.Active = append(newState.Active, v1.Peripheral_Mist)
 			}
 			if upd.Active.Spindle {
-				newState.Active = append(newState.Active, proto.Peripheral_Spindle)
+				newState.Active = append(newState.Active, v1.Peripheral_Spindle)
 			}
 		}
 		s.state.Store(newState)

@@ -2,7 +2,7 @@ package grbl_test
 
 import (
 	"bytes"
-	"github.com/jt05610/petri/grbl"
+	"github.com/jt05610/petri/comm/grbl"
 	"testing"
 )
 

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"github.com/joho/godotenv"
 	"github.com/jt05610/petri/amqp"
+	"github.com/jt05610/petri/comm/grbl/proto/v1"
+	"github.com/jt05610/petri/comm/grbl/server"
 	"github.com/jt05610/petri/comm/serial"
 	"github.com/jt05610/petri/devices/grbl/aqueouspump"
 	"github.com/jt05610/petri/devices/grbl/organicpump"
@@ -12,8 +14,6 @@ import (
 	"github.com/jt05610/petri/devices/grbl/rheoten"
 	"github.com/jt05610/petri/devices/grbl/twvalve"
 	"github.com/jt05610/petri/env"
-	proto "github.com/jt05610/petri/grbl/proto/v1"
-	"github.com/jt05610/petri/grbl/server"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"os/signal"
@@ -101,7 +101,7 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go s.RunHeartbeat(ctx)
-	_, err = s.Home(ctx, &proto.HomeRequest{})
+	_, err = s.Home(ctx, &v1.HomeRequest{})
 	s.TxChan <- []byte("G55\n")
 	if err != nil {
 		logger.Fatal("Failed to home", zap.Error(err))
@@ -109,7 +109,7 @@ func main() {
 	for !s.Cts.Load() {
 
 	}
-	resp, err := s.FloodOn(ctx, &proto.FloodOnRequest{})
+	resp, err := s.FloodOn(ctx, &v1.FloodOnRequest{})
 	logger.Info("Flood on", zap.Any("resp", resp))
 	// lis, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", environ.Port))
 	//if err != nil {
@@ -117,7 +117,7 @@ func main() {
 	//}
 	opts := make([]grpc.ServerOption, 0)
 	grpcServer := grpc.NewServer(opts...)
-	proto.RegisterGRBLServer(grpcServer, s)
+	v1.RegisterGRBLServer(grpcServer, s)
 	logger.Info("Starting grpc server", zap.Int("port", environ.Port))
 	go func() {
 		//err := grpcServer.Serve(lis)

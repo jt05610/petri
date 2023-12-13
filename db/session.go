@@ -35,7 +35,7 @@ func (c *SessionClient) Load(ctx context.Context, sessionID string) (*db.Session
 
 func (c *SessionClient) ActiveSessions(ctx context.Context) ([]db.SessionModel, error) {
 	return c.Session.FindMany(
-		db.Session.State.Equals(db.SessionStateRUNNING),
+		db.Session.State.Equals(db.SessionStateRunning),
 	).Exec(ctx)
 }
 
@@ -73,7 +73,7 @@ func (c *SessionClient) StartSession(ctx context.Context, sessionID string, time
 	return c.Session.UpsertOne(
 		db.Session.ID.Equals(sessionID),
 	).Update(
-		db.Session.State.Set(db.SessionStateRUNNING),
+		db.Session.State.Set(db.SessionStateRunning),
 		db.Session.StartedAt.Set(timestamp),
 	).Exec(ctx)
 }
@@ -82,7 +82,7 @@ func (c *SessionClient) StopSession(ctx context.Context, sessionID string, times
 	return c.Session.UpsertOne(
 		db.Session.ID.Equals(sessionID),
 	).Update(
-		db.Session.State.Set(db.SessionStateSTOPPED),
+		db.Session.State.Set(db.SessionStateStopped),
 		db.Session.StoppedAt.Set(timestamp),
 	).Exec(ctx)
 }
@@ -99,7 +99,7 @@ func (c *SessionClient) PauseSession(ctx context.Context, sessionID string, time
 	return c.Session.UpsertOne(
 		db.Session.ID.Equals(sessionID),
 	).Update(
-		db.Session.State.Set(db.SessionStatePAUSED),
+		db.Session.State.Set(db.SessionStatePaused),
 		db.Session.PausedAt.Push([]db.DateTime{timestamp}),
 	).Exec(ctx)
 }
@@ -108,7 +108,7 @@ func (c *SessionClient) ResumeSession(ctx context.Context, sessionID string, tim
 	return c.Session.UpsertOne(
 		db.Session.ID.Equals(sessionID),
 	).Update(
-		db.Session.State.Set(db.SessionStateRUNNING),
+		db.Session.State.Set(db.SessionStateRunning),
 		db.Session.ResumedAt.Push([]db.DateTime{timestamp}),
 	).Exec(ctx)
 }

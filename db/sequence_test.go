@@ -2,7 +2,7 @@ package prisma_test
 
 import (
 	"context"
-	"github.com/jt05610/petri/prisma"
+	"github.com/jt05610/petri/db"
 	"github.com/jt05610/petri/prisma/db"
 	"testing"
 )

@@ -2,6 +2,10 @@
     auto_https off
 }
 
-:80
+:80 {
+    reverse_proxy /api/* :8081
+    reverse_proxy /otto/* {$OTTO_PORT}
+    reverse_proxy /* :3000
+}
 
-reverse_proxy /otto/* {$OTTO_PORT}
+

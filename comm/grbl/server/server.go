@@ -406,7 +406,7 @@ func (s *Server) Listen(ctx context.Context) error {
 }
 
 func (s *Server) RunHeartbeat(ctx context.Context) {
-	ticker := time.NewTicker(300 * time.Millisecond)
+	ticker := time.NewTicker(1 * time.Second)
 	errCount := 3
 	for {
 		select {

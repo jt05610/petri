@@ -3,3 +3,4 @@
 generated
 data
 log
+/prisma/db/

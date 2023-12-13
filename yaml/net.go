@@ -2,8 +2,8 @@ package yaml
 
 import (
 	"github.com/jt05610/petri/control"
+	"github.com/jt05610/petri/db"
 	"github.com/jt05610/petri/device"
-	"github.com/jt05610/petri/prisma"
 	"github.com/jt05610/petri/prisma/db"
 	"gopkg.in/yaml.v3"
 	"io"

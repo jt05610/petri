@@ -4,8 +4,8 @@ import (
 	"context"
 	"github.com/joho/godotenv"
 	"github.com/jt05610/petri/codegen"
-	"github.com/jt05610/petri/prisma"
-	"github.com/jt05610/petri/prisma/db"
+	"github.com/jt05610/petri/db"
+	"github.com/jt05610/petri/db/db"
 	"os"
 )
 

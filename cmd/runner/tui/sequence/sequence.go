@@ -3,8 +3,8 @@ package sequence
 import (
 	"context"
 	"fmt"
-	"github.com/jt05610/petri/prisma"
-	"github.com/jt05610/petri/prisma/db"
+	"github.com/jt05610/petri/db"
+	"github.com/jt05610/petri/db/db"
 	"github.com/jt05610/petri/sequence"
 	"os"
 

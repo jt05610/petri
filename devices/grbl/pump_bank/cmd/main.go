@@ -5,15 +5,15 @@ import (
 	"fmt"
 	"github.com/joho/godotenv"
 	"github.com/jt05610/petri/amqp"
-	"github.com/jt05610/petri/comm/grbl/proto/v1"
+	proto "github.com/jt05610/petri/comm/grbl/proto/v1"
 	"github.com/jt05610/petri/comm/grbl/server"
 	"github.com/jt05610/petri/comm/serial"
-	"github.com/jt05610/petri/devices/grbl/aqueouspump"
-	"github.com/jt05610/petri/devices/grbl/rheoten"
+	"github.com/jt05610/petri/devices/grbl/pump_bank"
 	"github.com/jt05610/petri/env"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"os/signal"
+	"time"
 
 	"os"
 	"strconv"
@@ -29,9 +29,7 @@ func getVal(name string, s *string) error {
 }
 
 const (
-	RabbitmqUri      = "amqp://jrt:GJWJLOABBoFnrE8xiUnSONfMLBzWn7m@SOP-4470A-1/petri"
-	AqPumpDeviceID   = ""
-	AqPumpInstanceID = "clm9r7bd60000jgw4qvlgo3zb"
+	RabbitmqUri = "amqp://jrt:GJWJLOABBoFnrE8xiUnSONfMLBzWn7m@SOP-4470A-1/petri"
 )
 
 type Environment struct {
@@ -94,43 +92,56 @@ func main() {
 			logger.Error("Failed to close port", zap.Error(err))
 		}
 	}()
+
 	s := server.New(port, logger)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go s.RunHeartbeat(ctx)
-	_, err = s.Home(ctx, &v1.HomeRequest{})
+
+	_, err = s.SpindleOff(ctx, &proto.SpindleOffRequest{})
+	if err != nil {
+		logger.Fatal("Failed to spindle off", zap.Error(err))
+	}
+
+	_, err = s.FloodOn(ctx, &proto.FloodOnRequest{})
+	if err != nil {
+		logger.Fatal("Failed to flood on", zap.Error(err))
+	}
+	time.Sleep(1 * time.Second)
+	_, err = s.CoolantOff(ctx, &proto.CoolantOffRequest{})
+	if err != nil {
+		logger.Fatal("Failed to flood off", zap.Error(err))
+	}
+	_, err = s.SpindleOff(ctx, &proto.SpindleOffRequest{})
+	if err != nil {
+		logger.Fatal("Failed to spindle on", zap.Error(err))
+	}
+
+	_, err = s.Home(ctx, &proto.HomeRequest{})
 	s.TxChan <- []byte("G55\n")
 	if err != nil {
 		logger.Fatal("Failed to home", zap.Error(err))
 	}
 	for !s.Cts.Load() {
-
 	}
-	resp, err := s.FloodOn(ctx, &v1.FloodOnRequest{})
-	logger.Info("Flood on", zap.Any("resp", resp))
 	// lis, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", environ.Port))
-	//if err != nil {
-	//	logger.Fatal("Failed to listen", zap.Error(err))
-	//}
+	if err != nil {
+		logger.Fatal("Failed to listen", zap.Error(err))
+	}
 	opts := make([]grpc.ServerOption, 0)
 	grpcServer := grpc.NewServer(opts...)
-	v1.RegisterGRBLServer(grpcServer, s)
+	proto.RegisterGRBLServer(grpcServer, s)
 	logger.Info("Starting grpc server", zap.Int("port", environ.Port))
-	go func() {
-		//err := grpcServer.Serve(lis)
-		if err != nil {
-			logger.Fatal("Failed to serve grpc", zap.Error(err))
-		}
-	}()
-	connections := make([]*amqp.Connection, 2)
-	for i := 0; i < 2; i++ {
-		conn, err := amqp.Dial(amqpEnv())
-		if err != nil {
-			logger.Fatal("Failed to dial amqp", zap.Error(err))
-		}
-		connections[i] = conn
+	//go func() {
+	//err := grpcServer.Serve(lis)
+	//if err != nil {
+	//	logger.Fatal("Failed to serve grpc", zap.Error(err))
+	//	}
+	//}()
+	conn, err := amqp.Dial(amqpEnv())
+	if err != nil {
+		logger.Fatal("Failed to dial amqp", zap.Error(err))
 	}
-
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
 	go func() {
@@ -138,15 +149,12 @@ func main() {
 		cancel()
 	}()
 	defer func() {
-		for _, conn := range connections {
-			err := conn.Close()
-			if err != nil {
-				logger.Error("Failed to close amqp connection", zap.Error(err))
-			}
+		err := conn.Close()
+		if err != nil {
+			logger.Error("Failed to close amqp connection", zap.Error(err))
 		}
 	}()
-	go aqueouspump.Run(ctx, connections[0], s)
-	go rheoten.Run(ctx, connections[1], s)
 
+	go pump_bank.Run(ctx, conn, s)
 	<-ctx.Done()
 }

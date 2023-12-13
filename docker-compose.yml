@@ -45,9 +45,7 @@ services:
       - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
       - RABBITMQ_VHOST=${RABBITMQ_VHOST}
     volumes:
-      - ${RABBITMQ_DATA_DIR}:/var/lib/rabbitmq
-      - ${RABBITMQ_LOG_DIR}:/var/log/rabbitmq
-      - ${RABBITMQ_CONF}:/etc/rabbitmq/rabbitmq.conf
+      - rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf
     networks:
       - petri
 

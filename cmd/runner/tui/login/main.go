@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/jt05610/petri/prisma/db"
+	"github.com/jt05610/petri/db/db"
 	"golang.org/x/crypto/bcrypt"
 	"os"
 	"strings"

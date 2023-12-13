@@ -6,7 +6,7 @@ import (
 	"github.com/jt05610/petri/amqp/client"
 	"github.com/jt05610/petri/cmd/petrid/graph/model"
 	"github.com/jt05610/petri/control"
-	"github.com/jt05610/petri/prisma"
+	prisma "github.com/jt05610/petri/db"
 	"github.com/jt05610/petri/prisma/db"
 	"log"
 	"time"

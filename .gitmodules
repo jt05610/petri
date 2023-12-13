@@ -7,6 +7,6 @@
 [submodule "petri-graph"]
 	path = petri-graph
 	url = https://github.com/jt05610/petri-graph
-[submodule "prisma/prisma"]
-	path = prisma/prisma
+[submodule "prisma"]
+	path = prisma
 	url = https://github.com/jt05610/petri-prisma

@@ -5,7 +5,7 @@ import (
 	"github.com/jt05610/petri/cmd/runner/tui/device"
 	"github.com/jt05610/petri/cmd/runner/tui/login"
 	"github.com/jt05610/petri/cmd/runner/tui/sequence"
-	"github.com/jt05610/petri/prisma/db"
+	"github.com/jt05610/petri/db/db"
 	"os"
 	"strings"
 

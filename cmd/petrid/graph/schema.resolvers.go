@@ -156,7 +156,7 @@ func (r *queryResolver) Sessions(ctx context.Context, runID string) ([]*model.Se
 	for i, session := range s {
 		sessions[i] = &model.Session{
 			ID:        session.ID,
-			Active:    session.State == db.SessionStateRUNNING,
+			Active:    session.State == db.SessionStateRunning,
 			CreatedAt: session.CreatedAt.String(),
 			UpdatedAt: session.UpdatedAt.String(),
 		}

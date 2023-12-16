@@ -48,6 +48,13 @@ func (e *Event) IsValid() bool {
 	if e.Name == "" {
 		return false
 	}
+	for f := range e.Fields {
+		_, ok := e.Data[e.Fields[f].Name]
+		if !ok {
+			return false
+		}
+	}
+
 	i := reflect.ValueOf(e.Data)
 	// if it is a map[string]interface{} then check the fields directly
 	if i.Kind() == reflect.Map {

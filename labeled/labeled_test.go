@@ -11,17 +11,17 @@ import (
 
 type printer struct {
 	*labeled.Net
-	msg interface{}
+	msg map[string]interface{}
 }
 
-func (p *printer) enqueue(data interface{}) *labeled.Event {
+func (p *printer) enqueue(data map[string]interface{}) *labeled.Event {
 	return &labeled.Event{
 		Name: "enqueue",
 		Data: data,
 	}
 }
 
-func (p *printer) enqueued(data interface{}) *labeled.Event {
+func (p *printer) enqueued(data map[string]interface{}) *labeled.Event {
 	return &labeled.Event{
 		Name: "enqueued",
 		Data: data,
@@ -56,11 +56,11 @@ func queue() *printer {
 	markedNet := marked.New(pNet, marked.Marking{0, 1, 0})
 	net := labeled.New(markedNet)
 	p := &printer{}
-	err := net.AddHandler("enqueue", tt[0], p.HandleEnqueue)
+	err := net.AddHandler("enqueue", "enqueue", tt[0], p.HandleEnqueue)
 	if err != nil {
 		panic(err)
 	}
-	err = net.AddNotification("finished", tt[2], func(ctx context.Context) (interface{}, error) {
+	err = net.AddNotification("finished", tt[2], func(ctx context.Context) (map[string]interface{}, error) {
 		return p.msg, nil
 	})
 	return &printer{
@@ -82,7 +82,7 @@ func TestNet_Handle(t *testing.T) {
 			}
 		}
 	}()
-	err := q.Handle(ctx, q.enqueue("foo"))
+	err := q.Handle(ctx, q.enqueue(map[string]interface{}{"foo": "bar"}))
 	if err != nil {
 		t.Error(err)
 	}
@@ -90,16 +90,17 @@ func TestNet_Handle(t *testing.T) {
 
 func TestValidSequence(t *testing.T) {
 	q := queue()
-	seq := []*labeled.Event{q.enqueue("foo"), q.enqueue("bar"), q.enqueue("baz"), q.enqueue("foo"), q.enqueue("foo")}
+	seq := []*labeled.Event{
+		q.enqueue(map[string]interface{}{"foo": "bar"}),
+		q.enqueue(map[string]interface{}{"bar": "food"}),
+		q.enqueue(map[string]interface{}{"foo": "bar"}),
+		q.enqueue(map[string]interface{}{"bar": "food"}),
+		q.enqueue(map[string]interface{}{"foo": "bar"}),
+	}
 	ok := labeled.ValidSequence(q.Net, seq)
 	if !ok {
 		t.Error("expected valid sequence")
 	}
-}
-
-type EventData struct {
-	Rate   float64 `json:"rate"`
-	Volume float64 `json:"volume"`
 }
 
 func TestEvent_IsValid(t *testing.T) {
@@ -111,9 +112,9 @@ func TestEvent_IsValid(t *testing.T) {
 	e := labeled.Event{
 		Name:   "pump",
 		Fields: fields,
-		Data: &EventData{
-			Rate:   1.0,
-			Volume: 2.0,
+		Data: map[string]interface{}{
+			"rate":   1.0,
+			"volume": 2.0,
 		},
 	}
 	if !e.IsValid() {
@@ -132,10 +133,11 @@ func TestEvent_IsValid(t *testing.T) {
 	e = labeled.Event{
 		Name:   "pump",
 		Fields: fields,
-		Data: struct {
-			ValveNumber int `json:"valve_number"`
-		}{},
+		Data: map[string]interface{}{
+			"distance": 5,
+		},
 	}
+	//  should only accept rate and volume
 	if e.IsValid() {
 		t.Error("expected invalid event")
 	}

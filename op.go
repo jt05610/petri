@@ -28,5 +28,5 @@ func Add(nets ...*Net) *Net {
 			arcs = append(arcs, arc)
 		}
 	}
-	return New(places, transitions, arcs)
+	return LoadNet(places, transitions, arcs)
 }

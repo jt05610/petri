@@ -1,9 +1,11 @@
 package petri
 
-var _ Object = (*Arc)(nil)
-var _ Input = (*ArcInput)(nil)
-var _ Update = (*ArcUpdate)(nil)
-var _ Filter = (*ArcFilter)(nil)
+var (
+	_ Object = (*Arc)(nil)
+	_ Input  = (*ArcInput)(nil)
+	_ Update = (*ArcUpdate)(nil)
+	_ Filter = (*ArcFilter)(nil)
+)
 
 // Arc is a connection from a place to a transition or a transition to a place.
 type Arc struct {
@@ -14,14 +16,24 @@ type Arc struct {
 	Dest Node
 }
 
-func (a *Arc) Init(id string, input Input) error {
+func (a *Arc) Document() Document {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (a *Arc) From(doc Document) error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (a *Arc) Init(input Input) error {
 	in, ok := input.(*ArcInput)
 	if !ok {
 		return ErrWrongInput
 	}
 	a.Src = in.Head
 	a.Dest = in.Tail
-	a.ID = id
+	a.ID = in.ID
 	return nil
 }
 
@@ -39,6 +51,13 @@ func (a *Arc) Update(update Update) error {
 	return nil
 }
 
+func NewArc(from, to Node) *Arc {
+	return &Arc{
+		Src:  from,
+		Dest: to,
+	}
+}
+
 func (a *Arc) Identifier() string {
 	return a.ID
 }
@@ -50,8 +69,18 @@ func (a *Arc) String() string {
 func (a *Arc) Kind() Kind { return ArcObject }
 
 type ArcInput struct {
+	ID   string
 	Head Node
 	Tail Node
+}
+
+func (a *ArcInput) Object() Object {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (a *ArcInput) Kind() Kind {
+	return ArcObject
 }
 
 type ArcMask struct {
@@ -68,6 +97,11 @@ type ArcFilter struct {
 	Head string
 	Tail string
 	*ArcMask
+}
+
+func (a *ArcFilter) Filter() Document {
+	//TODO implement me
+	panic("implement me")
 }
 
 type ArcLoader interface {

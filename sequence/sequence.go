@@ -95,6 +95,7 @@ type Sequence struct {
 	InitialMarking control.Marking
 	NetID          string
 	Net            *labeled.Net
+	deviceMap      map[string]*device.Instance
 	Name           string
 	Description    string
 	CurrentStep    int
@@ -105,6 +106,7 @@ type Sequence struct {
 func (s *Sequence) ApplyNet(net *marked.Net) error {
 	s.Net = labeled.New(net)
 	s.InitialMarking = net.MarkingMap()
+	s.deviceMap = make(map[string]*device.Instance)
 	return nil
 }
 
@@ -149,7 +151,7 @@ func (s *Sequence) ExtractParameters() {
 func (s *Sequence) SetInstance(deviceID string, i *device.Instance) {
 	for _, step := range s.Steps {
 		if step.Device.ID == deviceID {
-			step.Device.Instance = i
+			s.deviceMap[deviceID] = i
 		}
 	}
 }

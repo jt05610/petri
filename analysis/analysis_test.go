@@ -28,7 +28,7 @@ func net() *analysis.Net {
 		{Src: pp[3], Dest: tt[2]},
 		{Src: tt[2], Dest: pp[0]},
 	}
-	net := petri.New(pp, tt, aa)
+	net := petri.NewNet(pp, tt, aa)
 	return &analysis.Net{Net: net}
 }
 func ExampleNet_Incidence() {
@@ -115,7 +115,7 @@ func TestNet_CTree(t *testing.T) {
 		{Src: tt[2], Dest: pp[3]},
 	}
 	initial := &analysis.State{1, 0, 0, 0}
-	n := petri.New(pp, tt, aa)
+	n := petri.NewNet(pp, tt, aa)
 	aNet := &analysis.Net{Net: n}
 	ct := aNet.CTree(initial)
 	if ct == nil {

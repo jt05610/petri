@@ -28,7 +28,7 @@ func Net() *petri.Net {
 		{Src: tt[2], Dest: pp[2]},
 		{Src: tt[2], Dest: pp[3]},
 	}
-	return petri.New(pp, tt, aa)
+	return petri.NewNet(pp, tt, aa)
 }
 
 func LabeledNet(m marked.Marking) *labeled.Net {

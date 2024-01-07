@@ -2,7 +2,6 @@ package labeled_test
 
 import (
 	"context"
-	"fmt"
 	"github.com/jt05610/petri"
 	"github.com/jt05610/petri/labeled"
 	"github.com/jt05610/petri/marked"
@@ -44,7 +43,7 @@ func queue() *printer {
 		{Name: "start", ID: "t2"},
 		{Name: "finish", ID: "t3"},
 	}
-	pNet := petri.New(pp, tt, []*petri.Arc{
+	pNet := petri.NewNet(pp, tt, []*petri.Arc{
 		{Src: tt[0], Dest: pp[0]},
 		{Src: pp[0], Dest: tt[1]},
 		{Src: pp[1], Dest: tt[1]},
@@ -77,8 +76,8 @@ func TestNet_Handle(t *testing.T) {
 			select {
 			case <-ctx.Done():
 				return
-			case e := <-ch:
-				fmt.Println(e)
+			case <-ch:
+				continue
 			}
 		}
 	}()
@@ -95,6 +94,23 @@ func TestValidSequence(t *testing.T) {
 		q.enqueue(map[string]interface{}{"bar": "food"}),
 		q.enqueue(map[string]interface{}{"foo": "bar"}),
 		q.enqueue(map[string]interface{}{"bar": "food"}),
+		q.enqueue(map[string]interface{}{"foo": "bar"}),
+	}
+	ok := labeled.ValidSequence(q.Net, seq)
+	if !ok {
+		t.Error("expected valid sequence")
+	}
+}
+
+func TestInvalidValidSequence(t *testing.T) {
+	q := queue()
+	// shouldn't be able to accept 6 tokens in the enqueue place since the bound is 5.
+	seq := []*labeled.Event{
+		q.enqueue(map[string]interface{}{"foo": "bar"}),
+		q.enqueue(map[string]interface{}{"bar": "food"}),
+		q.enqueue(map[string]interface{}{"foo": "bar"}),
+		q.enqueue(map[string]interface{}{"bar": "food"}),
+		q.enqueue(map[string]interface{}{"foo": "bar"}),
 		q.enqueue(map[string]interface{}{"foo": "bar"}),
 	}
 	ok := labeled.ValidSequence(q.Net, seq)
@@ -137,7 +153,7 @@ func TestEvent_IsValid(t *testing.T) {
 			"distance": 5,
 		},
 	}
-	//  should only accept rate and volume
+	// should only accept rate and volume
 	if e.IsValid() {
 		t.Error("expected invalid event")
 	}

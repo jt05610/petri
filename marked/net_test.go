@@ -23,7 +23,7 @@ func TestNet_Fire(t *testing.T) {
 			{Src: pp[1], Dest: pt[1]},
 			{Src: pt[1], Dest: pp[0]},
 		}
-		return petri.New(pp, pt, aa)
+		return petri.NewNet(pp, pt, aa)
 	}
 
 	badNet := func() *petri.Net {
@@ -41,7 +41,7 @@ func TestNet_Fire(t *testing.T) {
 			{Src: pt[1], Dest: pt[0]},
 			{Src: pp[0], Dest: pt[0]},
 		}
-		return petri.New(pp, pt, aa)
+		return petri.NewNet(pp, pt, aa)
 	}
 	testCases := []struct {
 		name    string
@@ -120,7 +120,7 @@ func ExampleNet() {
 		{Src: pp[1], Dest: pt[1]},
 		{Src: pt[1], Dest: pp[0]},
 	}
-	n := petri.New(pp, pt, aa)
+	n := petri.NewNet(pp, pt, aa)
 
 	mn := marked.New(n, marked.Marking{1, 0})
 	seq := []*petri.Transition{

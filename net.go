@@ -13,9 +13,37 @@ var _ Input = (*NetInput)(nil)
 var _ Update = (*NetUpdate)(nil)
 var _ Filter = (*NetFilter)(nil)
 
+type Marking map[string][]*Token
+
+func (m Marking) Copy() Marking {
+	ret := make(Marking)
+	for k, v := range m {
+		ret[k] = make([]*Token, len(v))
+		for i, t := range v {
+			ret[k][i] = t.Copy()
+		}
+	}
+	return ret
+}
+
+func (m Marking) PlaceTokens(place *Place, tokens ...*Token) error {
+	if _, ok := m[place.Identifier()]; !ok {
+		return errors.New("place not found")
+	}
+	for _, t := range tokens {
+		if !place.CanAccept(t.Schema) {
+			return errors.New("token not accepted")
+		}
+		if len(m[place.Identifier()]) >= place.Bound {
+			return errors.New("place is full")
+		}
+		m[place.Identifier()] = append(m[place.Identifier()], t)
+	}
+	return nil
+}
+
 // Net struct
 type Net struct {
-	ID          string
 	Name        string
 	Places      []*Place
 	Transitions []*Transition
@@ -24,12 +52,29 @@ type Net struct {
 	outputs     map[string][]*Arc
 }
 
-func (p *Net) Init(id string, input Input) error {
+func (p *Net) Document() Document {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (p *Net) From(doc Document) error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (p *Net) NewMarking() Marking {
+	m := make(Marking)
+	for _, place := range p.Places {
+		m[place.Identifier()] = make([]*Token, 0)
+	}
+	return m
+}
+
+func (p *Net) Init(input Input) error {
 	in, ok := input.(*NetInput)
 	if !ok {
 		return ErrWrongInput
 	}
-	p.ID = id
 	p.Name = in.Name
 	p.Places = in.Places
 	p.Transitions = in.Transitions
@@ -47,6 +92,63 @@ func (p *Net) Init(id string, input Input) error {
 		p.inputs[arc.Dest.Identifier()] = append(p.inputs[arc.Dest.Identifier()], arc)
 	}
 	return nil
+}
+
+func (p *Net) Enabled(marking Marking, t *Transition) bool {
+	for _, arc := range p.Inputs(t) {
+		if pt, ok := arc.Src.(*Place); ok {
+			if len(marking[pt.Identifier()]) == 0 {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func (p *Net) EnabledTransitions(m Marking) []*Transition {
+	var transitions []*Transition
+	for _, t := range p.Transitions {
+		if p.Enabled(m, t) {
+			transitions = append(transitions, t)
+		}
+	}
+	return transitions
+}
+
+func (p *Net) Process(m Marking) (Marking, error) {
+	t := p.EnabledTransitions(m)[0]
+	return p.Fire(m, t)
+}
+
+func (p *Net) Fire(m Marking, t *Transition) (Marking, error) {
+	var tok *Token
+	ret := m.Copy()
+	for _, arc := range p.Inputs(t) {
+		if pt, ok := arc.Src.(*Place); ok {
+			// pop a token from the place
+			tok = m[pt.Identifier()][0]
+			ret[pt.Identifier()] = m[pt.Identifier()][1:]
+		}
+	}
+
+	if tok == nil {
+		return m, errors.New("no token found")
+	}
+
+	out, err := t.Handle(tok)
+	if err != nil {
+		return m, err
+	}
+
+	for _, arc := range p.Outputs(t) {
+		if pt, ok := arc.Dest.(*Place); ok {
+			if len(ret[pt.Identifier()]) >= pt.Bound {
+				return m, errors.New("place is full")
+			}
+			ret[pt.Identifier()] = append(ret[pt.Identifier()], out)
+		}
+	}
+	return ret, nil
 }
 
 func (p *Net) Update(update Update) error {
@@ -82,7 +184,7 @@ func (p *Net) Update(update Update) error {
 }
 
 func (p *Net) Identifier() string {
-	return p.ID
+	return p.Name
 }
 
 func (p *Net) String() string {
@@ -146,18 +248,45 @@ func (p *Net) AddArc(from, to Node) (*Arc, error) {
 	return a, nil
 }
 
-func New(places []*Place, transitions []*Transition, arcs []*Arc, id ...string) *Net {
-	ii := ""
-	if len(id) > 0 {
-		ii = id[0]
+func NewNet(name string) *Net {
+	return &Net{
+		Name:        name,
+		Places:      make([]*Place, 0),
+		Transitions: make([]*Transition, 0),
+		Arcs:        make([]*Arc, 0),
+		inputs:      make(map[string][]*Arc),
+		outputs:     make(map[string][]*Arc),
 	}
+}
+
+func (p *Net) WithPlaces(places ...*Place) *Net {
+	p.Places = append(p.Places, places...)
+	return p
+}
+
+func (p *Net) WithTransitions(transitions ...*Transition) *Net {
+	p.Transitions = append(p.Transitions, transitions...)
+	return p
+}
+
+func (p *Net) WithArcs(arcs ...*Arc) *Net {
+	for _, arc := range arcs {
+		_, err := p.AddArc(arc.Src, arc.Dest)
+		if err != nil {
+			panic(err)
+		}
+	}
+	return p
+}
+
+func LoadNet(places []*Place, transitions []*Transition, arcs []*Arc) *Net {
+
 	for _, p := range places {
 		if p.Bound == 0 {
 			p.Bound = 1
 		}
 	}
 	net := &Net{
-		ID:          ii,
 		Places:      places,
 		Transitions: transitions,
 		Arcs:        arcs,
@@ -194,6 +323,15 @@ type NetInput struct {
 	Transitions []*Transition
 }
 
+func (n *NetInput) Object() Object {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (n *NetInput) Kind() Kind {
+	return NetObject
+}
+
 type NetMask struct {
 	Name        bool
 	Places      bool
@@ -214,61 +352,9 @@ type NetFilter struct {
 	Arcs        []string
 }
 
-type Getter interface {
-	Get(id string) (Object, error)
-}
-
-type Lister interface {
-	List(f Filter) ([]Object, error)
-}
-
-type Input interface {
-	IsInput()
-}
-
-type Kind int
-
-const (
-	PlaceObject Kind = iota
-	TransitionObject
-	ArcObject
-	NetObject
-)
-
-type Object interface {
-	Kind() Kind
-	Identifier() string
-	String() string
-	Update(update Update) error
-	Init(id string, input Input) error
-}
-
-type Update interface {
-	IsUpdate()
-}
-
-type Filter interface {
-	IsFilter()
-}
-
-type Adder interface {
-	Add(Input) (Object, error)
-}
-
-type Remover interface {
-	Remove(id string) (Object, error)
-}
-
-type Updater interface {
-	Update(id string, update Update) (Object, error)
-}
-
-type Service interface {
-	Updater
-	Getter
-	Lister
-	Adder
-	Remover
+func (n *NetFilter) Filter() Document {
+	//TODO implement me
+	panic("implement me")
 }
 
 func (n *NetInput) IsInput()   {}

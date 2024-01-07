@@ -78,7 +78,7 @@ func convertFromDB(net *db.NetModel) *labeled.Net {
 			}
 		}
 	}
-	pNet := petri.New(places, transitions, arcs)
+	pNet := petri.NewNet(places, transitions, arcs)
 	markedNet := marked.New(pNet, net.InitialMarking)
 	return labeled.New(markedNet)
 }

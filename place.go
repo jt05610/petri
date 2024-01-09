@@ -16,6 +16,15 @@ type Place struct {
 	AcceptedTokens []*TokenSchema
 }
 
+func NewPlace(name string, bound int, acceptedTokens ...*TokenSchema) *Place {
+	return &Place{
+		ID:             ID(),
+		Name:           name,
+		Bound:          bound,
+		AcceptedTokens: acceptedTokens,
+	}
+}
+
 func (p *Place) Document() Document {
 	//TODO implement me
 	panic("implement me")
@@ -28,7 +37,7 @@ func (p *Place) From(doc Document) error {
 
 func (p *Place) CanAccept(t *TokenSchema) bool {
 	for _, token := range p.AcceptedTokens {
-		if token == t {
+		if token.Name == t.Name {
 			return true
 		}
 	}
@@ -38,7 +47,7 @@ func (p *Place) CanAccept(t *TokenSchema) bool {
 func (p *Place) IsNode() {}
 
 func (p *Place) Identifier() string {
-	return p.Name
+	return p.ID
 }
 
 func (p *Place) String() string {

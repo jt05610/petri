@@ -46,9 +46,10 @@ func (t *TokenInput) Kind() Kind {
 }
 
 type TokenUpdate struct {
-	Name string
-	Type string
-	Mask TokenMask
+	Name       string
+	Type       string
+	Properties PropertiesInput
+	Mask       TokenMask
 }
 
 type TokenMask struct {
@@ -64,9 +65,11 @@ type Selector[T any] struct {
 	LessThanOrEquals    T `json:"$lte,omitempty"`
 }
 
+type StringSelector Selector[string]
+
 type TokenFilter struct {
-	Name       *Selector[string]     `json:"name,omitempty"`
-	Type       *Selector[TokenType]  `json:"type,omitempty"`
+	Name       *StringSelector       `json:"name,omitempty"`
+	Type       *StringSelector       `json:"type,omitempty"`
 	Properties *Selector[Properties] `json:"properties,omitempty"`
 }
 
@@ -181,6 +184,17 @@ type TokenSchema struct {
 	Properties map[string]Properties `json:"properties,omitempty"`
 }
 
+func (t *TokenSchema) PropertiesJSON() map[string]interface{} {
+	if t.Properties != nil {
+		ret := make(map[string]interface{})
+		for key, value := range t.Properties {
+			ret[key] = value
+		}
+		return ret
+	}
+	return nil
+}
+
 func (t *TokenSchema) Document() Document {
 	if t.Properties != nil {
 		return Document{
@@ -207,11 +221,17 @@ func (t *TokenSchema) String() string {
 }
 
 // Token is an instance of a TokenSchema.
-type Token struct {
-	// Schema is the TokenSchema that this token is an instance of.
-	Schema *TokenSchema
+type Token[T interface{}] struct {
+	// ID is the unique identifier of the token.
+	ID string `json:"_id"`
+	// Schema is the schema of the token.
+	Schema *TokenSchema `json:"schema"`
 	// Value is the value of the token.
-	Value interface{}
+	Value T `json:"value"`
+}
+
+func (t *Token[T]) String() string {
+	return fmt.Sprintf("%s(%v)", t.Schema.Name, t.Value)
 }
 
 func (t *TokenSchema) Kind() Kind {
@@ -256,16 +276,6 @@ func (t *TokenSchema) Update(update Update) error {
 	}
 	return nil
 }
-func (t *Token) Copy() *Token {
-	return &Token{
-		Schema: t.Schema,
-		Value:  t.Value,
-	}
-}
-
-func (t *Token) String() string {
-	return fmt.Sprintf("%s(%v)", t.Schema.Name, t.Value)
-}
 
 type InvalidTokenValueError struct {
 	TokenSchema *TokenSchema
@@ -273,93 +283,96 @@ type InvalidTokenValueError struct {
 }
 
 func (e *InvalidTokenValueError) Error() string {
-	return "invalid value for token " + e.TokenSchema.Name + ": " + e.Value.(string)
+	return fmt.Sprintf("invalid value for token %s: %v", e.TokenSchema.Name, e.Value)
 }
 
 // NewToken creates a new token from the schema.
-func (t *TokenSchema) NewToken(value interface{}) (*Token, error) {
-	return &Token{
+func (t *TokenSchema) NewToken(value interface{}) (*Token[interface{}], error) {
+	return &Token[interface{}]{
+		ID:     ID(),
 		Schema: t,
 		Value:  value,
 	}, nil
 }
 
-// WithValue sets the value of the token.
-func (t *Token) WithValue(value interface{}) *Token {
-	t.Value = value
-	return t
-}
-
 type Handler interface {
-	Handle(token *Token) (*Token, error)
+	Handle(token ...*Token[interface{}]) ([]*Token[interface{}], error)
 }
 
 type Generator interface {
 	Handler
-	Generate(value interface{}) (*Token, error)
+	Generate(value ...interface{}) ([]*Token[interface{}], error)
 }
 
 type Transformer interface {
 	Handler
-	Transform(token *Token) (*Token, error)
+	Transform(token ...*Token[interface{}]) ([]*Token[interface{}], error)
 }
 
 type Consumer interface {
 	Handler
-	Consume(token *Token) error
+	Consume(token ...*Token[interface{}]) error
 }
 
 type generator struct {
-	f func(value interface{}) (*Token, error)
+	f func(value ...interface{}) ([]*Token[interface{}], error)
 }
 
-func (g *generator) Generate(value interface{}) (*Token, error) {
-	return g.f(value)
+func (g *generator) Generate(values ...interface{}) ([]*Token[interface{}], error) {
+	return g.f(values...)
 }
 
-func (g *generator) Handle(token *Token) (*Token, error) {
-	return g.f(token.Value)
+func (g *generator) Handle(tokens ...*Token[interface{}]) ([]*Token[interface{}], error) {
+	return g.Generate()
 }
 
-func NewGenerator(f func(value interface{}) (*Token, error)) Generator {
+func NewGenerator(f func(value ...interface{}) ([]*Token[interface{}], error)) Generator {
 	return &generator{
 		f: f,
 	}
 }
 
 type transformer struct {
-	f func(token *Token) (*Token, error)
+	f func(token ...*Token[interface{}]) ([]*Token[interface{}], error)
 }
 
-func (t *transformer) Handle(token *Token) (*Token, error) {
-	return t.f(token)
+func (t *transformer) Handle(token ...*Token[interface{}]) ([]*Token[interface{}], error) {
+	return t.f(token...)
 }
 
-func (t *transformer) Transform(token *Token) (*Token, error) {
-	return t.f(token)
+func (t *transformer) Transform(tokens ...*Token[interface{}]) ([]*Token[interface{}], error) {
+	return t.f(tokens...)
 }
 
-func NewTransformer(f func(token *Token) (*Token, error)) Transformer {
+func NewTransformer(f func(tokens ...*Token[interface{}]) ([]*Token[interface{}], error)) Transformer {
 	return &transformer{
 		f: f,
 	}
 }
 
 type consumer struct {
-	f func(token *Token) error
+	f func(token ...*Token[interface{}]) error
 }
 
-func (c *consumer) Consume(token *Token) error {
-	return c.f(token)
+func (c *consumer) Consume(token ...*Token[interface{}]) error {
+	return c.f(token...)
 }
 
-func (c *consumer) Handle(token *Token) (*Token, error) {
-	return nil, c.f(token)
+func (c *consumer) Handle(tokens ...*Token[interface{}]) ([]*Token[interface{}], error) {
+	return nil, c.f(tokens...)
 }
 
-func NewConsumer(f func(token *Token) error) Consumer {
+func NewConsumer(f func(token ...*Token[interface{}]) error) Consumer {
 	return &consumer{
 		f: f,
+	}
+}
+
+func Signal() *TokenSchema {
+	return &TokenSchema{
+		ID:   ID(),
+		Name: "Signal",
+		Type: Int,
 	}
 }
 

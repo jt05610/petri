@@ -30,7 +30,7 @@ type Adder[T Object, U Input] interface {
 }
 
 type Remover[T Object] interface {
-	Remove(id string) (T, error)
+	Remove(ctx context.Context, id string) (T, error)
 }
 
 type Updater[T Object, U Update] interface {

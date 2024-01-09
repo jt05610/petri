@@ -1,6 +1,7 @@
 package petri
 
 import (
+	"context"
 	"errors"
 	"io"
 )
@@ -13,31 +14,67 @@ var _ Input = (*NetInput)(nil)
 var _ Update = (*NetUpdate)(nil)
 var _ Filter = (*NetFilter)(nil)
 
-type Marking map[string][]*Token
+type Marking map[string][]*Token[interface{}]
 
 func (m Marking) Copy() Marking {
 	ret := make(Marking)
 	for k, v := range m {
-		ret[k] = make([]*Token, len(v))
+		ret[k] = make([]*Token[interface{}], len(v))
 		for i, t := range v {
-			ret[k][i] = t.Copy()
+			ret[k][i] = t
 		}
 	}
 	return ret
 }
 
-func (m Marking) PlaceTokens(place *Place, tokens ...*Token) error {
-	if _, ok := m[place.Identifier()]; !ok {
+func (m Marking) TokenMap(place *Place) map[string]*Token[interface{}] {
+	tokens := m[place.String()]
+	tokMap := make(map[string]*Token[interface{}])
+	for _, t := range tokens {
+		if _, ok := tokMap[t.Schema.Name]; ok {
+			continue
+		}
+		tokMap[t.Schema.Name] = t
+	}
+	return tokMap
+}
+
+func (m Marking) Get(place *Place, schema string) *Token[interface{}] {
+	if _, ok := m[place.String()]; !ok {
+		return nil
+	}
+	for _, t := range m[place.String()] {
+		if t.Schema.Name == schema {
+			return t
+		}
+	}
+	return nil
+}
+
+func (m Marking) Remove(place *Place, token *Token[interface{}]) {
+	if _, ok := m[place.String()]; !ok {
+		return
+	}
+	for i, t := range m[place.String()] {
+		if t.Schema.Name == token.Schema.Name {
+			m[place.String()] = append(m[place.String()][:i], m[place.String()][i+1:]...)
+			return
+		}
+	}
+}
+
+func (m Marking) PlaceTokens(place *Place, tokens ...*Token[interface{}]) error {
+	if _, ok := m[place.String()]; !ok {
 		return errors.New("place not found")
 	}
 	for _, t := range tokens {
 		if !place.CanAccept(t.Schema) {
 			return errors.New("token not accepted")
 		}
-		if len(m[place.Identifier()]) >= place.Bound {
+		if len(m[place.String()]) >= place.Bound {
 			return errors.New("place is full")
 		}
-		m[place.Identifier()] = append(m[place.Identifier()], t)
+		m[place.String()] = append(m[place.String()], t)
 	}
 	return nil
 }
@@ -65,7 +102,7 @@ func (p *Net) From(doc Document) error {
 func (p *Net) NewMarking() Marking {
 	m := make(Marking)
 	for _, place := range p.Places {
-		m[place.Identifier()] = make([]*Token, 0)
+		m[place.String()] = make([]*Token[interface{}], 0)
 	}
 	return m
 }
@@ -97,7 +134,7 @@ func (p *Net) Init(input Input) error {
 func (p *Net) Enabled(marking Marking, t *Transition) bool {
 	for _, arc := range p.Inputs(t) {
 		if pt, ok := arc.Src.(*Place); ok {
-			if len(marking[pt.Identifier()]) == 0 {
+			if len(marking[pt.String()]) == 0 {
 				return false
 			}
 		}
@@ -105,47 +142,135 @@ func (p *Net) Enabled(marking Marking, t *Transition) bool {
 	return true
 }
 
-func (p *Net) EnabledTransitions(m Marking) []*Transition {
+func (p *Net) EnabledTransitions(m Marking, events ...string) []*Transition {
 	var transitions []*Transition
 	for _, t := range p.Transitions {
 		if p.Enabled(m, t) {
+			if t.Cold {
+				for _, e := range events {
+					if t.Name == e {
+						transitions = append(transitions, t)
+					}
+				}
+				continue
+			}
 			transitions = append(transitions, t)
 		}
 	}
 	return transitions
 }
 
-func (p *Net) Process(m Marking) (Marking, error) {
-	t := p.EnabledTransitions(m)[0]
-	return p.Fire(m, t)
+type Event[T any] struct {
+	Name string `json:"name"`
+	Data T      `json:"data"`
 }
 
-func (p *Net) Fire(m Marking, t *Transition) (Marking, error) {
-	var tok *Token
+func (p *Net) Process(m Marking, events ...Event[any]) (Marking, error) {
+	eventNames := make([]string, 0)
+	for _, e := range events {
+		eventNames = append(eventNames, e.Name)
+	}
+
+	for _, t := range p.EnabledTransitions(m, eventNames...) {
+		m, err := p.Fire(m, t, events...)
+		if err != nil {
+			continue
+		}
+		return p.Process(m)
+	}
+
+	return m, nil
+
+}
+
+func IndexTokenByType(tokens []*Token[interface{}]) map[string]*Token[interface{}] {
+	index := make(map[string]*Token[interface{}])
+	for _, t := range tokens {
+		if _, ok := index[t.Schema.Name]; ok {
+			continue
+		}
+		index[t.Schema.Name] = t
+	}
+	return index
+}
+
+func (p *Net) Fire(m Marking, t *Transition, events ...Event[any]) (Marking, error) {
+	tokens := make([]*Token[interface{}], 0)
+	handlerMap := make(map[string]EventFunc[any, any])
+	dataMap := make(map[string]interface{})
+	for _, e := range events {
+		handlerMap[e.Name] = p.RouteEvent(e)
+		dataMap[e.Name] = e.Data
+	}
+	handler, hasHandler := handlerMap[t.Name]
+	data := dataMap[t.Name]
+
 	ret := m.Copy()
+
 	for _, arc := range p.Inputs(t) {
 		if pt, ok := arc.Src.(*Place); ok {
-			// pop a token from the place
-			tok = m[pt.Identifier()][0]
-			ret[pt.Identifier()] = m[pt.Identifier()][1:]
+			tok, err := arc.TakeToken(ret)
+			if err != nil {
+				return m, err
+			}
+			tokens = append(tokens, tok)
+			ret.Remove(pt, tok)
+		}
+	}
+	if len(tokens) == 0 && !hasHandler {
+		return m, errors.New("no tokens found")
+	}
+
+	var err error
+
+	if !t.CanFire(IndexTokenByType(tokens)) {
+		return m, errors.New("transition cannot fire")
+	}
+
+	if t.Handler != nil {
+		tokens, err = t.Handle(tokens...)
+		if err != nil {
+			return m, err
 		}
 	}
 
-	if tok == nil {
-		return m, errors.New("no token found")
+	hasOutputs := len(p.Outputs(t)) > 0
+
+	if hasHandler {
+		var eventResult interface{}
+		if hasOutputs {
+			eventResult, err = handler(context.Background(), data)
+		} else {
+			t := tokens[0]
+			tokData := t.Value
+			_, err = handler(context.Background(), tokData)
+		}
+		if err != nil {
+			return m, err
+		}
+		for _, arc := range p.Outputs(t) {
+			if _, ok := arc.Dest.(*Place); ok {
+				tok, err := arc.OutputSchema.NewToken(eventResult)
+				if err != nil {
+					return m, err
+				}
+				tokens = append(tokens, tok)
+			}
+		}
 	}
 
-	out, err := t.Handle(tok)
-	if err != nil {
-		return m, err
+	if len(tokens) == 0 {
+		return m, errors.New("no tokens found")
 	}
+
+	tokenIndex := IndexTokenByType(tokens)
 
 	for _, arc := range p.Outputs(t) {
-		if pt, ok := arc.Dest.(*Place); ok {
-			if len(ret[pt.Identifier()]) >= pt.Bound {
-				return m, errors.New("place is full")
+		if _, ok := arc.Dest.(*Place); ok {
+			err := arc.PlaceToken(ret, tokenIndex)
+			if err != nil {
+				return m, err
 			}
-			ret[pt.Identifier()] = append(ret[pt.Identifier()], out)
 		}
 	}
 	return ret, nil
@@ -225,27 +350,24 @@ func (p *Net) Outputs(n Node) []*Arc {
 	return outputs
 }
 
-func (p *Net) AddArc(from, to Node) (*Arc, error) {
-	if from.Kind() == to.Kind() {
-		return nil, errors.New("cannot connect two places or two transitions")
+func (p *Net) AddArc(arc *Arc) error {
+	if arc.Src.Kind() == arc.Dest.Kind() {
+		return errors.New("cannot connect two places or two transitions")
 	}
-	if arc := p.Arc(from, to); arc != nil {
-		return nil, errors.New("arc already exists")
+	if arc := p.Arc(arc.Src, arc.Dest); arc != nil {
+		return errors.New("arc already exists")
 	}
-	a := &Arc{
-		Src:  from,
-		Dest: to,
+
+	p.Arcs = append(p.Arcs, arc)
+	if _, ok := p.outputs[arc.Src.Identifier()]; !ok {
+		p.outputs[arc.Src.Identifier()] = make([]*Arc, 0)
 	}
-	p.Arcs = append(p.Arcs, a)
-	if _, ok := p.outputs[from.Identifier()]; !ok {
-		p.outputs[from.Identifier()] = make([]*Arc, 0)
+	p.outputs[arc.Src.Identifier()] = append(p.outputs[arc.Src.Identifier()], arc)
+	if _, ok := p.inputs[arc.Dest.Identifier()]; !ok {
+		p.inputs[arc.Dest.Identifier()] = make([]*Arc, 0)
 	}
-	p.outputs[from.Identifier()] = append(p.outputs[from.Identifier()], a)
-	if _, ok := p.inputs[to.Identifier()]; !ok {
-		p.inputs[to.Identifier()] = make([]*Arc, 0)
-	}
-	p.inputs[to.Identifier()] = append(p.inputs[to.Identifier()], a)
-	return a, nil
+	p.inputs[arc.Dest.Identifier()] = append(p.inputs[arc.Dest.Identifier()], arc)
+	return nil
 }
 
 func NewNet(name string) *Net {
@@ -271,7 +393,7 @@ func (p *Net) WithTransitions(transitions ...*Transition) *Net {
 
 func (p *Net) WithArcs(arcs ...*Arc) *Net {
 	for _, arc := range arcs {
-		_, err := p.AddArc(arc.Src, arc.Dest)
+		err := p.AddArc(arc)
 		if err != nil {
 			panic(err)
 		}
@@ -307,6 +429,15 @@ func LoadNet(places []*Place, transitions []*Transition, arcs []*Arc) *Net {
 }
 
 func (p *Net) Kind() Kind { return NetObject }
+
+func (p *Net) RouteEvent(event Event[any]) EventFunc[any, any] {
+	for _, t := range p.Transitions {
+		if t.Name == event.Name {
+			return t.Event
+		}
+	}
+	return nil
+}
 
 type Loader[T any] interface {
 	Load(io.Reader) (T, error)

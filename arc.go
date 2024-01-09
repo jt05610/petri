@@ -1,5 +1,10 @@
 package petri
 
+import (
+	"errors"
+	"github.com/expr-lang/expr"
+)
+
 var (
 	_ Object = (*Arc)(nil)
 	_ Input  = (*ArcInput)(nil)
@@ -14,6 +19,65 @@ type Arc struct {
 	Src Node
 	// Dest is the place or transition that is the destination of the arc.
 	Dest Node
+	// Expression is the expression that is evaluated when the transition connected to the arc is fired.
+	Expression string
+
+	OutputSchema *TokenSchema
+}
+
+func ToValueMap(tokens map[string]*Token[interface{}]) map[string]interface{} {
+	tokenMap := make(map[string]interface{})
+	for key, token := range tokens {
+		tokenMap[key] = token.Value
+	}
+	return tokenMap
+}
+
+func UpdateValues(tokenMap map[string]*Token[interface{}], tokens map[string]interface{}) {
+	for key, token := range tokens {
+		tokenMap[key].Value = token
+	}
+}
+
+func (a *Arc) TakeToken(m Marking) (*Token[interface{}], error) {
+	program, err := expr.Compile(a.Expression)
+	if err != nil {
+		return nil, err
+	}
+	if a.Src.Kind() == PlaceObject {
+		tokenMap := m.TokenMap(a.Src.(*Place))
+		valueMap := ToValueMap(tokenMap)
+		ret, err := expr.Run(program, valueMap)
+		if err != nil {
+			return nil, err
+		}
+		return a.OutputSchema.NewToken(ret)
+	}
+	return nil, errors.New("arc source is not a place")
+}
+
+func (a *Arc) PlaceToken(m Marking, tokenIndex map[string]*Token[interface{}]) error {
+	program, err := expr.Compile(a.Expression)
+	if err != nil {
+		return err
+	}
+	if a.Dest.Kind() == PlaceObject {
+		valueIndex := ToValueMap(tokenIndex)
+		ret, err := expr.Run(program, valueIndex)
+		if err != nil {
+			return err
+		}
+		token, err := a.OutputSchema.NewToken(ret)
+		if err != nil {
+			return err
+		}
+		err = m.PlaceTokens(a.Dest.(*Place), token)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+	return errors.New("arc dest is not a place")
 }
 
 func (a *Arc) Document() Document {
@@ -51,10 +115,13 @@ func (a *Arc) Update(update Update) error {
 	return nil
 }
 
-func NewArc(from, to Node) *Arc {
+func NewArc(from, to Node, expression string, outputSchema *TokenSchema) *Arc {
 	return &Arc{
-		Src:  from,
-		Dest: to,
+		ID:           ID(),
+		Src:          from,
+		Dest:         to,
+		Expression:   expression,
+		OutputSchema: outputSchema,
 	}
 }
 

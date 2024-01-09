@@ -6,7 +6,7 @@ import (
 )
 
 func TestToken_New(t *testing.T) {
-	coin := petri.TokenSchema{
+	coin := petri.TokenSchema[interface{}]{
 		Name: "Coin",
 		Type: petri.Float,
 	}
@@ -15,9 +15,8 @@ func TestToken_New(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-
-	if !penny.IsValid() {
-		t.Error("penny is not valid")
+	if penny == nil {
+		t.Error("penny is nil")
 	}
 	shouldntWork, err := coin.NewToken("hello")
 

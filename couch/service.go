@@ -64,6 +64,25 @@ func Open[T petri.Object, U petri.Input, V petri.Filter, W petri.Update](uri str
 		return nil, err
 	}
 	ctx, cancel := context.WithCancel(context.Background())
+	dbs, err := client.AllDBs(ctx)
+	if err != nil {
+		cancel()
+		return nil, err
+	}
+	found := false
+	for _, db := range dbs {
+		if db == name {
+			found = true
+			break
+		}
+	}
+	if !found {
+		err = client.CreateDB(ctx, name)
+		if err != nil {
+			cancel()
+			return nil, err
+		}
+	}
 	db := client.DB(ctx, name)
 	if err != nil {
 		cancel()
@@ -150,20 +169,20 @@ func (s *Service[T, U, V, W]) Add(ctx context.Context, input U) (T, error) {
 	return o, nil
 }
 
-func (s *Service[T, U, V, W]) Remove(id string) (T, error) {
+func (s *Service[T, U, V, W]) Remove(ctx context.Context, id string) (T, error) {
 	var zero T
-	o, err := s.Get(context.Background(), id)
+	o, err := s.Get(ctx, id)
 	if err != nil {
 		return zero, err
 	}
-	rev, err := s.db.Delete(context.Background(), id, s.revMap[id])
+	rev, err := s.db.Delete(ctx, id, s.revMap[id])
 	if err != nil {
 		return zero, err
 	}
 	s.revMap[id] = rev
 	return o, nil
 }
-func TokenService(uri string) (*Service[*petri.TokenSchema, *petri.TokenInput, *petri.TokenFilter, *petri.TokenUpdate], error) {
+func TokenService(uri string) (petri.Service[*petri.TokenSchema, *petri.TokenInput, *petri.TokenFilter, *petri.TokenUpdate], error) {
 	return Open[*petri.TokenSchema, *petri.TokenInput, *petri.TokenFilter, *petri.TokenUpdate](uri, "tokens")
 }
 

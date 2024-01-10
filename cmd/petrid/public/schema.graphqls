@@ -20,12 +20,6 @@ type Field {
     required: Boolean!
 }
 
-type EventSchema {
-    id: ID!
-    name: String!
-    fields: [Field]
-}
-
 scalar JSON
 
 input Command {

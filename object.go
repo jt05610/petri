@@ -8,7 +8,7 @@ type Object interface {
 	String() string
 	Update(update Update) error
 	Document() Document
-	From(doc Document) error
+	PostInit() error
 }
 
 type Kind int
@@ -19,4 +19,5 @@ const (
 	ArcObject
 	NetObject
 	TokenObject
+	EventObject
 )

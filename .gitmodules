@@ -1,3 +1,6 @@
 [submodule "graph"]
-	path = graph/graph
+	path = graph
+	url = https://github.com/jt05610/petri-graph
+[submodule "excellent/graph"]
+	path = excellent/graph
 	url = https://github.com/jt05610/petri-graph

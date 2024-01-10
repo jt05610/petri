@@ -81,12 +81,19 @@ func (m Marking) PlaceTokens(place *Place, tokens ...*Token[interface{}]) error 
 
 // Net struct
 type Net struct {
-	Name        string
-	Places      []*Place
-	Transitions []*Transition
-	Arcs        []*Arc
-	inputs      map[string][]*Arc
-	outputs     map[string][]*Arc
+	ID           string
+	Name         string
+	TokenSchemas []*TokenSchema
+	Places       []*Place
+	Transitions  []*Transition
+	Arcs         []*Arc
+	Nets         []*Net
+	inputs       map[string][]*Arc
+	outputs      map[string][]*Arc
+}
+
+func (p *Net) PostInit() error {
+	return nil
 }
 
 func (p *Net) Document() Document {
@@ -433,7 +440,7 @@ func (p *Net) Kind() Kind { return NetObject }
 func (p *Net) RouteEvent(event Event[any]) EventFunc[any, any] {
 	for _, t := range p.Transitions {
 		if t.Name == event.Name {
-			return t.Event
+			return t.EventFunc
 		}
 	}
 	return nil
@@ -448,10 +455,11 @@ type Flusher[T any] interface {
 }
 
 type NetInput struct {
-	Name        string
-	Arcs        []*Arc
-	Places      []*Place
-	Transitions []*Transition
+	Name         string
+	TokenSchemas []*TokenSchema
+	Arcs         []*Arc
+	Places       []*Place
+	Transitions  []*Transition
 }
 
 func (n *NetInput) Object() Object {
@@ -464,10 +472,11 @@ func (n *NetInput) Kind() Kind {
 }
 
 type NetMask struct {
-	Name        bool
-	Places      bool
-	Transitions bool
-	Arcs        bool
+	TokenSchemas bool
+	Name         bool
+	Places       bool
+	Transitions  bool
+	Arcs         bool
 }
 
 type NetUpdate struct {
@@ -476,11 +485,8 @@ type NetUpdate struct {
 }
 
 type NetFilter struct {
-	ID          string
-	Name        string
-	Places      []string
-	Transitions []string
-	Arcs        []string
+	ID   *StringSelector
+	Name *StringSelector
 }
 
 func (n *NetFilter) Filter() Document {

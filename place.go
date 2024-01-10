@@ -1,21 +1,28 @@
 package petri
 
+import "errors"
+
 var _ Object = (*Place)(nil)
 var _ Node = (*Place)(nil)
 var _ Input = (*PlaceInput)(nil)
 var _ Filter = (*PlaceFilter)(nil)
 
-// Place represents a place
+// Place represents a place.
 type Place struct {
-	ID string
+	ID string `json:"_id"`
 	// Name is the name of the place
-	Name string
+	Name string `json:"name,omitempty"`
 	// Bound is the maximum number of tokens that can be in this place
-	Bound int
+	Bound int `json:"bound,omitempty"`
 	// AcceptedTokens are the tokens that can be accepted by this place
-	AcceptedTokens []*TokenSchema
+	AcceptedTokens []*TokenSchema `json:"acceptedTokens,omitempty"`
 }
 
+func (p *Place) PostInit() error {
+	return nil
+}
+
+// NewPlace creates a new place.
 func NewPlace(name string, bound int, acceptedTokens ...*TokenSchema) *Place {
 	return &Place{
 		ID:             ID(),
@@ -25,14 +32,23 @@ func NewPlace(name string, bound int, acceptedTokens ...*TokenSchema) *Place {
 	}
 }
 
-func (p *Place) Document() Document {
-	//TODO implement me
-	panic("implement me")
+func acceptedTokenIDs(tokens []*TokenSchema) []*TokenSchema {
+	ids := make([]*TokenSchema, len(tokens))
+	for i, token := range tokens {
+		ids[i] = &TokenSchema{
+			ID: token.ID,
+		}
+	}
+	return ids
 }
 
-func (p *Place) From(doc Document) error {
-	//TODO implement me
-	panic("implement me")
+func (p *Place) Document() Document {
+	return Document{
+		"_id":            p.ID,
+		"name":           p.Name,
+		"bound":          p.Bound,
+		"acceptedTokens": acceptedTokenIDs(p.AcceptedTokens),
+	}
 }
 
 func (p *Place) CanAccept(t *TokenSchema) bool {
@@ -55,14 +71,13 @@ func (p *Place) String() string {
 }
 
 type PlaceInput struct {
-	ID    string
-	Name  string
-	Bound int
+	Name           string
+	Bound          int
+	AcceptedTokens []*TokenSchema
 }
 
 func (p *PlaceInput) Object() Object {
-	//TODO implement me
-	panic("implement me")
+	return NewPlace(p.Name, p.Bound, p.AcceptedTokens...)
 }
 
 func (p *PlaceInput) Kind() Kind {
@@ -70,22 +85,27 @@ func (p *PlaceInput) Kind() Kind {
 }
 
 type PlaceMask struct {
-	Name  bool
-	Bound bool
+	Name           bool
+	Bound          bool
+	AcceptedTokens bool
 }
+
+var ErrNotFound = errors.New("not found")
 
 func (p *PlaceMask) IsMask() {}
 
-type PlaceFilter struct {
-	Name  string
-	Bound int
-	*PlaceMask
+type NodeFilter interface {
+	Filter
+	IsNodeFilter()
 }
 
-func (p *PlaceFilter) Filter() Document {
-	//TODO implement me
-	panic("implement me")
+type PlaceFilter struct {
+	ID    *StringSelector `json:"_id,omitempty"`
+	Name  *StringSelector `json:"name,omitempty"`
+	Bound *IntSelector    `json:"bound,omitempty"`
 }
+
+func (p *PlaceFilter) IsNodeFilter() {}
 
 type PlaceUpdate struct {
 	Input *PlaceInput
@@ -93,17 +113,6 @@ type PlaceUpdate struct {
 }
 
 func (p *Place) Kind() Kind { return PlaceObject }
-
-func (p *Place) Init(i Input) error {
-	in, ok := i.(*PlaceInput)
-	if !ok {
-		return ErrWrongInput
-	}
-	p.ID = in.ID
-	p.Name = in.Name
-	p.Bound = in.Bound
-	return nil
-}
 
 func (p *Place) Update(u Update) error {
 	update, ok := u.(*PlaceUpdate)

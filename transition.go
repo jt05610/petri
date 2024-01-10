@@ -13,22 +13,26 @@ var _ Filter = (*TransitionFilter)(nil)
 
 // Transition represents a transition
 type Transition struct {
-	ID         string
-	Name       string
-	Expression string
+	ID         string `json:"_id"`
+	Name       string `json:"name,omitempty"`
+	Expression string `json:"expression,omitempty"`
 	Handler
-	Cold  bool
-	Event EventFunc[any, any]
+	Cold      bool                `json:"cold,omitempty"`
+	EventFunc EventFunc[any, any] `json:"-"`
+	Event     *EventSchema        `json:"event,omitempty,omitempty"`
+}
+
+func (t *Transition) PostInit() error {
+	return nil
 }
 
 func (t *Transition) Document() Document {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (t *Transition) From(doc Document) error {
-	//TODO implement me
-	panic("implement me")
+	return Document{
+		"_id":        t.ID,
+		"name":       t.Name,
+		"expression": t.Expression,
+		"event":      t.Event,
+	}
 }
 
 func (t *Transition) IsNode() {}
@@ -41,16 +45,6 @@ func (t *Transition) Kind() Kind { return TransitionObject }
 
 func (t *Transition) Identifier() string { return t.ID }
 
-func (t *Transition) Init(i Input) error {
-	in, ok := i.(*TransitionInput)
-	if !ok {
-		return ErrWrongInput
-	}
-	t.ID = in.ID
-	t.Name = in.Name
-	return nil
-}
-
 type EventFunc[T, U any] func(ctx context.Context, input T) (U, error)
 
 func NewEventFunc[T, U any](f func(ctx context.Context, input T) (U, error)) EventFunc[any, any] {
@@ -59,9 +53,15 @@ func NewEventFunc[T, U any](f func(ctx context.Context, input T) (U, error)) Eve
 	}
 }
 
-func (t *Transition) WithEvent(f EventFunc[any, any]) *Transition {
+func (t *Transition) WithEvent(f EventFunc[any, any], url string, input, output *TokenSchema) *Transition {
 	t.Cold = true
-	t.Event = f
+	t.EventFunc = f
+	t.Event = &EventSchema{
+		Name:         t.Name,
+		Url:          url,
+		InputSchema:  *input,
+		OutputSchema: *output,
+	}
 	return t
 }
 
@@ -72,6 +72,16 @@ func (t *Transition) Update(u Update) error {
 	}
 	if update.Mask.Name {
 		t.Name = update.Input.Name
+	}
+	if update.Mask.Expression {
+		t.Expression = update.Input.Expression
+	}
+	if update.Mask.Event {
+		if update.Input.Event == nil {
+			t.Event = nil
+		} else {
+			t.Event = update.Input.Event.Object().(*EventSchema)
+		}
 	}
 	return nil
 }
@@ -121,13 +131,17 @@ func (t *Transition) CanFire(tokenByType map[string]*Token[interface{}]) bool {
 }
 
 type TransitionInput struct {
-	ID   string
-	Name string
+	Name       string
+	Expression string
+	Event      *EventInput
 }
 
 func (t *TransitionInput) Object() Object {
-	//TODO implement me
-	panic("implement me")
+	return &Transition{
+		ID:         ID(),
+		Name:       t.Name,
+		Expression: t.Expression,
+	}
 }
 
 func (t *TransitionInput) Kind() Kind {
@@ -135,7 +149,9 @@ func (t *TransitionInput) Kind() Kind {
 }
 
 type TransitionMask struct {
-	Name bool
+	Name       bool
+	Expression bool
+	Event      bool
 }
 
 type TransitionUpdate struct {
@@ -144,15 +160,11 @@ type TransitionUpdate struct {
 }
 
 type TransitionFilter struct {
-	Name string
-	*TransitionMask
+	ID   *StringSelector `json:"_id,omitempty"`
+	Name *StringSelector `json:"name,omitempty"`
 }
 
-func (t *TransitionFilter) Filter() Document {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (t *TransitionInput) IsInput()   {}
-func (t *TransitionUpdate) IsUpdate() {}
-func (t *TransitionFilter) IsFilter() {}
+func (t *TransitionInput) IsInput()       {}
+func (t *TransitionUpdate) IsUpdate()     {}
+func (t *TransitionFilter) IsFilter()     {}
+func (t *TransitionFilter) IsNodeFilter() {}

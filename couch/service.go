@@ -101,7 +101,7 @@ func (s *Service[T, U, V, W]) Close() error {
 }
 
 func (s *Service[T, U, V, W]) Update(ctx context.Context, id string, update W) (T, error) {
-	o, err := s.Get(context.Background(), id)
+	o, err := s.Get(ctx, id)
 	if err != nil {
 		var zero T
 		return zero, err
@@ -131,7 +131,7 @@ func (s *Service[T, U, V, W]) Get(ctx context.Context, id string) (T, error) {
 		return zero, err
 	}
 	s.revMap[id] = row.Rev
-	return ret, nil
+	return ret, ret.PostInit()
 }
 
 func (s *Service[T, U, V, W]) List(ctx context.Context, f V) ([]T, error) {
@@ -145,6 +145,10 @@ func (s *Service[T, U, V, W]) List(ctx context.Context, f V) ([]T, error) {
 	for rows.Next() {
 		var row T
 		err := rows.ScanDoc(&row)
+		if err != nil {
+			return ret, err
+		}
+		err = row.PostInit()
 		if err != nil {
 			return ret, err
 		}
@@ -182,22 +186,51 @@ func (s *Service[T, U, V, W]) Remove(ctx context.Context, id string) (T, error) 
 	s.revMap[id] = rev
 	return o, nil
 }
-func TokenService(uri string) (petri.Service[*petri.TokenSchema, *petri.TokenInput, *petri.TokenFilter, *petri.TokenUpdate], error) {
-	return Open[*petri.TokenSchema, *petri.TokenInput, *petri.TokenFilter, *petri.TokenUpdate](uri, "tokens")
+
+func TokenService(uri string) petri.Service[*petri.TokenSchema, *petri.TokenSchemaInput, *petri.TokenFilter, *petri.TokenUpdate] {
+	s, err := Open[*petri.TokenSchema, *petri.TokenSchemaInput, *petri.TokenFilter, *petri.TokenUpdate](uri, "tokens")
+	if err != nil {
+		panic(err)
+	}
+	return s
 }
 
-func PlaceService(uri string) (*Service[*petri.Place, *petri.PlaceInput, *petri.PlaceFilter, *petri.PlaceUpdate], error) {
-	return Open[*petri.Place, *petri.PlaceInput, *petri.PlaceFilter, *petri.PlaceUpdate](uri, "places")
+func PlaceService(uri string) *Service[*petri.Place, *petri.PlaceInput, *petri.PlaceFilter, *petri.PlaceUpdate] {
+	s, err := Open[*petri.Place, *petri.PlaceInput, *petri.PlaceFilter, *petri.PlaceUpdate](uri, "places")
+	if err != nil {
+		panic(err)
+	}
+	return s
 }
 
-func TransitionService(uri string) (*Service[*petri.Transition, *petri.TransitionInput, *petri.TransitionFilter, *petri.TransitionUpdate], error) {
-	return Open[*petri.Transition, *petri.TransitionInput, *petri.TransitionFilter, *petri.TransitionUpdate](uri, "transitions")
+func ArcService(uri string) *Service[*petri.Arc, *petri.ArcInput, *petri.ArcFilter, *petri.ArcUpdate] {
+	s, err := Open[*petri.Arc, *petri.ArcInput, *petri.ArcFilter, *petri.ArcUpdate](uri, "arcs")
+	if err != nil {
+		panic(err)
+	}
+	return s
 }
 
-func ArcService(uri string) (*Service[*petri.Arc, *petri.ArcInput, *petri.ArcFilter, *petri.ArcUpdate], error) {
-	return Open[*petri.Arc, *petri.ArcInput, *petri.ArcFilter, *petri.ArcUpdate](uri, "arcs")
+func TransitionService(uri string) *Service[*petri.Transition, *petri.TransitionInput, *petri.TransitionFilter, *petri.TransitionUpdate] {
+	s, err := Open[*petri.Transition, *petri.TransitionInput, *petri.TransitionFilter, *petri.TransitionUpdate](uri, "transitions")
+	if err != nil {
+		panic(err)
+	}
+	return s
 }
 
-func NetService(uri string) (*Service[*petri.Net, *petri.NetInput, *petri.NetFilter, *petri.NetUpdate], error) {
-	return Open[*petri.Net, *petri.NetInput, *petri.NetFilter, *petri.NetUpdate](uri, "nets")
+func NetService(uri string) *Service[*petri.Net, *petri.NetInput, *petri.NetFilter, *petri.NetUpdate] {
+	s, err := Open[*petri.Net, *petri.NetInput, *petri.NetFilter, *petri.NetUpdate](uri, "nets")
+	if err != nil {
+		panic(err)
+	}
+	return s
+}
+
+func EventService(uri string) *Service[*petri.EventSchema, *petri.EventInput, *petri.EventFilter, *petri.EventUpdate] {
+	s, err := Open[*petri.EventSchema, *petri.EventInput, *petri.EventFilter, *petri.EventUpdate](uri, "events")
+	if err != nil {
+		panic(err)
+	}
+	return s
 }

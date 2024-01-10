@@ -12,17 +12,29 @@ var (
 	_ Filter = (*ArcFilter)(nil)
 )
 
+type NodeMeta struct {
+	ID   string `json:"_id,omitempty"`
+	Kind Kind   `json:"kind,omitempty"`
+}
+
 // Arc is a connection from a place to a transition or a transition to a place.
 type Arc struct {
-	ID string
+	ID string `json:"_id"`
 	// Src is the place or transition that is the source of the arc.
-	Src Node
+	Src     Node      `json:"-"`
+	SrcMeta *NodeMeta `json:"src,omitempty"`
 	// Dest is the place or transition that is the destination of the arc.
-	Dest Node
+	Dest     Node      `json:"-"`
+	DestMeta *NodeMeta `json:"dest,omitempty"`
 	// Expression is the expression that is evaluated when the transition connected to the arc is fired.
-	Expression string
+	Expression   string       `json:"expression,omitempty"`
+	OutputSchema *TokenSchema `json:"outputSchema,omitempty"`
+}
 
-	OutputSchema *TokenSchema
+func (a *Arc) PostInit() error {
+	a.Src = MakeNode(a.SrcMeta.Kind, a.SrcMeta.ID)
+	a.Dest = MakeNode(a.DestMeta.Kind, a.DestMeta.ID)
+	return nil
 }
 
 func ToValueMap(tokens map[string]*Token[interface{}]) map[string]interface{} {
@@ -80,25 +92,44 @@ func (a *Arc) PlaceToken(m Marking, tokenIndex map[string]*Token[interface{}]) e
 	return errors.New("arc dest is not a place")
 }
 
-func (a *Arc) Document() Document {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (a *Arc) From(doc Document) error {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (a *Arc) Init(input Input) error {
-	in, ok := input.(*ArcInput)
-	if !ok {
-		return ErrWrongInput
+func StripNodeToID(node Node) Node {
+	switch node.Kind() {
+	case PlaceObject:
+		return &Place{
+			ID: node.Identifier(),
+		}
+	case TransitionObject:
+		return &Transition{
+			ID: node.Identifier(),
+		}
+	default:
+		return nil
 	}
-	a.Src = in.Head
-	a.Dest = in.Tail
-	a.ID = in.ID
-	return nil
+}
+
+func (a *Arc) Document() Document {
+	return Document{
+		"_id":          a.ID,
+		"src":          &NodeMeta{ID: a.Src.Identifier(), Kind: a.Src.Kind()},
+		"dest":         &NodeMeta{ID: a.Dest.Identifier(), Kind: a.Dest.Kind()},
+		"expression":   a.Expression,
+		"outputSchema": &TokenSchema{ID: a.OutputSchema.ID},
+	}
+}
+
+func MakeNode(k Kind, id string) Node {
+	switch k {
+	case PlaceObject:
+		return &Place{
+			ID: id,
+		}
+	case TransitionObject:
+		return &Transition{
+			ID: id,
+		}
+	default:
+		return nil
+	}
 }
 
 func (a *Arc) Update(update Update) error {
@@ -106,11 +137,11 @@ func (a *Arc) Update(update Update) error {
 	if !ok {
 		return ErrWrongUpdate
 	}
-	if up.Mask.Head {
-		a.Src = up.Input.Head
+	if up.Mask.Src {
+		a.Src = up.Input.Src
 	}
-	if up.Mask.Tail {
-		a.Dest = up.Input.Tail
+	if up.Mask.Dest {
+		a.Dest = up.Input.Dest
 	}
 	return nil
 }
@@ -136,14 +167,14 @@ func (a *Arc) String() string {
 func (a *Arc) Kind() Kind { return ArcObject }
 
 type ArcInput struct {
-	ID   string
-	Head Node
-	Tail Node
+	Src          Node         `json:"src"`
+	Dest         Node         `json:"dest"`
+	Expression   string       `json:"expression,omitempty"`
+	OutputSchema *TokenSchema `json:"outputSchema"`
 }
 
 func (a *ArcInput) Object() Object {
-	//TODO implement me
-	panic("implement me")
+	return NewArc(a.Src, a.Dest, a.Expression, a.OutputSchema)
 }
 
 func (a *ArcInput) Kind() Kind {
@@ -151,24 +182,19 @@ func (a *ArcInput) Kind() Kind {
 }
 
 type ArcMask struct {
-	Head bool
-	Tail bool
+	Src  bool `json:"src,omitempty"`
+	Dest bool `json:"dest,omitempty"`
 }
 
 type ArcUpdate struct {
-	Input ArcInput
+	Input *ArcInput
 	Mask  *ArcMask
 }
 
 type ArcFilter struct {
-	Head string
-	Tail string
-	*ArcMask
-}
-
-func (a *ArcFilter) Filter() Document {
-	//TODO implement me
-	panic("implement me")
+	ID   *StringSelector `json:"_id,omitempty"`
+	Src  NodeFilter      `json:"src,omitempty"`
+	Dest NodeFilter      `json:"dest,omitempty"`
 }
 
 type ArcLoader interface {

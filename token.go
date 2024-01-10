@@ -6,7 +6,7 @@ import (
 )
 
 var _ Object = (*TokenSchema)(nil)
-var _ Input = (*TokenInput)(nil)
+var _ Input = (*TokenSchemaInput)(nil)
 var _ Update = (*TokenUpdate)(nil)
 var _ Filter = (*TokenFilter)(nil)
 
@@ -25,13 +25,13 @@ func (p PropertiesInput) Properties() *Properties {
 	}
 }
 
-type TokenInput struct {
+type TokenSchemaInput struct {
 	Name       string
 	Type       TokenType
 	Properties PropertiesInput
 }
 
-func (t *TokenInput) Object() Object {
+func (t *TokenSchemaInput) Object() Object {
 	obj := &TokenSchema{
 		ID:         ID(),
 		Name:       t.Name,
@@ -41,7 +41,7 @@ func (t *TokenInput) Object() Object {
 	return obj
 }
 
-func (t *TokenInput) Kind() Kind {
+func (t *TokenSchemaInput) Kind() Kind {
 	return TokenObject
 }
 
@@ -57,17 +57,8 @@ type TokenMask struct {
 	Type bool
 }
 
-type Selector[T any] struct {
-	Equals              T `json:"$eq,omitempty"`
-	GreaterThan         T `json:"$gt,omitempty"`
-	GreaterThanOrEquals T `json:"$gte,omitempty"`
-	LessThan            T `json:"$lt,omitempty"`
-	LessThanOrEquals    T `json:"$lte,omitempty"`
-}
-
-type StringSelector Selector[string]
-
 type TokenFilter struct {
+	ID         *StringSelector       `json:"_id,omitempty"`
 	Name       *StringSelector       `json:"name,omitempty"`
 	Type       *StringSelector       `json:"type,omitempty"`
 	Properties *Selector[Properties] `json:"properties,omitempty"`
@@ -184,6 +175,10 @@ type TokenSchema struct {
 	Properties map[string]Properties `json:"properties,omitempty"`
 }
 
+func (t *TokenSchema) PostInit() error {
+	return nil
+}
+
 func (t *TokenSchema) PropertiesJSON() map[string]interface{} {
 	if t.Properties != nil {
 		ret := make(map[string]interface{})
@@ -209,11 +204,6 @@ func (t *TokenSchema) Document() Document {
 		"name": t.Name,
 		"type": t.Type,
 	}
-}
-
-func (t *TokenSchema) From(doc Document) error {
-	//TODO implement me
-	panic("implement me")
 }
 
 func (t *TokenSchema) String() string {
@@ -376,6 +366,6 @@ func Signal() *TokenSchema {
 	}
 }
 
-func (t *TokenInput) IsInput()   {}
-func (t *TokenUpdate) IsUpdate() {}
-func (t *TokenFilter) IsFilter() {}
+func (t *TokenSchemaInput) IsInput() {}
+func (t *TokenUpdate) IsUpdate()     {}
+func (t *TokenFilter) IsFilter()     {}

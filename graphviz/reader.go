@@ -73,7 +73,7 @@ func (r *Reader) Load(reader io.Reader) (*petri.Net, error) {
 		n = r.g.NextNode(n)
 	}
 
-	return petri.NewNet(r.places, r.transitions, r.arcs), nil
+	return petri.NewNet("net").WithPlaces(r.places...).WithTransitions(r.transitions...).WithArcs(r.arcs...), nil
 }
 
 func Loader() *Reader {

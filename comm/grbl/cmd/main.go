@@ -8,8 +8,6 @@ import (
 	"github.com/jt05610/petri/comm/grbl/proto/v1"
 	"github.com/jt05610/petri/comm/grbl/server"
 	"github.com/jt05610/petri/comm/serial"
-	"github.com/jt05610/petri/devices/grbl/aqueouspump"
-	"github.com/jt05610/petri/devices/grbl/rheoten"
 	"github.com/jt05610/petri/env"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -145,8 +143,6 @@ func main() {
 			}
 		}
 	}()
-	go aqueouspump.Run(ctx, connections[0], s)
-	go rheoten.Run(ctx, connections[1], s)
 
 	<-ctx.Done()
 }

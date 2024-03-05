@@ -114,10 +114,6 @@ func New(n *petri.Net, initial Marking, joinedIDs ...map[string]string) *Net {
 		Net:     n,
 		marking: initial,
 	}
-	net.index = make(map[string]int)
-	for i, p := range n.Places {
-		net.index[p.ID] = i
-	}
 	net.joinedPlaces = make(map[string]string)
 	for _, joined := range joinedIDs {
 		for k, v := range joined {
@@ -129,8 +125,5 @@ func New(n *petri.Net, initial Marking, joinedIDs ...map[string]string) *Net {
 
 func NewFromMap(n *petri.Net, initial map[string]int, joinedIDs ...map[string]string) *Net {
 	marking := make(Marking, len(n.Places))
-	for i, p := range n.Places {
-		marking[i] = initial[p.ID]
-	}
 	return New(n, marking, joinedIDs...)
 }

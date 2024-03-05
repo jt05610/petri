@@ -30,7 +30,7 @@ func TestE2E(t *testing.T) {
 	}
 
 	wr := graphviz.New(cfg)
-	net := examples.Net()
+	net := examples.NewPump().Net
 	err := wr.Flush(buf, net)
 	if err != nil {
 		t.Fatal(err)

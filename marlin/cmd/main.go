@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/joho/godotenv"
 	"github.com/jt05610/petri/comm/serial"
-	fracCollector "github.com/jt05610/petri/devices/fraction_collector"
 	"github.com/jt05610/petri/marlin"
 	proto "github.com/jt05610/petri/marlin/proto/v1"
 	"go.uber.org/zap"
@@ -107,6 +106,5 @@ func main() {
 			logger.Fatal("Failed to serve grpc", zap.Error(err))
 		}
 	}()
-	go fracCollector.Run(ctx, s)
 	<-ctx.Done()
 }

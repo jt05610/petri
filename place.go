@@ -18,6 +18,10 @@ type Place struct {
 	AcceptedTokens []*TokenSchema `json:"acceptedTokens,omitempty"`
 }
 
+func (p *Place) Index() string {
+	return p.Name
+}
+
 func (p *Place) PostInit() error {
 	return nil
 }

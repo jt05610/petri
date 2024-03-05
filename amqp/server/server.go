@@ -105,6 +105,7 @@ func New(net *labeled.Net, ch *amqp.Channel, exchange string, deviceID string, i
 	for key := range handlers {
 		queues = append(queues, instanceID+".commands."+key)
 	}
+
 	queues = append(queues, instanceID+".state.get")
 	queues = append(queues, "devices")
 	q, err := ch.QueueDeclare(

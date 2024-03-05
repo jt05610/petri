@@ -37,7 +37,7 @@ func (a *Arc) PostInit() error {
 	return nil
 }
 
-func ToValueMap(tokens map[string]*Token[interface{}]) map[string]interface{} {
+func ToValueMap(tokens map[string]*Token) map[string]interface{} {
 	tokenMap := make(map[string]interface{})
 	for key, token := range tokens {
 		tokenMap[key] = token.Value
@@ -45,13 +45,13 @@ func ToValueMap(tokens map[string]*Token[interface{}]) map[string]interface{} {
 	return tokenMap
 }
 
-func UpdateValues(tokenMap map[string]*Token[interface{}], tokens map[string]interface{}) {
+func UpdateValues(tokenMap map[string]*Token, tokens map[string]interface{}) {
 	for key, token := range tokens {
 		tokenMap[key].Value = token
 	}
 }
 
-func (a *Arc) TakeToken(m Marking) (*Token[interface{}], error) {
+func (a *Arc) TakeToken(m Marking) (*Token, error) {
 	program, err := expr.Compile(a.Expression)
 	if err != nil {
 		return nil, err
@@ -68,7 +68,7 @@ func (a *Arc) TakeToken(m Marking) (*Token[interface{}], error) {
 	return nil, errors.New("arc source is not a place")
 }
 
-func (a *Arc) PlaceToken(m Marking, tokenIndex map[string]*Token[interface{}]) error {
+func (a *Arc) PlaceToken(m Marking, tokenIndex map[string]*Token) error {
 	program, err := expr.Compile(a.Expression)
 	if err != nil {
 		return err

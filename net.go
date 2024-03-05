@@ -14,12 +14,12 @@ var _ Input = (*NetInput)(nil)
 var _ Update = (*NetUpdate)(nil)
 var _ Filter = (*NetFilter)(nil)
 
-type Marking map[string][]*Token[interface{}]
+type Marking map[string][]*Token
 
 func (m Marking) Copy() Marking {
 	ret := make(Marking)
 	for k, v := range m {
-		ret[k] = make([]*Token[interface{}], len(v))
+		ret[k] = make([]*Token, len(v))
 		for i, t := range v {
 			ret[k][i] = t
 		}
@@ -27,9 +27,9 @@ func (m Marking) Copy() Marking {
 	return ret
 }
 
-func (m Marking) TokenMap(place *Place) map[string]*Token[interface{}] {
+func (m Marking) TokenMap(place *Place) map[string]*Token {
 	tokens := m[place.String()]
-	tokMap := make(map[string]*Token[interface{}])
+	tokMap := make(map[string]*Token)
 	for _, t := range tokens {
 		if _, ok := tokMap[t.Schema.Name]; ok {
 			continue
@@ -39,7 +39,7 @@ func (m Marking) TokenMap(place *Place) map[string]*Token[interface{}] {
 	return tokMap
 }
 
-func (m Marking) Get(place *Place, schema string) *Token[interface{}] {
+func (m Marking) Get(place *Place, schema string) *Token {
 	if _, ok := m[place.String()]; !ok {
 		return nil
 	}
@@ -51,7 +51,7 @@ func (m Marking) Get(place *Place, schema string) *Token[interface{}] {
 	return nil
 }
 
-func (m Marking) Remove(place *Place, token *Token[interface{}]) {
+func (m Marking) Remove(place *Place, token *Token) {
 	if _, ok := m[place.String()]; !ok {
 		return
 	}
@@ -63,7 +63,7 @@ func (m Marking) Remove(place *Place, token *Token[interface{}]) {
 	}
 }
 
-func (m Marking) PlaceTokens(place *Place, tokens ...*Token[interface{}]) error {
+func (m Marking) PlaceTokens(place *Place, tokens ...*Token) error {
 	if _, ok := m[place.String()]; !ok {
 		return errors.New("place not found")
 	}
@@ -81,37 +81,72 @@ func (m Marking) PlaceTokens(place *Place, tokens ...*Token[interface{}]) error 
 
 // Net struct
 type Net struct {
-	ID           string
-	Name         string
-	TokenSchemas []*TokenSchema
-	Places       []*Place
-	Transitions  []*Transition
-	Arcs         []*Arc
-	Nets         []*Net
+	ID           string                  `json:"_id"`
+	Name         string                  `json:"name"`
+	TokenSchemas map[string]*TokenSchema `json:"tokenSchemas,omitempty"`
+	Places       map[string]*Place       `json:"places,omitempty"`
+	Transitions  map[string]*Transition  `json:"transitions,omitempty"`
+	Arcs         []*Arc                  `json:"arcs,omitempty"`
+	Nets         []*Net                  `json:"nets,omitempty"`
 	inputs       map[string][]*Arc
 	outputs      map[string][]*Arc
 }
 
+func (p *Net) makeInputsOutputs() {
+	p.inputs = make(map[string][]*Arc)
+	p.outputs = make(map[string][]*Arc)
+	for _, arc := range p.Arcs {
+		if _, ok := p.outputs[arc.Src.Identifier()]; !ok {
+			p.outputs[arc.Src.Identifier()] = make([]*Arc, 0)
+		}
+		p.outputs[arc.Src.Identifier()] = append(p.outputs[arc.Src.Identifier()], arc)
+		if _, ok := p.inputs[arc.Dest.Identifier()]; !ok {
+			p.inputs[arc.Dest.Identifier()] = make([]*Arc, 0)
+		}
+		p.inputs[arc.Dest.Identifier()] = append(p.inputs[arc.Dest.Identifier()], arc)
+	}
+
+}
 func (p *Net) PostInit() error {
 	return nil
 }
 
 func (p *Net) Document() Document {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (p *Net) From(doc Document) error {
-	//TODO implement me
-	panic("implement me")
+	return Document{
+		"_id":          p.ID,
+		"name":         p.Name,
+		"tokenSchemas": p.TokenSchemas,
+		"places":       p.Places,
+		"transitions":  p.Transitions,
+		"arcs":         p.Arcs,
+		"nets":         p.Nets,
+	}
 }
 
 func (p *Net) NewMarking() Marking {
 	m := make(Marking)
 	for _, place := range p.Places {
-		m[place.String()] = make([]*Token[interface{}], 0)
+		m[place.String()] = make([]*Token, 0)
 	}
 	return m
+}
+
+func (p *Net) Place(name string) *Place {
+	for _, place := range p.Places {
+		if place.Name == name {
+			return place
+		}
+	}
+	return nil
+}
+
+func (p *Net) Transition(name string) *Transition {
+	for _, t := range p.Transitions {
+		if t.Name == name {
+			return t
+		}
+	}
+	return nil
 }
 
 func (p *Net) Init(input Input) error {
@@ -120,9 +155,10 @@ func (p *Net) Init(input Input) error {
 		return ErrWrongInput
 	}
 	p.Name = in.Name
-	p.Places = in.Places
-	p.Transitions = in.Transitions
+	p.Places = CreateIndex(in.Places)
+	p.Transitions = CreateIndex(in.Transitions)
 	p.Arcs = in.Arcs
+	p.TokenSchemas = CreateIndex(in.TokenSchemas)
 	p.inputs = make(map[string][]*Arc)
 	p.outputs = make(map[string][]*Arc)
 	for _, arc := range p.Arcs {
@@ -190,8 +226,8 @@ func (p *Net) Process(m Marking, events ...Event[any]) (Marking, error) {
 
 }
 
-func IndexTokenByType(tokens []*Token[interface{}]) map[string]*Token[interface{}] {
-	index := make(map[string]*Token[interface{}])
+func IndexTokenByType(tokens []*Token) map[string]*Token {
+	index := make(map[string]*Token)
 	for _, t := range tokens {
 		if _, ok := index[t.Schema.Name]; ok {
 			continue
@@ -202,7 +238,7 @@ func IndexTokenByType(tokens []*Token[interface{}]) map[string]*Token[interface{
 }
 
 func (p *Net) Fire(m Marking, t *Transition, events ...Event[any]) (Marking, error) {
-	tokens := make([]*Token[interface{}], 0)
+	tokens := make([]*Token, 0)
 	handlerMap := make(map[string]EventFunc[any, any])
 	dataMap := make(map[string]interface{})
 	for _, e := range events {
@@ -257,9 +293,13 @@ func (p *Net) Fire(m Marking, t *Transition, events ...Event[any]) (Marking, err
 		}
 		for _, arc := range p.Outputs(t) {
 			if _, ok := arc.Dest.(*Place); ok {
+
 				tok, err := arc.OutputSchema.NewToken(eventResult)
 				if err != nil {
 					return m, err
+				}
+				if arc.OutputSchema.Type == SignalType {
+					tok.Value = 1
 				}
 				tokens = append(tokens, tok)
 			}
@@ -292,10 +332,10 @@ func (p *Net) Update(update Update) error {
 		p.Name = u.Input.Name
 	}
 	if u.Mask.Places {
-		p.Places = u.Input.Places
+		p.Places = CreateIndex(u.Input.Places)
 	}
 	if u.Mask.Transitions {
-		p.Transitions = u.Input.Transitions
+		p.Transitions = CreateIndex(u.Input.Transitions)
 	}
 	if u.Mask.Arcs {
 		p.Arcs = u.Input.Arcs
@@ -316,7 +356,7 @@ func (p *Net) Update(update Update) error {
 }
 
 func (p *Net) Identifier() string {
-	return p.Name
+	return p.ID
 }
 
 func (p *Net) String() string {
@@ -379,22 +419,35 @@ func (p *Net) AddArc(arc *Arc) error {
 
 func NewNet(name string) *Net {
 	return &Net{
-		Name:        name,
-		Places:      make([]*Place, 0),
-		Transitions: make([]*Transition, 0),
-		Arcs:        make([]*Arc, 0),
-		inputs:      make(map[string][]*Arc),
-		outputs:     make(map[string][]*Arc),
+		ID:           ID(),
+		Name:         name,
+		Places:       make(map[string]*Place),
+		Transitions:  make(map[string]*Transition),
+		Arcs:         make([]*Arc, 0),
+		Nets:         make([]*Net, 0),
+		TokenSchemas: make(map[string]*TokenSchema),
+		inputs:       make(map[string][]*Arc),
+		outputs:      make(map[string][]*Arc),
 	}
 }
 
 func (p *Net) WithPlaces(places ...*Place) *Net {
-	p.Places = append(p.Places, places...)
+	for _, pl := range places {
+		if pl.Bound == 0 {
+			pl.Bound = 1
+		}
+		for _, tok := range pl.AcceptedTokens {
+			p.TokenSchemas[tok.Name] = tok
+		}
+		p.Places[pl.Name] = pl
+	}
 	return p
 }
 
 func (p *Net) WithTransitions(transitions ...*Transition) *Net {
-	p.Transitions = append(p.Transitions, transitions...)
+	for _, t := range transitions {
+		p.Transitions[t.Name] = t
+	}
 	return p
 }
 
@@ -408,6 +461,18 @@ func (p *Net) WithArcs(arcs ...*Arc) *Net {
 	return p
 }
 
+func (p *Net) WithNets(nets ...*Net) *Net {
+	p.Nets = append(p.Nets, nets...)
+	return p
+}
+
+func (p *Net) WithTokenSchemas(schemas ...*TokenSchema) *Net {
+	for _, schema := range schemas {
+		p.TokenSchemas[schema.Name] = schema
+	}
+	return p
+}
+
 func LoadNet(places []*Place, transitions []*Transition, arcs []*Arc) *Net {
 
 	for _, p := range places {
@@ -416,11 +481,13 @@ func LoadNet(places []*Place, transitions []*Transition, arcs []*Arc) *Net {
 		}
 	}
 	net := &Net{
-		Places:      places,
-		Transitions: transitions,
-		Arcs:        arcs,
-		inputs:      make(map[string][]*Arc),
-		outputs:     make(map[string][]*Arc),
+		Places:       CreateIndex(places),
+		Transitions:  CreateIndex(transitions),
+		Arcs:         arcs,
+		TokenSchemas: make(map[string]*TokenSchema),
+		Nets:         make([]*Net, 0),
+		inputs:       make(map[string][]*Arc),
+		outputs:      make(map[string][]*Arc),
 	}
 	for _, arc := range arcs {
 		if _, ok := net.outputs[arc.Src.Identifier()]; !ok {
@@ -454,17 +521,25 @@ type Flusher[T any] interface {
 	Flush(io.Writer, T) error
 }
 
+func CreateIndex[T Indexable](t []T) map[string]T {
+	index := make(map[string]T)
+	for _, v := range t {
+		index[v.Index()] = v
+	}
+	return index
+}
+
 type NetInput struct {
-	Name         string
-	TokenSchemas []*TokenSchema
-	Arcs         []*Arc
-	Places       []*Place
-	Transitions  []*Transition
+	Name         string         `json:"name"`
+	TokenSchemas []*TokenSchema `json:"tokenSchemas,omitempty"`
+	Arcs         []*Arc         `json:"arcs,omitempty"`
+	Places       []*Place       `json:"places,omitempty"`
+	Transitions  []*Transition  `json:"transitions,omitempty"`
+	Nets         []*Net         `json:"nets,omitempty"`
 }
 
 func (n *NetInput) Object() Object {
-	//TODO implement me
-	panic("implement me")
+	return NewNet(n.Name).WithPlaces(n.Places...).WithTransitions(n.Transitions...).WithArcs(n.Arcs...).WithNets(n.Nets...).WithTokenSchemas(n.TokenSchemas...)
 }
 
 func (n *NetInput) Kind() Kind {
@@ -472,11 +547,12 @@ func (n *NetInput) Kind() Kind {
 }
 
 type NetMask struct {
-	TokenSchemas bool
-	Name         bool
-	Places       bool
-	Transitions  bool
-	Arcs         bool
+	TokenSchemas bool `json:"tokenSchemas,omitempty"`
+	Name         bool `json:"name,omitempty"`
+	Places       bool `json:"places,omitempty"`
+	Transitions  bool `json:"transitions,omitempty"`
+	Arcs         bool `json:"arcs,omitempty"`
+	Nets         bool `json:"nets,omitempty"`
 }
 
 type NetUpdate struct {
@@ -485,8 +561,8 @@ type NetUpdate struct {
 }
 
 type NetFilter struct {
-	ID   *StringSelector
-	Name *StringSelector
+	ID   *StringSelector `json:"_id,omitempty"`
+	Name *StringSelector `json:"name,omitempty"`
 }
 
 func (n *NetFilter) Filter() Document {

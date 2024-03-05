@@ -288,6 +288,7 @@ func TestTransitionService(t *testing.T) {
 	}
 	RunServiceTest[*petri.Transition, *petri.TransitionInput, *petri.TransitionFilter, *petri.TransitionUpdate](t, s, testCase)
 }
+
 func TestArcService(t *testing.T) {
 	signal := &petri.TokenSchema{
 		ID:   "signal",
@@ -297,6 +298,7 @@ func TestArcService(t *testing.T) {
 	head := petri.NewPlace("head", 1, signal)
 	newHead := petri.NewPlace("newHead", 1, signal)
 	tail := petri.NewTransition("arc")
+
 	s := setUp[*petri.Arc, *petri.ArcInput, *petri.ArcFilter, *petri.ArcUpdate]("token_test")
 	testCase := &TestCase[*petri.Arc, *petri.ArcInput, *petri.ArcFilter, *petri.ArcUpdate]{
 		AddInput: &petri.ArcInput{
@@ -347,4 +349,85 @@ func TestArcService(t *testing.T) {
 		},
 	}
 	RunServiceTest[*petri.Arc, *petri.ArcInput, *petri.ArcFilter, *petri.ArcUpdate](t, s, testCase)
+}
+
+func TestNetService(t *testing.T) {
+	signal := &petri.TokenSchema{
+		ID:   "signal",
+		Name: "signal",
+		Type: petri.Boolean,
+	}
+	head := petri.NewPlace("head", 1, signal)
+	tail := petri.NewTransition("net")
+	net := petri.NewNet("net").WithPlaces(
+		head,
+	).WithTransitions(
+		tail,
+	).WithArcs(
+		petri.NewArc(head, tail, "signal", signal),
+	)
+	s := setUp[*petri.Net, *petri.NetInput, *petri.NetFilter, *petri.NetUpdate]("token_test")
+	testCase := &TestCase[*petri.Net, *petri.NetInput, *petri.NetFilter, *petri.NetUpdate]{
+		AddInput: &petri.NetInput{
+			Name:         net.Name,
+			TokenSchemas: []*petri.TokenSchema{signal},
+			Places:       []*petri.Place{head},
+			Transitions:  []*petri.Transition{tail},
+			Arcs:         []*petri.Arc{petri.NewArc(head, tail, "signal", signal)},
+		},
+		AddCheck: func(t *testing.T, net *petri.Net) {
+			if net.Name != "net" {
+				t.Error("expected", "net", "got", net.Name)
+			}
+			if len(net.TokenSchemas) != 1 {
+				t.Error("expected", 1, "got", len(net.TokenSchemas))
+			}
+			if len(net.Places) != 1 {
+				t.Error("expected", 1, "got", len(net.Places))
+			}
+			if len(net.Transitions) != 1 {
+				t.Error("expected", 1, "got", len(net.Transitions))
+			}
+			if len(net.Arcs) != 1 {
+				t.Error("expected", 1, "got", len(net.Arcs))
+			}
+			if net.TokenSchemas[0].Identifier() != signal.Identifier() {
+				t.Error("expected", signal.Identifier(), "got", net.TokenSchemas[0].Identifier())
+			}
+			if net.Places[0].Identifier() != head.Identifier() {
+				t.Error("expected", head.Identifier(), "got", net.Places[0].Identifier())
+			}
+			if net.Transitions[0].Identifier() != tail.Identifier() {
+				t.Error("expected", tail.Identifier(), "got", net.Transitions[0].Identifier())
+			}
+			if net.Arcs[0].Identifier() != net.Arcs[0].Identifier() {
+				t.Error("expected", net.Arcs[0].Identifier(), "got", net.Arcs[0].Identifier())
+			}
+		},
+		Filter: &petri.NetFilter{
+			Name: &petri.StringSelector{
+				Equals: net.Name,
+			},
+		},
+		ListItems: 5,
+		ListCheck: func(t *testing.T, nets []*petri.Net) {
+			if len(nets) != 5 {
+				t.Error("expected", 5, "got", len(nets))
+			}
+		},
+		UpdateInput: &petri.NetUpdate{
+			Input: &petri.NetInput{
+				Name: "net2",
+			},
+			Mask: &petri.NetMask{
+				Name: true,
+			},
+		},
+		UpdateCheck: func(t *testing.T, net *petri.Net) {
+			if net.Name != "net2" {
+				t.Error("expected", "net2", "got", net.Name)
+			}
+		},
+	}
+	RunServiceTest[*petri.Net, *petri.NetInput, *petri.NetFilter, *petri.NetUpdate](t, s, testCase)
 }

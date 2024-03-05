@@ -41,6 +41,10 @@ func (t *Transition) String() string {
 	return t.Name
 }
 
+func (t *Transition) Index() string {
+	return t.Name
+}
+
 func (t *Transition) Kind() Kind { return TransitionObject }
 
 func (t *Transition) Identifier() string { return t.ID }
@@ -105,17 +109,17 @@ func (t *Transition) WithHandler(h Handler) *Transition {
 	return t
 }
 
-func (t *Transition) WithGenerator(f func(value ...interface{}) ([]*Token[interface{}], error)) *Transition {
+func (t *Transition) WithGenerator(f func(value ...interface{}) ([]*Token, error)) *Transition {
 	t.Handler = NewGenerator(f)
 	return t
 }
 
-func (t *Transition) WithTransformer(f func(tokens ...*Token[interface{}]) ([]*Token[interface{}], error)) *Transition {
+func (t *Transition) WithTransformer(f func(tokens ...*Token) ([]*Token, error)) *Transition {
 	t.Handler = NewTransformer(f)
 	return t
 }
 
-func (t *Transition) CanFire(tokenByType map[string]*Token[interface{}]) bool {
+func (t *Transition) CanFire(tokenByType map[string]*Token) bool {
 	if t.Expression == "" {
 		return true
 	}

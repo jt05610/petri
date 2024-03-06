@@ -1,0 +1,25 @@
+petri: v1
+version: 0.1
+name: logging_light_switch
+
+nets:
+  light: light.yaml
+  switch: switch.yaml
+  logger: logger.yaml
+
+links:
+  - from: switch.on
+    to: light.illuminate
+
+  - from: light.illuminate
+    to:
+      - switch.on
+      - logger.message: "on"
+
+  - from: switch.off
+    to: light.extinguish
+
+  - from: light.extinguish
+    to:
+      - switch.off
+      - logger.message: "off"

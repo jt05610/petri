@@ -1,0 +1,124 @@
+petri: v1
+version: 0.1
+name: pump
+
+# Types describe the data that can be passed between places and transitions and are built from primitive types and
+# other types
+
+# primitive types:
+# - float
+# - int
+# - string
+# - time
+# - signal
+
+types:
+  PumpParams:
+    flow: float
+    volume: float
+
+  Fluid:
+    volume: float
+    name: string
+
+  PumpingFluid:
+    params: PumpParams
+    fluidName: string
+
+# Config settings that will likely be different for each implementation of the petri net
+config:
+  maxFlow: float
+  maxVolume: float
+
+# Places are passive elements in the petri net describing conditions, states, or resources. By default, places
+# accept signal tokens.
+places:
+
+  # Condition
+  idle: signal
+
+  # Resource
+  setParams: PumpParams
+
+  # State
+  pumping: PumpingFluid
+
+  # Resource
+  reservoir: Fluid
+
+  # Resource
+  startTime: time
+
+# Transitions are active elements in the petri net that can change the state of the system
+transitions:
+  prepare:
+    # Setting event to true exposes the transition as an event. Without this, the transition will fire as
+    # soon as all inputs are available.
+    event: true
+    # Transitions can be output only, input only, or both. Events are automatically created for output only transitions,
+    # as there would be no other way to trigger them.
+    outputs:
+      # We declare arcs as inputs or outputs of transitions, rather than as their own first class objects. This allows
+      # us to easily see what is required for a transition to fire, and what will be produced when it does.
+      # We define what we are putting in the output place. In this case, the 'prepare' transition puts PumpParams from
+      # the event into the setParams place.
+      - setParams: PumpParams
+
+  start:
+    event: true
+    # If a place can accept multiple types, we need to specify which type we are getting from the place.
+    # If a token of this type is not available, the transition will not fire. Otherwise, we do not need to specify
+    # the type, however we can if we want to be explicit.
+    inputs:
+      - setParams: PumpParams
+      - idle
+      - reservoir
+
+    # To ensure that the transition only fires when the inputs are valid, we can define a guard. This is a list of
+    # conditions that must be met for the transition to fire. If any of the conditions are not met, the transition will
+    # not fire.
+
+    # Guard conditions are expressed using the Expr language. The tokens in available places can be referenced by the
+    # place name.
+    guard:
+      - setParams.flow > 0
+      - setParams.flow < maxFlow
+      - setParams.volume > 0
+      - setParams.volume < reservoir.volume
+
+    outputs:
+      - pumping:
+          # Since the type of the token is PumpingFluid, we need to specify the fields of the token.
+          fluidName: reservoir.name
+          params: setParams
+
+        # For time types, we can use the 'now' keyword to get the current time. Since the field is a primitive type,
+        # we just need to give it a value.
+      - startTime: now
+
+  stop:
+    event: true
+
+    inputs:
+      - pumping
+      - startTime
+
+    outputs:
+      - idle
+      - reservoir:
+          volume: pumping.fluid.volume - (now - startTime) * pumping.params.flow,
+          name: pumping.fluid.name
+
+  finish:
+    inputs:
+      - pumping
+      - startTime
+
+    guard:
+      - now >= startTime + pumping.params.volume / pumping.params.flow
+
+    outputs:
+      - idle
+      - reservoir:
+          volume: pumping.fluid.volume - pumping.params.volume
+          name: pumping.fluid.name

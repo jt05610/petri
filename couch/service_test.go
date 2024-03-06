@@ -135,10 +135,10 @@ func TestTokenService(t *testing.T) {
 					Type: petri.Obj,
 					Properties: map[string]petri.Properties{
 						"city": {
-							Type: petri.String,
+							Type: petri.Str,
 						},
 						"state": {
-							Type: petri.String,
+							Type: petri.Str,
 						},
 					},
 				},
@@ -160,11 +160,11 @@ func TestTokenService(t *testing.T) {
 			if schema.Properties["hometown"].Type != petri.Obj {
 				t.Error("expected", petri.Obj, "got", schema.Properties["hometown"].Type)
 			}
-			if schema.Properties["hometown"].Properties["city"].Type != petri.String {
-				t.Error("expected", petri.String, "got", schema.Properties["hometown"].Properties["city"].Type)
+			if schema.Properties["hometown"].Properties["city"].Type != petri.Str {
+				t.Error("expected", petri.Str, "got", schema.Properties["hometown"].Properties["city"].Type)
 			}
-			if schema.Properties["hometown"].Properties["state"].Type != petri.String {
-				t.Error("expected", petri.String, "got", schema.Properties["hometown"].Properties["state"].Type)
+			if schema.Properties["hometown"].Properties["state"].Type != petri.Str {
+				t.Error("expected", petri.Str, "got", schema.Properties["hometown"].Properties["state"].Type)
 			}
 		},
 		Filter: &petri.TokenFilter{
@@ -293,7 +293,7 @@ func TestArcService(t *testing.T) {
 	signal := &petri.TokenSchema{
 		ID:   "signal",
 		Name: "signal",
-		Type: petri.Boolean,
+		Type: petri.Bool,
 	}
 	head := petri.NewPlace("head", 1, signal)
 	newHead := petri.NewPlace("newHead", 1, signal)
@@ -355,7 +355,7 @@ func TestNetService(t *testing.T) {
 	signal := &petri.TokenSchema{
 		ID:   "signal",
 		Name: "signal",
-		Type: petri.Boolean,
+		Type: petri.Bool,
 	}
 	head := petri.NewPlace("head", 1, signal)
 	tail := petri.NewTransition("net")

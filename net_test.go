@@ -20,7 +20,7 @@ func ExampleNet() {
 				Type: petri.Float,
 			},
 			"Currency": {
-				Type: petri.String,
+				Type: petri.Str,
 			},
 			"Diameter": {
 				Type: petri.Float,
@@ -34,7 +34,7 @@ func ExampleNet() {
 		Type: petri.Obj,
 		Properties: map[string]petri.Properties{
 			"Flavor": {
-				Type: petri.String,
+				Type: petri.Str,
 			},
 		},
 	}

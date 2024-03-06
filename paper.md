@@ -66,165 +66,58 @@ ability to rapidly design and integrate systems with `Petri` will enable
 researchers to develop efficient, reproducible, and sharable workflows that are
 resistant to changes in lab members, equipment, and software services.
 
+As its name suggests, `Petri` is based on the concept of a petri net, which are
+used to model discrete event systems. While there are many petri net software
+packages available, `Petri` is unique in that it is designed to be used designing
+and running distributed systems, rather than modeling, simulation, and analysis
+of petri nets.
+
 # Systems integration with Petri
 
-To demonstrate the capabilities of `Petri`, we will use a simple example of
-a two position valve and a pump. The hypothetical valve has two positions, A and
-B. The Pump can pump with a set flow rate and volume.
+`Petri` is based on the concept of a petri net, a mathematical model of
+discrete event systems. A petri net is a directed bipartite graph, consisting of
+places, transitions, and arcs. An example of a petri net is:
+![Switch-light-logger system petri net](pump_net.svg)
 
-## Design components
+where the ellipses are places, the rectangles are transitions, and the arrows
+are arcs. The places contain tokens, and the transitions are enabled when the
+places leading to them contain tokens.
 
-The first step in designing a system with `Petri` is to define the components
+`Petri` uses colored petri nets, where there are different types of tokens.
+Token schema are generated, and the arcs are labeled with the token schema that
+is extracted from the place and given to the transition.
 
-### Valve
+## Controlling transitions
 
-```go
+Transitions are fired as soon as they are active. Often, this is not the desired behavior. There are many Petri Net
+concepts that have been created for handling this. `Petri` provides two such mechanisms:
 
+1. The transition can have a "guard" that is a function that is called to determine if the transition is enabled.
+   If the guard returns false, the transition is not enabled even if the tokens are present.
 
-```
+2. The transition can have an `Event` placed on it. In this case, the transition will only fire when the event is
+   called and all required tokens are present. This is described with petri using a `.yaml` file.
 
-### Pump
+## Doing real work
 
-#### Token Schema
+Once systems are defined with petri nets, code is generated to implement the
+system in the language of the user's choice. Protocol Buffers are used to
+serialize data between services in the system. To communicate, the services
+use RabbitMQ, a message broker that implements the Advanced Message Queuing
+Protocol (AMQP). This allows the services to be distributed across multiple
+machines, and to be written in any language that has a RabbitMQ client.
 
-```go
-package main
+To interface with RabbitMQ, `Petri` maps the places of the petri net to
+RabbitMQ queues. Events get mapped to queues that share the same name as the
+transition the event is mapped to. This allows communication between services,
+as each device is both a producer and a consumer of messages.
 
-import (
-	"github.com/jt05610/petri"
-)
+# Availability and future directions
 
-// First, we will declare the schema for the tokens that the pump will use. It will use a signal to
-// start and stop, and a `PumpParams` token to set the flow rate and volume.
-func pumpTokens() []*petri.TokenSchema {
-	return []*petri.TokenSchema{
-		petri.Signal(),
-		&petri.TokenSchema{
-			ID:   petri.ID(),
-			Name: "PumpParams",
-			Type: "object",
-			Properties: map[string]petri.Properties{
-				"flow": {
-					Type: "number",
-				},
-				"volume": {
-					Type: "number",
-				},
-			},
-		},
-	}
-}
+`Petri` is available on GitHub. A docker-compose is provided to run the system with
+Docker. The project is licensed under the MIT license.
 
-// Next, we will declare the places that the pump will use. The pump will have three
-// places, `Idle`, `SetParams`, and `Pumping`. The `Idle` place will have a signal
-// token, the `SetParams` and `Pumping`places will accept a `PumpParams` token, and the `Pumping`
-// place will have a `PumpParams` token.
-func pumpPlaces() []*petri.Place {
-	return []*petri.Place{
-		petri.NewPlace("Idle", 1, petri.Signal()),
-		petri.NewPlace("SetParams", 1, pumpParams),
-		petri.NewPlace("Pumping", 1, pumpParams),
-	}
-}
+A simple tutorial is provided to demonstrate how to use `Petri` to quickly design and run systems using python and Go.
 
-// Then, we will declare the transitions that the pump will use. The pump will have
-// three transitions, `Start`, `Stop`, and `Prepare`. The `Start` transition will
-func pumpTransitions() []*Petri.Transition {
-	return []*petri.Transition{
-		petri.NewTransition("Start")),
-		petri.NewTransition("Stop")),
-		petri.NewTransition("Prepare")),
-	}
-}
+# Acknowledgements
 
-// Finally, we will declare the net and its arcs that the pump will use. 
-
-func pumpNet() *petri.Net {
-	net := petri.NewNet("Pump").WithPlaces(pumpPlaces()...).WithTransitions(pumpTransitions()...)
-	aa := []*petri.Arc{
-		petri.NewArc(p.Net.Place("Idle"), p.Net.Transition("Start"), "Signal", signal),
-		petri.NewArc(p.Net.Transition("Prepare"), p.Net.Place("SetParams"), "PumpParams", pumpParams),
-		petri.NewArc(p.Net.Place("SetParams"), p.Net.Transition("Start"), "PumpParams", pumpParams),
-		petri.NewArc(p.Net.Transition("Start"), p.Net.Place("Pumping"), "PumpParams", pumpParams),
-		petri.NewArc(p.Net.Place("Pumping"), p.Net.Transition("Stop"), "PumpParams", pumpParams),
-		petri.NewArc(p.Net.Transition("Stop"), p.Net.Place("Idle"), "Signal", signal),
-	}
-	return .WithArcs(aa...)
-}
-
-```
-
-Petri also has provisions for representing the net as a graph with graphviz, and
-allows exporting the net as a graphviz file.
-
-![Pump petri net](pump_net.svg)
-
-## Implement the devices
-
-These will be the simplest possible valve and pump implementations, the real implementations of these functions would
-involve interfacing with the hardware over a serial or network connection rather than printing to the console.
-
-## Valve
-
-## Pump
-
-```go
-
-// Pump is a simple pump that pumps a volume of liquid at a given flow rate
-type Pump struct {
-Settings *PumpParams
-petri.Marking
-*petri.Net
-startedAt time.Time
-pumping   bool
-}
-
-// PumpParams is a struct that represents the parameters of the pump
-type PumpParams struct {
-Flow   float64 `json:"flow"`
-Volume float64 `json:"volume"`
-}
-
-func (p *Pump) Stop(ctx context.Context, input interface{}) (int, error) {
-p.pumping = false
-return 0, nil
-}
-
-func (p *Pump) Prepare(ctx context.Context, input *PumpParams) (*PumpParams, error) {
-p.Settings = input
-return input, nil
-}
-
-func (p *Pump) Start(ctx context.Context, input interface{}) (*PumpParams, error) {
-var err error
-p.startedAt = time.Now()
-p.pumping = true
-go func () {
-select {
-case <-ctx.Done():
-case <-time.After(time.Duration(1e9*p.Settings.Volume/p.Settings.Flow) * time.Nanosecond):
-p.Marking, err = p.Net.Process(p.Marking, petri.Event[any]{
-Name: "Stop",
-Data: 1,
-})
-if err != nil {
-panic(err)
-}
-}
-}()
-return p.Settings, nil
-}
-```
-
-## Connect the components into a system
-
-```go
-```
-
-## Create an environment with the components
-
-```go
-
-```
-
-## 

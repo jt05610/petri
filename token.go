@@ -105,7 +105,7 @@ type StringType struct{}
 
 func (s *StringType) Properties() Properties {
 	return Properties{
-		Type: String,
+		Type: Str,
 	}
 }
 
@@ -122,7 +122,7 @@ type BooleanType struct{}
 
 func (b *BooleanType) Properties() Properties {
 	return Properties{
-		Type: Boolean,
+		Type: Bool,
 	}
 }
 
@@ -156,13 +156,18 @@ func (o *ObjectType) String() string {
 }
 
 var (
-	Float      = TokenType("float")
-	Int        = TokenType("integer")
-	String     = TokenType("string")
-	Boolean    = TokenType("boolean")
-	Obj        = TokenType("object")
-	SignalType = TokenType("signal")
+	Float     = TokenType("float")
+	Int       = TokenType("integer")
+	Str       = TokenType("string")
+	Bool      = TokenType("boolean")
+	Obj       = TokenType("object")
+	Sig       = TokenType("signal")
+	TimeStamp = TokenType("time")
 )
+
+func (t TokenType) IsPrimitive() bool {
+	return t == Float || t == Int || t == Str || t == Bool || t == Sig || t == TimeStamp
+}
 
 type Indexable interface {
 	Index() string
@@ -178,6 +183,25 @@ type TokenSchema struct {
 	// Type is the type of the token schema.
 	Type       TokenType             `json:"type"`
 	Properties map[string]Properties `json:"properties,omitempty"`
+}
+
+func NewTokenSchema(name string) *TokenSchema {
+	return &TokenSchema{
+		ID:   ID(),
+		Name: name,
+		Type: Sig,
+	}
+}
+
+func (t *TokenSchema) WithType(ty TokenType) *TokenSchema {
+	t.Type = ty
+	return t
+}
+
+func (t *TokenSchema) WithProperties(props map[string]Properties) *TokenSchema {
+	t.Type = Obj
+	t.Properties = props
+	return t
 }
 
 func (t *TokenSchema) Index() string {
@@ -248,9 +272,9 @@ func parseTokenType(t string) (TokenType, error) {
 	case "integer":
 		return Int, nil
 	case "string":
-		return String, nil
+		return Str, nil
 	case "boolean":
-		return Boolean, nil
+		return Bool, nil
 	case "object":
 		return Obj, nil
 	default:
@@ -382,11 +406,51 @@ func (s *SignalToken) NewToken(value interface{}) (*Token, error) {
 func Signal() *TokenSchema {
 	return &TokenSchema{
 		ID:   ID(),
-		Name: "Signal",
-		Type: SignalType,
+		Name: "signal",
+		Type: Sig,
 	}
 }
 
 func (t *TokenSchemaInput) IsInput() {}
 func (t *TokenUpdate) IsUpdate()     {}
 func (t *TokenFilter) IsFilter()     {}
+
+func String() *TokenSchema {
+	return &TokenSchema{
+		ID:   ID(),
+		Name: "string",
+		Type: Str,
+	}
+}
+
+func Float64() *TokenSchema {
+	return &TokenSchema{
+		ID:   ID(),
+		Name: "float",
+		Type: Float,
+	}
+}
+
+func Integer() *TokenSchema {
+	return &TokenSchema{
+		ID:   ID(),
+		Name: "int",
+		Type: Int,
+	}
+}
+
+func Boolean() *TokenSchema {
+	return &TokenSchema{
+		ID:   ID(),
+		Name: "bool",
+		Type: Bool,
+	}
+}
+
+func Time() *TokenSchema {
+	return &TokenSchema{
+		ID:   ID(),
+		Name: "time",
+		Type: TimeStamp,
+	}
+}

@@ -1,0 +1,24 @@
+petri: v1 # The version of the petri file format, required for all petri .yaml files
+version: 0.1 # The version of the door petri net
+name: switch # The name of the petri net
+
+# Places are passive elements in the petri net describing conditions, states, or resources.
+places:
+  # [name]: [accepted token type(s)]
+  on: signal
+  off: signal
+
+# Transitions are active elements in the petri net that can change the state of the system
+transitions:
+  # [name]:
+  turnOn:
+    # Setting event to true exposes the transition as an event. Without this, the transition will fire as soon as all
+    # inputs are available, which is desirable in some cases but not here.
+    event: true
+    inputs: off # we can only turn the light on if it is off
+    outputs: on # when we turn the light on, the `on` condition is met, and we put a signal token in the `on` place
+
+  turnOff:
+    event: true
+    inputs: on
+    outputs: off

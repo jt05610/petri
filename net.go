@@ -298,7 +298,7 @@ func (p *Net) Fire(m Marking, t *Transition, events ...Event[any]) (Marking, err
 				if err != nil {
 					return m, err
 				}
-				if arc.OutputSchema.Type == SignalType {
+				if arc.OutputSchema.Type == Sig {
 					tok.Value = 1
 				}
 				tokens = append(tokens, tok)

@@ -5,13 +5,6 @@ import (
 	"github.com/expr-lang/expr"
 )
 
-var (
-	_ Object = (*Arc)(nil)
-	_ Input  = (*ArcInput)(nil)
-	_ Update = (*ArcUpdate)(nil)
-	_ Filter = (*ArcFilter)(nil)
-)
-
 type NodeMeta struct {
 	ID   string `json:"_id,omitempty"`
 	Kind Kind   `json:"kind,omitempty"`
@@ -21,20 +14,12 @@ type NodeMeta struct {
 type Arc struct {
 	ID string `json:"_id"`
 	// Src is the place or transition that is the source of the arc.
-	Src     Node      `json:"-"`
-	SrcMeta *NodeMeta `json:"src,omitempty"`
+	Src Node `json:"-"`
 	// Dest is the place or transition that is the destination of the arc.
-	Dest     Node      `json:"-"`
-	DestMeta *NodeMeta `json:"dest,omitempty"`
+	Dest Node `json:"-"`
 	// Expression is the expression that is evaluated when the transition connected to the arc is fired.
 	Expression   string       `json:"expression,omitempty"`
 	OutputSchema *TokenSchema `json:"outputSchema,omitempty"`
-}
-
-func (a *Arc) PostInit() error {
-	a.Src = MakeNode(a.SrcMeta.Kind, a.SrcMeta.ID)
-	a.Dest = MakeNode(a.DestMeta.Kind, a.DestMeta.ID)
-	return nil
 }
 
 func ToValueMap(tokens map[string]*Token) map[string]interface{} {
@@ -43,12 +28,6 @@ func ToValueMap(tokens map[string]*Token) map[string]interface{} {
 		tokenMap[key] = token.Value
 	}
 	return tokenMap
-}
-
-func UpdateValues(tokenMap map[string]*Token, tokens map[string]interface{}) {
-	for key, token := range tokens {
-		tokenMap[key].Value = token
-	}
 }
 
 func (a *Arc) TakeToken(m Marking) (*Token, error) {
@@ -68,7 +47,7 @@ func (a *Arc) TakeToken(m Marking) (*Token, error) {
 		}
 	}
 	if a.Src.Kind() == PlaceObject {
-		return m[a.Src.(*Place).ID][0], nil
+		return m[a.Src.(*Place).ID].Dequeue()
 	}
 
 	return nil, errors.New("arc source is not a place")
@@ -151,20 +130,6 @@ func MakeNode(k Kind, id string) Node {
 	}
 }
 
-func (a *Arc) Update(update Update) error {
-	up, ok := update.(*ArcUpdate)
-	if !ok {
-		return ErrWrongUpdate
-	}
-	if up.Mask.Src {
-		a.Src = up.Input.Src
-	}
-	if up.Mask.Dest {
-		a.Dest = up.Input.Dest
-	}
-	return nil
-}
-
 func NewArc(from, to Node, expression string, outputSchema *TokenSchema) *Arc {
 	return &Arc{
 		ID:           ID(),
@@ -184,46 +149,3 @@ func (a *Arc) String() string {
 }
 
 func (a *Arc) Kind() Kind { return ArcObject }
-
-type ArcInput struct {
-	Src          Node         `json:"src"`
-	Dest         Node         `json:"dest"`
-	Expression   string       `json:"expression,omitempty"`
-	OutputSchema *TokenSchema `json:"outputSchema"`
-}
-
-func (a *ArcInput) Object() Object {
-	return NewArc(a.Src, a.Dest, a.Expression, a.OutputSchema)
-}
-
-func (a *ArcInput) Kind() Kind {
-	return ArcObject
-}
-
-type ArcMask struct {
-	Src  bool `json:"src,omitempty"`
-	Dest bool `json:"dest,omitempty"`
-}
-
-type ArcUpdate struct {
-	Input *ArcInput
-	Mask  *ArcMask
-}
-
-type ArcFilter struct {
-	ID   *StringSelector `json:"_id,omitempty"`
-	Src  NodeFilter      `json:"src,omitempty"`
-	Dest NodeFilter      `json:"dest,omitempty"`
-}
-
-type ArcLoader interface {
-	Loader[*Arc]
-}
-
-type ArcFlusher interface {
-	Flusher[*Arc]
-}
-
-func (a *ArcInput) IsInput()   {}
-func (a *ArcUpdate) IsUpdate() {}
-func (a *ArcFilter) IsFilter() {}

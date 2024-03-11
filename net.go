@@ -15,15 +15,12 @@ var _ Input = (*NetInput)(nil)
 var _ Update = (*NetUpdate)(nil)
 var _ Filter = (*NetFilter)(nil)
 
-type Marking map[string][]*Token
+type Marking map[string]TokenQueue
 
 func (m Marking) Copy() Marking {
 	ret := make(Marking)
 	for k, v := range m {
-		ret[k] = make([]*Token, len(v))
-		for i, t := range v {
-			ret[k][i] = t
-		}
+		ret[k] = v.Copy()
 	}
 	return ret
 }
@@ -31,57 +28,34 @@ func (m Marking) Copy() Marking {
 func (m Marking) TokenMap(place *Place) map[string]*Token {
 	tokens := m[place.ID]
 	tokMap := make(map[string]*Token)
-	for _, t := range tokens {
-		if _, ok := tokMap[t.Schema.Name]; ok {
-			continue
+	for n := tokens.Available(); n > 0; n-- {
+		tok, err := tokens.Dequeue()
+		if err != nil {
+			panic(err)
 		}
-		tokMap[t.Schema.Name] = t
+		tokMap[tok.Schema.Name] = tok
 	}
 	return tokMap
 }
 
 func (m Marking) Get(place *Place, schema string) *Token {
-	if _, ok := m[place.String()]; !ok {
+	if pl, ok := m[place.String()]; !ok {
 		return nil
-	}
-	for _, t := range m[place.String()] {
-		if t.Schema.Name == schema {
-			return t
+	} else {
+		t, err := pl.Dequeue()
+		if err != nil {
+			panic(err)
 		}
-	}
-	return nil
-}
-
-func (m Marking) Remove(place *Place, token *Token) {
-	if _, ok := m[place.ID]; !ok {
-		return
-	}
-	if len(m[place.ID]) == 1 {
-		m[place.ID] = make([]*Token, 0)
-		return
-	}
-	for i, t := range m[place.ID] {
-		if t.Schema.Name == token.Schema.Name {
-			m[place.ID] = append(m[place.ID][:i], m[place.ID][i+1:]...)
-			return
-		}
+		return t
 	}
 }
 
 func (m Marking) PlaceTokens(place *Place, tokens ...*Token) error {
-	if _, ok := m[place.ID]; !ok {
+	if pl, ok := m[place.ID]; !ok {
 		return errors.New("place not found")
+	} else {
+		return pl.Enqueue(tokens...)
 	}
-	for _, t := range tokens {
-		if !place.CanAccept(t.Schema) {
-			return errors.New("token not accepted")
-		}
-		if len(m[place.ID]) >= place.Bound {
-			return errors.New("place is full")
-		}
-		m[place.ID] = append(m[place.ID], t)
-	}
-	return nil
 }
 
 // Net struct
@@ -131,7 +105,7 @@ func (p *Net) Document() Document {
 func (p *Net) NewMarking() Marking {
 	m := make(Marking)
 	for _, pl := range p.Places {
-		m[pl.ID] = make([]*Token, 0)
+		m[pl.ID] = pl.TokenQueue
 	}
 	return m
 }
@@ -172,7 +146,7 @@ func (p *Net) Init(input Input) error {
 func (p *Net) Enabled(marking Marking, t *Transition) bool {
 	for _, arc := range p.Inputs(t) {
 		if pt, ok := arc.Src.(*Place); ok {
-			if len(marking[pt.ID]) == 0 {
+			if marking[pt.ID].Available() == 0 {
 				return false
 			}
 		}
@@ -260,13 +234,12 @@ func (p *Net) Fire(m Marking, t *Transition, events ...Event[any]) (Marking, err
 	ret := m.Copy()
 
 	for _, arc := range p.Inputs(t) {
-		if pt, ok := arc.Src.(*Place); ok {
+		if _, ok := arc.Src.(*Place); ok {
 			tok, err := arc.TakeToken(ret)
 			if err != nil {
 				return m, err
 			}
 			tokens = append(tokens, tok)
-			ret.Remove(pt, tok)
 		}
 	}
 	if len(tokens) == 0 && !hasHandler {

@@ -16,6 +16,7 @@ type Place struct {
 	Bound int `json:"bound,omitempty"`
 	// AcceptedTokens are the tokens that can be accepted by this place
 	AcceptedTokens []*TokenSchema `json:"acceptedTokens,omitempty"`
+	TokenQueue
 }
 
 func (p *Place) Index() string {
@@ -33,6 +34,7 @@ func NewPlace(name string, bound int, acceptedTokens ...*TokenSchema) *Place {
 		Name:           name,
 		Bound:          bound,
 		AcceptedTokens: acceptedTokens,
+		TokenQueue:     NewLocalQueue(bound),
 	}
 }
 

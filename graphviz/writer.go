@@ -16,6 +16,7 @@ type Writer struct {
 	g       *cgraph.Graph
 	mapping map[petri.Node]*cgraph.Node
 	legend  *cgraph.Graph
+	seen    map[string]bool
 }
 
 func mapToGraphvizRecord(m map[string]interface{}) string {
@@ -103,9 +104,9 @@ func (w *Writer) WriteTokenSchema(name string, ts *petri.TokenSchema) error {
 	return nil
 }
 
-func (w *Writer) writePlace(i string, p *petri.Place) error {
-	name := fmt.Sprintf("p_%s", i)
-	node, err := w.g.CreateNode(name)
+func (w *Writer) writePlace(g *cgraph.Graph, i string, p *petri.Place) error {
+	name := fmt.Sprintf("p_%s", p.ID)
+	node, err := g.CreateNode(name)
 	if err != nil {
 		return err
 	}
@@ -116,9 +117,9 @@ func (w *Writer) writePlace(i string, p *petri.Place) error {
 	return nil
 }
 
-func (w *Writer) writeTransition(i string, t *petri.Transition) error {
-	name := fmt.Sprintf("t_%s", i)
-	node, err := w.g.CreateNode(name)
+func (w *Writer) writeTransition(g *cgraph.Graph, i string, t *petri.Transition) error {
+	name := fmt.Sprintf("t_%s", t.ID)
+	node, err := g.CreateNode(name)
 	if err != nil {
 		return err
 	}
@@ -130,18 +131,64 @@ func (w *Writer) writeTransition(i string, t *petri.Transition) error {
 		node.Set("labeljust", "l")
 		node.SetLabel(fmt.Sprintf("%s\n%s", t.Name, t.Expression))
 	}
+	if t.Cold {
+		node.SetStyle(cgraph.FilledNodeStyle)
+		node.SetFillColor("lightblue")
+	}
 	return nil
 }
 
-func (w *Writer) writeArc(i int, a *petri.Arc) error {
+func (w *Writer) writeArc(g *cgraph.Graph, i int, a *petri.Arc) error {
 	src := w.mapping[a.Src]
 	dst := w.mapping[a.Dest]
 	name := fmt.Sprintf("a%d", i)
-	edge, err := w.g.CreateEdge(name, src, dst)
+	edge, err := g.CreateEdge(name, src, dst)
 	if err != nil {
 		return err
 	}
 	edge.SetLabel(fmt.Sprintf("%s", a.Expression))
+	return nil
+}
+
+func (w *Writer) MakeSubGraph(g *cgraph.Graph, n *petri.Net) error {
+	sg := g.SubGraph(fmt.Sprintf("cluster_%s", n.Name), 1)
+	if n.Nets != nil {
+		for _, sub := range n.Nets {
+			if err := w.MakeSubGraph(sg, sub); err != nil {
+				return err
+			}
+		}
+	}
+	for pn, p := range n.Places {
+		if _, ok := w.seen[p.ID]; ok {
+			continue
+		}
+		if err := w.writePlace(sg, pn, p); err != nil {
+			return err
+		}
+		w.seen[p.ID] = true
+	}
+	for tn, t := range n.Transitions {
+		if _, ok := w.seen[t.ID]; ok {
+			continue
+		}
+		if err := w.writeTransition(sg, tn, t); err != nil {
+			return err
+		}
+		w.seen[t.ID] = true
+	}
+	for i, a := range n.Arcs {
+		if _, ok := w.seen[a.ID]; ok {
+			continue
+		}
+		if err := w.writeArc(sg, i, a); err != nil {
+			return err
+		}
+		w.seen[a.ID] = true
+	}
+	sg.SetStyle(cgraph.StripedGraphStyle)
+	sg.SetLabel(n.Name)
+	sg.Set("rank", "same")
 	return nil
 }
 
@@ -156,25 +203,10 @@ func (w *Writer) Flush(out io.Writer, t *petri.Net) error {
 	}
 	g.SetNewRank(true)
 	w.g = g.SubGraph(t.Name, 1)
-	w.g.SetLabel(t.Name)
-	w.g.SetRankDir(cgraph.RankDir(w.RankDir))
-	w.g.Set("rank", "same")
+	w.seen = make(map[string]bool)
 
-	for i, p := range t.Places {
-		if err := w.writePlace(i, p); err != nil {
-			return err
-		}
-
-	}
-	for i, t := range t.Transitions {
-		if err := w.writeTransition(i, t); err != nil {
-			return err
-		}
-	}
-	for i, a := range t.Arcs {
-		if err := w.writeArc(i, a); err != nil {
-			return err
-		}
+	if err := w.MakeSubGraph(g, t); err != nil {
+		return err
 	}
 	w.legend = g.SubGraph("cluster_legend", 1)
 	if err != nil {

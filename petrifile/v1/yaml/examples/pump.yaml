@@ -106,7 +106,7 @@ transitions:
     outputs:
       - idle
       - reservoir:
-          volume: pumping.fluid.volume - (now - startTime) * pumping.params.flow,
+          volume: pumping.fluid.volume - (now - startTime) * pumping.params.flow
           name: pumping.fluid.name
 
   finish:

@@ -169,6 +169,30 @@ func (t TokenType) IsPrimitive() bool {
 	return t == Float || t == Int || t == Str || t == Bool || t == Sig || t == TimeStamp
 }
 
+func (t TokenType) IsValid(value interface{}) bool {
+	switch t {
+	case Float:
+		_, ok := value.(float64)
+		return ok
+	case Int:
+		_, ok := value.(int64)
+		return ok
+	case Str:
+		_, ok := value.(string)
+		return ok
+	case Bool:
+		_, ok := value.(bool)
+		return ok
+	case Sig:
+		_, ok := value.(int)
+		return ok
+	case Obj:
+		_, ok := value.(map[string]interface{})
+		return ok
+	}
+	return false
+}
+
 type Indexable interface {
 	Index() string
 }
@@ -183,6 +207,28 @@ type TokenSchema struct {
 	// Type is the type of the token schema.
 	Type       TokenType             `json:"type"`
 	Properties map[string]Properties `json:"properties,omitempty"`
+}
+
+func (t *TokenSchema) CanAccept(fields []string) bool {
+	if t.Type != Obj {
+		return false
+	}
+	fieldIdx := make(map[string]struct{}, len(fields))
+	for _, field := range fields {
+		fieldIdx[field] = struct{}{}
+	}
+
+	met := make(map[string]bool, len(t.Properties))
+	for key := range t.Properties {
+		_, met[key] = fieldIdx[key]
+	}
+	for f, _ := range fieldIdx {
+		if !met[f] {
+			fmt.Printf("field %s not found\n", f)
+			return false
+		}
+	}
+	return true
 }
 
 func NewTokenSchema(name string) *TokenSchema {

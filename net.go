@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"strings"
 )
 
 var ErrWrongInput = errors.New("wrong input")
@@ -28,7 +29,7 @@ func (m Marking) Copy() Marking {
 }
 
 func (m Marking) TokenMap(place *Place) map[string]*Token {
-	tokens := m[place.String()]
+	tokens := m[place.ID]
 	tokMap := make(map[string]*Token)
 	for _, t := range tokens {
 		if _, ok := tokMap[t.Schema.Name]; ok {
@@ -52,29 +53,33 @@ func (m Marking) Get(place *Place, schema string) *Token {
 }
 
 func (m Marking) Remove(place *Place, token *Token) {
-	if _, ok := m[place.String()]; !ok {
+	if _, ok := m[place.ID]; !ok {
 		return
 	}
-	for i, t := range m[place.String()] {
+	if len(m[place.ID]) == 1 {
+		m[place.ID] = make([]*Token, 0)
+		return
+	}
+	for i, t := range m[place.ID] {
 		if t.Schema.Name == token.Schema.Name {
-			m[place.String()] = append(m[place.String()][:i], m[place.String()][i+1:]...)
+			m[place.ID] = append(m[place.ID][:i], m[place.ID][i+1:]...)
 			return
 		}
 	}
 }
 
 func (m Marking) PlaceTokens(place *Place, tokens ...*Token) error {
-	if _, ok := m[place.String()]; !ok {
+	if _, ok := m[place.ID]; !ok {
 		return errors.New("place not found")
 	}
 	for _, t := range tokens {
 		if !place.CanAccept(t.Schema) {
 			return errors.New("token not accepted")
 		}
-		if len(m[place.String()]) >= place.Bound {
+		if len(m[place.ID]) >= place.Bound {
 			return errors.New("place is full")
 		}
-		m[place.String()] = append(m[place.String()], t)
+		m[place.ID] = append(m[place.ID], t)
 	}
 	return nil
 }
@@ -125,28 +130,18 @@ func (p *Net) Document() Document {
 
 func (p *Net) NewMarking() Marking {
 	m := make(Marking)
-	for _, place := range p.Places {
-		m[place.String()] = make([]*Token, 0)
+	for _, pl := range p.Places {
+		m[pl.ID] = make([]*Token, 0)
 	}
 	return m
 }
 
 func (p *Net) Place(name string) *Place {
-	for _, place := range p.Places {
-		if place.Name == name {
-			return place
-		}
-	}
-	return nil
+	return p.Places[name]
 }
 
 func (p *Net) Transition(name string) *Transition {
-	for _, t := range p.Transitions {
-		if t.Name == name {
-			return t
-		}
-	}
-	return nil
+	return p.Transitions[name]
 }
 
 func (p *Net) Init(input Input) error {
@@ -177,7 +172,7 @@ func (p *Net) Init(input Input) error {
 func (p *Net) Enabled(marking Marking, t *Transition) bool {
 	for _, arc := range p.Inputs(t) {
 		if pt, ok := arc.Src.(*Place); ok {
-			if len(marking[pt.String()]) == 0 {
+			if len(marking[pt.ID]) == 0 {
 				return false
 			}
 		}
@@ -191,7 +186,7 @@ func (p *Net) EnabledTransitions(m Marking, events ...string) []*Transition {
 		if p.Enabled(m, t) {
 			if t.Cold {
 				for _, e := range events {
-					if t.Name == e {
+					if t.ID == e {
 						transitions = append(transitions, t)
 					}
 				}
@@ -208,22 +203,36 @@ type Event[T any] struct {
 	Data T      `json:"data"`
 }
 
+var (
+	ErrNoEvents = errors.New("no events enabled")
+)
+
 func (p *Net) Process(m Marking, events ...Event[any]) (Marking, error) {
 	eventNames := make([]string, 0)
 	for _, e := range events {
 		eventNames = append(eventNames, e.Name)
 	}
-
-	for _, t := range p.EnabledTransitions(m, eventNames...) {
-		m, err := p.Fire(m, t, events...)
-		if err != nil {
-			continue
+	enabled := p.EnabledTransitions(m, eventNames...)
+	if len(enabled) == 0 {
+		if len(events) > 0 {
+			return nil, ErrNoEvents
 		}
-		return p.Process(m)
+		return m, nil
 	}
 
-	return m, nil
+	m, err := p.Fire(m, enabled[0], events...)
+	if err != nil {
+		return m, err
+	}
 
+	processed, err := p.Process(m)
+	if err != nil {
+		if errors.Is(err, ErrNoEvents) {
+			return processed, nil
+		}
+		return m, err
+	}
+	return processed, nil
 }
 
 func IndexTokenByType(tokens []*Token) map[string]*Token {
@@ -245,7 +254,7 @@ func (p *Net) Fire(m Marking, t *Transition, events ...Event[any]) (Marking, err
 		handlerMap[e.Name] = p.RouteEvent(e)
 		dataMap[e.Name] = e.Data
 	}
-	handler, hasHandler := handlerMap[t.Name]
+	handler, hasHandler := handlerMap[t.ID]
 	data := dataMap[t.Name]
 
 	ret := m.Copy()
@@ -281,15 +290,23 @@ func (p *Net) Fire(m Marking, t *Transition, events ...Event[any]) (Marking, err
 
 	if hasHandler {
 		var eventResult interface{}
+
 		if hasOutputs {
-			eventResult, err = handler(context.Background(), data)
+			if handler == nil {
+				eventResult = data
+			} else {
+				eventResult, err = handler(context.Background(), data)
+			}
+
 		} else {
 			t := tokens[0]
 			tokData := t.Value
-			_, err = handler(context.Background(), tokData)
-		}
-		if err != nil {
-			return m, err
+			if handler != nil {
+				_, err = handler(context.Background(), tokData)
+				if err != nil {
+					return m, err
+				}
+			}
 		}
 		for _, arc := range p.Outputs(t) {
 			if _, ok := arc.Dest.(*Place); ok {
@@ -461,8 +478,33 @@ func (p *Net) WithArcs(arcs ...*Arc) *Net {
 	return p
 }
 
+func makeName(ss ...string) string {
+	return strings.Join(ss, ".")
+}
+
+func (p *Net) AddSubNet(n *Net) {
+	p.Nets = append(p.Nets, n)
+	netName := n.Name
+	for pn, pl := range n.Places {
+		pl.ID = makeName(netName, pn)
+		p.Places[makeName(netName, pn)] = pl
+	}
+	for pn, tr := range n.Transitions {
+		tr.ID = makeName(netName, pn)
+		p.Transitions[makeName(netName, pn)] = tr
+	}
+	for _, a := range n.Arcs {
+		err := p.AddArc(a)
+		if err != nil {
+			panic(err)
+		}
+	}
+}
+
 func (p *Net) WithNets(nets ...*Net) *Net {
-	p.Nets = append(p.Nets, nets...)
+	for _, n := range nets {
+		p.AddSubNet(n)
+	}
 	return p
 }
 
@@ -505,10 +547,19 @@ func LoadNet(places []*Place, transitions []*Transition, arcs []*Arc) *Net {
 func (p *Net) Kind() Kind { return NetObject }
 
 func (p *Net) RouteEvent(event Event[any]) EventFunc[any, any] {
-	for _, t := range p.Transitions {
-		if t.Name == event.Name {
-			return t.EventFunc
-		}
+	tr, ok := p.Transitions[event.Name]
+	if !ok {
+		return nil
+	}
+	return tr.EventFunc
+}
+
+func (p *Net) Node(k string) Node {
+	if n := p.Place(k); n != nil {
+		return n
+	}
+	if t := p.Transition(k); t != nil {
+		return t
 	}
 	return nil
 }

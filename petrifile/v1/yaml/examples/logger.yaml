@@ -6,6 +6,6 @@ places:
   message: string
 
 transitions:
-  - log:
-      # note that we are not setting event to true, so as soon as a message is in the input place we will fire this
-      inputs: message
+  log:
+    # note that we are not setting event to true, so as soon as a message is in the input place we will fire this
+    inputs: message

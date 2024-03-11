@@ -1,8 +1,10 @@
 package petrifile
 
 import (
+	"context"
 	"fmt"
 	"github.com/jt05610/petri"
+	"github.com/jt05610/petri/builder"
 	"github.com/jt05610/petri/petrifile"
 	"strings"
 )
@@ -116,17 +118,70 @@ func (s StringArc) ToPlace(net *petri.Net, from *petri.Transition) *petri.Arc {
 	return petri.NewArc(from, pl, pl.AcceptedTokens[0].Name, pl.AcceptedTokens[0])
 }
 
-type ExpressionArc map[string]string
+type ExpressionArc map[string]interface{}
+
+func ToMapString(i interface{}) Expr {
+	switch v := i.(type) {
+	case string:
+		return Expr{
+			Op:     v,
+			Fields: nil,
+		}
+	case map[string]interface{}:
+		ret := make(map[string]Expr)
+		fields := make([]string, 0, len(v))
+		for k, v := range v {
+			ret[k] = ToMapString(v)
+			fields = append(fields, k)
+		}
+		bld := strings.Builder{}
+		bld.WriteString("{")
+		for k, v := range ret {
+			bld.WriteString(fmt.Sprintf("\"%s\": %s, ", k, v))
+		}
+		bld.WriteString("}")
+		return Expr{
+			Op:     bld.String(),
+			Fields: fields,
+		}
+	}
+	panic(fmt.Sprintf("unknown input type %T", i))
+}
+
+type Expr struct {
+	Op     string
+	Fields []string
+}
+
+func (e Expr) String() string {
+	return e.Op
+}
+
+func (e ExpressionArc) ToTokExprMap() map[string]Expr {
+	ret := make(map[string]Expr)
+	for k, v := range e {
+		ret[k] = ToMapString(v)
+	}
+	return ret
+}
 
 func (e ExpressionArc) ToPlace(net *petri.Net, from *petri.Transition) *petri.Arc {
-	for k, v := range e {
+	for k, v := range e.ToTokExprMap() {
 		pl := net.Place(k)
 		if pl == nil {
 			panic(fmt.Sprintf("unknown place %s", k))
 		}
 		for _, tok := range pl.AcceptedTokens {
-			if tok.Name == v {
-				return petri.NewArc(from, pl, v, tok)
+			if v.Fields != nil {
+				if tok.CanAccept(v.Fields) {
+					return petri.NewArc(from, pl, v.Op, tok)
+				}
+			}
+			if tok.Name == v.Op {
+				return petri.NewArc(from, pl, v.Op, tok)
+			}
+			if v.Op == "now" && tok.Type == petri.TimeStamp {
+				return petri.NewArc(from, pl, v.Op, tok)
 			}
 		}
 	}
@@ -134,14 +189,19 @@ func (e ExpressionArc) ToPlace(net *petri.Net, from *petri.Transition) *petri.Ar
 }
 
 func (e ExpressionArc) FromPlace(net *petri.Net, to *petri.Transition) *petri.Arc {
-	for k, v := range e {
+	for k, v := range e.ToTokExprMap() {
 		pl := net.Place(k)
 		if pl == nil {
 			panic(fmt.Sprintf("unknown place %s", k))
 		}
 		for _, tok := range pl.AcceptedTokens {
-			if tok.Name == v {
-				return petri.NewArc(pl, to, v, tok)
+			if v.Fields != nil {
+				if tok.CanAccept(v.Fields) {
+					return petri.NewArc(pl, to, v.Op, tok)
+				}
+			}
+			if tok.Name == v.Op {
+				return petri.NewArc(pl, to, v.Op, tok)
 			}
 		}
 	}
@@ -160,15 +220,112 @@ type Transition struct {
 	Guard   []string
 }
 
+type PlaceRef interface {
+	Arcs(tok string) ([]*petri.Arc, error)
+}
+
+type Link struct {
+	From interface{}
+	To   interface{}
+	net  *petri.Net
+}
+
+type PlaceArg struct {
+	petri.Node
+	*petri.TokenSchema
+	Expr
+}
+
+func (l *Link) places(s interface{}) ([]*PlaceArg, error) {
+	ret := make([]*PlaceArg, 0)
+	switch s := s.(type) {
+	case string:
+		pl := l.net.Node(s)
+		if pl == nil {
+			return nil, fmt.Errorf("unknown place %s", s)
+		}
+		ret = append(ret, &PlaceArg{
+			Node: pl,
+		})
+	case []interface{}:
+		for _, v := range s {
+			switch v := v.(type) {
+			case string:
+				pl := l.net.Node(v)
+				if pl == nil {
+					return nil, fmt.Errorf("unknown place %s", v)
+				}
+				ret = append(ret, &PlaceArg{
+					Node: pl,
+				})
+			case map[string]interface{}:
+				for k, v := range v {
+					pl := l.net.Node(k)
+					if pl == nil {
+						return nil, fmt.Errorf("unknown place %s", k)
+					}
+					ret = append(ret, &PlaceArg{
+						Node: pl,
+						Expr: ToMapString(v),
+					})
+				}
+			}
+		}
+	case map[string]interface{}:
+		for k, v := range s {
+			pl := l.net.Node(k)
+			if pl == nil {
+				return nil, fmt.Errorf("unknown place %s", k)
+			}
+			ret = append(ret, &PlaceArg{
+				Node: pl,
+				Expr: ToMapString(v),
+			})
+		}
+	}
+	return ret, nil
+}
+
+func (l *Link) Arcs() ([]*petri.Arc, error) {
+	aa := make([]*petri.Arc, 0)
+	from, err := l.places(l.From)
+	if err != nil {
+		return nil, err
+	}
+	to, err := l.places(l.To)
+	if err != nil {
+		return nil, err
+	}
+	for _, f := range from {
+		for _, t := range to {
+			if t.TokenSchema == nil {
+				pl := l.net.Place(f.Node.Identifier())
+				if pl == nil {
+					pl = l.net.Place(t.Node.Identifier())
+				}
+				t.TokenSchema = pl.AcceptedTokens[0]
+			}
+			if t.Op == "" {
+				t.Op = t.TokenSchema.Name
+			}
+			aa = append(aa, petri.NewArc(f.Node, t.Node, t.Op, t.TokenSchema))
+		}
+	}
+	return aa, nil
+}
+
 type Petrifile struct {
-	Petri       petrifile.Version
-	Version     string
-	Name        string
-	Types       map[string]Type
-	Places      map[string]interface{}
-	Transitions map[string]Transition
-	net         *petri.Net
-	arcs        []*petri.Arc
+	Petri            petrifile.Version
+	Version          string
+	Name             string
+	Types            map[string]Type
+	Places           map[string]interface{}
+	Transitions      map[string]Transition
+	Nets             map[string]string
+	Links            []Link
+	net              *petri.Net
+	arcs             []*petri.Arc
+	*builder.Builder `yaml:"-"`
 }
 
 func ParseInput(i interface{}) Arc {
@@ -176,11 +333,7 @@ func ParseInput(i interface{}) Arc {
 	case string:
 		return StringArc(v)
 	case map[string]interface{}:
-		val := make(map[string]string)
-		for k, v := range v {
-			val[k] = v.(string)
-		}
-		return ExpressionArc(val)
+		return ExpressionArc(v)
 	}
 	panic(fmt.Sprintf("unknown input type %T", i))
 }
@@ -190,30 +343,14 @@ func ParseOutput(i interface{}) Arc {
 	case string:
 		return StringArc(v)
 	case map[string]interface{}:
-		val := make(map[string]string)
-		for k, v := range v {
-			if v == nil {
-				fmt.Printf("nil value for key %s\n", k)
-			}
-			fmt.Printf("key %s value %v\n", k, v)
-			switch value := v.(type) {
-			case string:
-				val[k] = value
-			}
-			val[k] = v.(string)
-		}
-		return ExpressionArc(val)
+		return ExpressionArc(v)
 	}
 	panic(fmt.Sprintf("unknown output type %T", i))
 }
 
 func PrimitiveTokenMap() map[string]*petri.TokenSchema {
 	return map[string]*petri.TokenSchema{
-		"string": &petri.TokenSchema{
-			ID:         "",
-			Type:       "",
-			Properties: nil,
-		},
+		"string": petri.String(),
 		"int":    petri.Integer(),
 		"float":  petri.Float64(),
 		"bool":   petri.Boolean(),
@@ -261,11 +398,11 @@ func (p *Petrifile) makeTransitions() []*petri.Transition {
 			switch in := v.Inputs.(type) {
 			case []interface{}:
 				for _, v := range in {
-					a := ParseInput(v).ToPlace(p.net, t)
+					a := ParseInput(v).FromPlace(p.net, t)
 					arcs = append(arcs, a)
 				}
 			case interface{}:
-				a := ParseInput(in).ToPlace(p.net, t)
+				a := ParseInput(in).FromPlace(p.net, t)
 				arcs = append(arcs, a)
 			}
 		}
@@ -273,14 +410,14 @@ func (p *Petrifile) makeTransitions() []*petri.Transition {
 		if v.Outputs != nil {
 			switch out := v.Outputs.(type) {
 			case nil:
-				fmt.Println("no outputs for transition %s", n)
+				fmt.Printf("no outputs for transition %s\n", n)
 			case []interface{}:
 				for _, v := range out {
-					a := ParseOutput(v).FromPlace(p.net, t)
+					a := ParseOutput(v).ToPlace(p.net, t)
 					arcs = append(arcs, a)
 				}
 			case interface{}:
-				a := ParseOutput(out).FromPlace(p.net, t)
+				a := ParseOutput(out).ToPlace(p.net, t)
 				arcs = append(arcs, a)
 			}
 		}
@@ -307,7 +444,35 @@ func (p *Petrifile) Net() *petri.Net {
 	for k, v := range leftover {
 		p.net = p.net.WithTokenSchemas(v.Schema(k, typeMap))
 	}
-	p.net = p.net.WithPlaces(p.makePlaces()...).WithTransitions(p.makeTransitions()...).WithArcs(p.makeArcs()...)
-
+	p.net = p.net.WithPlaces(p.makePlaces()...).WithTransitions(p.makeTransitions()...).WithArcs(p.makeArcs()...).WithNets(p.makeSubNets()...)
+	if p.Nets != nil && p.Links != nil {
+		for _, v := range p.Links {
+			v.net = p.net
+			aa, err := v.Arcs()
+			if err != nil {
+				panic(err)
+			}
+			p.net = p.net.WithArcs(aa...)
+		}
+	}
 	return p.net
+}
+
+func (p *Petrifile) makeSubNets() []*petri.Net {
+	if p.Nets == nil {
+		return nil
+	}
+	nn := make([]*petri.Net, 0, len(p.Nets))
+	for k, v := range p.Nets {
+		if k == p.Name {
+			panic(fmt.Sprintf("net %s cannot be a sub net of itself", k))
+		}
+		n, err := p.Builder.Build(context.Background(), v)
+		if err != nil {
+			panic(err)
+		}
+		nn = append(nn, n)
+	}
+
+	return nn
 }

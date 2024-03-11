@@ -1,27 +1,27 @@
 ---
 title: 'Petri: a systems integration platform for laboratory automation'
 tags:
-  - Go
-  - Python
-  - Protocol Buffers
-  - systems integration
-  - discrete event systems
-  - petri nets
+   - Go
+   - Python
+   - Protocol Buffers
+   - systems integration
+   - discrete event systems
+   - petri nets
 authors:
-  - name: Jonathan R Taylor
-    orcid: 0000-0000-0000-0000
-    affiliation: "1" # (Multiple affiliations must be quoted)
-  - name: Uday Kompella
-    affiliation: "1,2,3" # (Multiple affiliations must be quoted)
+   - name: Jonathan R Taylor
+     orcid: 0000-0000-0000-0000
+     affiliation: "1" # (Multiple affiliations must be quoted)
+   - name: Uday Kompella
+     affiliation: "1,2,3" # (Multiple affiliations must be quoted)
 
 affiliations:
-  - name: University of Colorado Anschutz Medical Campus, Department of Pharmaceutical Sciences, University of Colorado, Aurora, CO
-    index: 1
-  - name: Departments of Bioengineering and Ophthalmology, University of Colorado Anschutz Medical Campus, Aurora, CO
-    index: 2
-  - name: Colorado Center for Nanomedicine and Nanosafety, University of Colorado Anschutz Medical Campus, Aurora, CO
-    index: 3
-date: 13 August 2017
+   - name: University of Colorado Anschutz Medical Campus, Department of Pharmaceutical Sciences, University of Colorado, Aurora, CO
+     index: 1
+   - name: Departments of Bioengineering and Ophthalmology, University of Colorado Anschutz Medical Campus, Aurora, CO
+     index: 2
+   - name: Colorado Center for Nanomedicine and Nanosafety, University of Colorado Anschutz Medical Campus, Aurora, CO
+     index: 3
+date: 05 Mar 2024
 bibliography: paper.bib
 ---
 
@@ -32,7 +32,7 @@ work together, and the integration of these systems is a common challenge in
 modern research laboratories. While significant advancements have been made in
 developing sophisticated lab equipment and software, the ability to seamlessly
 integrate these systems is often limited. This is particularly true in the
-field of pharmaceutical sciences, where the need to integrate a wide variety of
+field of pharmaceutical sciences, where there is a need to integrate a wide variety of
 systems, including liquid handling robots, plate readers, data analysis
 scripts, and lab information management systems. Here, we present Petri, a
 schema-first Go-based platform for systems integration that is designed to be

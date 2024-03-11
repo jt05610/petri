@@ -52,34 +52,53 @@ func UpdateValues(tokenMap map[string]*Token, tokens map[string]interface{}) {
 }
 
 func (a *Arc) TakeToken(m Marking) (*Token, error) {
-	program, err := expr.Compile(a.Expression)
-	if err != nil {
-		return nil, err
-	}
-	if a.Src.Kind() == PlaceObject {
-		tokenMap := m.TokenMap(a.Src.(*Place))
-		valueMap := ToValueMap(tokenMap)
-		ret, err := expr.Run(program, valueMap)
+	if a.Expression != "" {
+		program, err := expr.Compile(a.Expression)
 		if err != nil {
 			return nil, err
 		}
-		return a.OutputSchema.NewToken(ret)
+		if a.Src.Kind() == PlaceObject {
+			tokenMap := m.TokenMap(a.Src.(*Place))
+			valueMap := ToValueMap(tokenMap)
+			ret, err := expr.Run(program, valueMap)
+			if err != nil {
+				return nil, err
+			}
+			return a.OutputSchema.NewToken(ret)
+		}
 	}
+	if a.Src.Kind() == PlaceObject {
+		return m[a.Src.(*Place).ID][0], nil
+	}
+
 	return nil, errors.New("arc source is not a place")
 }
 
 func (a *Arc) PlaceToken(m Marking, tokenIndex map[string]*Token) error {
-	program, err := expr.Compile(a.Expression)
-	if err != nil {
-		return err
-	}
-	if a.Dest.Kind() == PlaceObject {
-		valueIndex := ToValueMap(tokenIndex)
-		ret, err := expr.Run(program, valueIndex)
+	if a.Expression != "" {
+		program, err := expr.Compile(a.Expression)
 		if err != nil {
 			return err
 		}
-		token, err := a.OutputSchema.NewToken(ret)
+		if a.Dest.Kind() == PlaceObject {
+			valueIndex := ToValueMap(tokenIndex)
+			ret, err := expr.Run(program, valueIndex)
+			if err != nil {
+				return err
+			}
+			token, err := a.OutputSchema.NewToken(ret)
+			if err != nil {
+				return err
+			}
+			err = m.PlaceTokens(a.Dest.(*Place), token)
+			if err != nil {
+				return err
+			}
+			return nil
+		}
+	}
+	if a.Dest.Kind() == PlaceObject {
+		token, err := a.OutputSchema.NewToken(nil)
 		if err != nil {
 			return err
 		}

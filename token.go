@@ -5,64 +5,7 @@ import (
 	"fmt"
 )
 
-var _ Object = (*TokenSchema)(nil)
-var _ Input = (*TokenSchemaInput)(nil)
-var _ Update = (*TokenUpdate)(nil)
-var _ Filter = (*TokenFilter)(nil)
-
 type TokenType string
-
-type PropertiesInput map[string]Properties
-
-func (p PropertiesInput) Properties() *Properties {
-	properties := make(map[string]Properties)
-	for key, value := range p {
-		properties[key] = value
-	}
-	return &Properties{
-		Type:       Obj,
-		Properties: properties,
-	}
-}
-
-type TokenSchemaInput struct {
-	Name       string
-	Type       TokenType
-	Properties PropertiesInput
-}
-
-func (t *TokenSchemaInput) Object() Object {
-	obj := &TokenSchema{
-		ID:         ID(),
-		Name:       t.Name,
-		Type:       t.Type,
-		Properties: t.Properties,
-	}
-	return obj
-}
-
-func (t *TokenSchemaInput) Kind() Kind {
-	return TokenObject
-}
-
-type TokenUpdate struct {
-	Name       string
-	Type       string
-	Properties PropertiesInput
-	Mask       TokenMask
-}
-
-type TokenMask struct {
-	Name bool
-	Type bool
-}
-
-type TokenFilter struct {
-	ID         *StringSelector       `json:"_id,omitempty"`
-	Name       *StringSelector       `json:"name,omitempty"`
-	Type       *StringSelector       `json:"type,omitempty"`
-	Properties *Selector[Properties] `json:"properties,omitempty"`
-}
 
 type FloatType struct {
 	min *float64
@@ -197,8 +140,6 @@ type Indexable interface {
 	Index() string
 }
 
-// TokenSchema is a simple struct that describes a token in a Petri net. Petri net operations are
-// performed on tokens, and tokens are the only objects that can be placed in a Petri net.
 type TokenSchema struct {
 	// ID is the unique identifier of the token schema.
 	ID string `json:"_id"`
@@ -328,24 +269,6 @@ func parseTokenType(t string) (TokenType, error) {
 	}
 }
 
-func (t *TokenSchema) Update(update Update) error {
-	upd, ok := update.(*TokenUpdate)
-	if !ok {
-		return errors.New("invalid update type")
-	}
-	if upd.Mask.Type {
-		tokType, err := parseTokenType(upd.Type)
-		if err != nil {
-			return err
-		}
-		t.Type = tokType
-	}
-	if upd.Mask.Name {
-		t.Name = upd.Name
-	}
-	return nil
-}
-
 type InvalidTokenValueError struct {
 	TokenSchema *TokenSchema
 	Value       interface{}
@@ -368,87 +291,6 @@ type Handler interface {
 	Handle(token ...*Token) ([]*Token, error)
 }
 
-type Generator interface {
-	Handler
-	Generate(value ...interface{}) ([]*Token, error)
-}
-
-type Transformer interface {
-	Handler
-	Transform(token ...*Token) ([]*Token, error)
-}
-
-type Consumer interface {
-	Handler
-	Consume(token ...*Token) error
-}
-
-type generator struct {
-	f func(value ...interface{}) ([]*Token, error)
-}
-
-func (g *generator) Generate(values ...interface{}) ([]*Token, error) {
-	return g.f(values...)
-}
-
-func (g *generator) Handle(tokens ...*Token) ([]*Token, error) {
-	return g.Generate()
-}
-
-func NewGenerator(f func(value ...interface{}) ([]*Token, error)) Generator {
-	return &generator{
-		f: f,
-	}
-}
-
-type transformer struct {
-	f func(token ...*Token) ([]*Token, error)
-}
-
-func (t *transformer) Handle(token ...*Token) ([]*Token, error) {
-	return t.f(token...)
-}
-
-func (t *transformer) Transform(tokens ...*Token) ([]*Token, error) {
-	return t.f(tokens...)
-}
-
-func NewTransformer(f func(tokens ...*Token) ([]*Token, error)) Transformer {
-	return &transformer{
-		f: f,
-	}
-}
-
-type consumer struct {
-	f func(token ...*Token) error
-}
-
-func (c *consumer) Consume(token ...*Token) error {
-	return c.f(token...)
-}
-
-func (c *consumer) Handle(tokens ...*Token) ([]*Token, error) {
-	return nil, c.f(tokens...)
-}
-
-func NewConsumer(f func(token ...*Token) error) Consumer {
-	return &consumer{
-		f: f,
-	}
-}
-
-type SignalToken struct {
-	*TokenSchema
-}
-
-func (s *SignalToken) NewToken(value interface{}) (*Token, error) {
-	return &Token{
-		ID:     ID(),
-		Schema: s.TokenSchema,
-		Value:  1,
-	}, nil
-}
-
 func Signal() *TokenSchema {
 	return &TokenSchema{
 		ID:   ID(),
@@ -456,10 +298,6 @@ func Signal() *TokenSchema {
 		Type: Sig,
 	}
 }
-
-func (t *TokenSchemaInput) IsInput() {}
-func (t *TokenUpdate) IsUpdate()     {}
-func (t *TokenFilter) IsFilter()     {}
 
 func String() *TokenSchema {
 	return &TokenSchema{

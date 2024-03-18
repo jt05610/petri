@@ -476,3 +476,9 @@ func (p *Petrifile) makeSubNets() []*petri.Net {
 
 	return nn
 }
+
+func New(n *petri.Net) *Petrifile {
+	return &Petrifile{
+		net: n,
+	}
+}

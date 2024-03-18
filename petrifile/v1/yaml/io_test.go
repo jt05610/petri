@@ -76,11 +76,14 @@ func TestService_Read(t *testing.T) {
 		}
 		m := n.NewMarking()
 		for _, pl := range []string{"message"} {
-			err = m.PlaceTokens(n.Place(pl), &petri.Token{
-				ID:     petri.ID(),
-				Schema: petri.String(),
-				Value:  "test",
-			})
+			place := n.Place(pl)
+			schema := place.AcceptedTokens[0]
+			tok, err := schema.NewToken([]byte("hi"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			err = m.PlaceTokens(n.Place(pl), tok)
+
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -138,11 +141,13 @@ func TestService_Read(t *testing.T) {
 		}
 		m := n.NewMarking()
 		for _, pl := range []string{"switch.off", "light.off"} {
-			err = m.PlaceTokens(n.Place(pl), &petri.Token{
-				ID:     petri.ID(),
-				Schema: petri.Signal(),
-				Value:  struct{}{},
-			})
+			place := n.Place(pl)
+			schema := place.AcceptedTokens[0]
+			tok, err := schema.NewToken([]byte("hi"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			err = m.PlaceTokens(n.Place(pl), tok)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -152,7 +157,6 @@ func TestService_Read(t *testing.T) {
 
 		m, err = n.Process(m, petri.Event[any]{
 			Name: "switch.turnOn",
-			Data: struct{}{},
 		})
 
 		if err != nil {
@@ -163,7 +167,6 @@ func TestService_Read(t *testing.T) {
 
 		m, err = n.Process(m, petri.Event[any]{
 			Name: "switch.turnOff",
-			Data: struct{}{},
 		})
 
 		if err != nil {

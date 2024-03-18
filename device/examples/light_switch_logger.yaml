@@ -1,0 +1,7 @@
+petri: v1
+protocol: amqp
+net: light_switch_logger.yaml
+
+remotes:
+  light: amqp://guest:guest@localhost:5672
+  switch: amqp://guest:guest@localhost:5672

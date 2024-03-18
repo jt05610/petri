@@ -10,10 +10,15 @@ import (
 	"strings"
 )
 
+type QueueMaker interface {
+	NewQueue(place *petri.Place) petri.TokenQueue
+}
+
 type Builder struct {
 	SearchDirs []string
 	seen       map[string]*petri.Net
 	services   map[string]map[petrifile.Version]petrifile.Service
+	QueueMaker
 }
 
 func NewBuilder(services map[string]map[petrifile.Version]petrifile.Service, dirs ...string) *Builder {

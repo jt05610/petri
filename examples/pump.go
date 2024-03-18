@@ -73,7 +73,7 @@ func NewPump() *Pump {
 	// struct that the pumpParameters schema represents
 
 	// Initializing the pump in the idle state
-	tok, err := signal.NewToken(1)
+	tok, err := signal.NewToken([]byte{1})
 	if err != nil {
 		panic(err)
 	}

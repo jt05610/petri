@@ -1,0 +1,16 @@
+petri: v1
+version: 0.1
+name: light
+
+places:
+  shining: signal
+  off: signal
+
+transitions:
+  illuminate:
+    inputs: off
+    outputs: shining
+
+  extinguish:
+    inputs: shining
+    outputs: off

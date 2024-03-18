@@ -44,13 +44,14 @@ func (s *Service) Load(_ context.Context, r io.Reader) (*petri.Net, error) {
 }
 
 func (s *Service) Save(_ context.Context, w io.Writer, n *petri.Net) error {
-	return nil
+	f := petrifile.New(n)
+	return yaml.NewEncoder(w).Encode(f)
 }
 
 func (s *Service) Version() pf.Version {
 	return pf.V1
 }
 
-func NewService(b *builder.Builder) *Service {
+func NewService(b *builder.Builder) pf.Service {
 	return &Service{bld: b}
 }

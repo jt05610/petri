@@ -2,6 +2,7 @@ package petri
 
 import (
 	"errors"
+	"fmt"
 	"github.com/expr-lang/expr"
 )
 
@@ -30,6 +31,24 @@ func ToValueMap(tokens map[string]*Token) map[string]interface{} {
 	return tokenMap
 }
 
+func AnyBytes(v any) []byte {
+	switch val := v.(type) {
+	case []byte:
+		return val
+	case string:
+		return []byte(val)
+	case stringValue:
+		return val.Bytes()
+	case signalValue:
+		return val.Bytes()
+	case nil:
+		return []byte{}
+	default:
+		panic(fmt.Errorf("cannot convert %T to []byte", v))
+	}
+	return nil
+}
+
 func (a *Arc) TakeToken(m Marking) (*Token, error) {
 	if a.Expression != "" {
 		program, err := expr.Compile(a.Expression)
@@ -43,7 +62,7 @@ func (a *Arc) TakeToken(m Marking) (*Token, error) {
 			if err != nil {
 				return nil, err
 			}
-			return a.OutputSchema.NewToken(ret)
+			return a.OutputSchema.NewToken(AnyBytes(ret))
 		}
 	}
 	if a.Src.Kind() == PlaceObject {
@@ -65,7 +84,7 @@ func (a *Arc) PlaceToken(m Marking, tokenIndex map[string]*Token) error {
 			if err != nil {
 				return err
 			}
-			token, err := a.OutputSchema.NewToken(ret)
+			token, err := a.OutputSchema.NewToken(AnyBytes(ret))
 			if err != nil {
 				return err
 			}

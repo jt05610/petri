@@ -1,0 +1,3 @@
+petri: v1
+protocol: amqp
+net: light.yaml

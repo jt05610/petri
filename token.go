@@ -127,8 +127,7 @@ func (t TokenType) IsValid(value interface{}) bool {
 		_, ok := value.(bool)
 		return ok
 	case Sig:
-		_, ok := value.(int)
-		return ok
+		return value != nil
 	case Obj:
 		_, ok := value.(map[string]interface{})
 		return ok
@@ -140,6 +139,8 @@ type Indexable interface {
 	Index() string
 }
 
+// TokenSchema is a simple struct that describes a token in a Petri net. Petri net operations are
+// performed on tokens, and tokens are the only objects that can be placed in a Petri net.
 type TokenSchema struct {
 	// ID is the unique identifier of the token schema.
 	ID string `json:"_id"`
@@ -148,6 +149,7 @@ type TokenSchema struct {
 	// Type is the type of the token schema.
 	Type       TokenType             `json:"type"`
 	Properties map[string]Properties `json:"properties,omitempty"`
+	Value
 }
 
 func (t *TokenSchema) CanAccept(fields []string) bool {
@@ -230,6 +232,11 @@ func (t *TokenSchema) String() string {
 	return t.Name
 }
 
+type Value interface {
+	Bytes() []byte
+	FromBytes([]byte) error
+}
+
 // Token is an instance of a TokenSchema.
 type Token struct {
 	// ID is the unique identifier of the token.
@@ -237,7 +244,7 @@ type Token struct {
 	// Schema is the schema of the token.
 	Schema *TokenSchema `json:"schema"`
 	// Value is the value of the token.
-	Value interface{} `json:"value"`
+	Value `json:"value"`
 }
 
 func (t *Token) String() string {
@@ -279,31 +286,73 @@ func (e *InvalidTokenValueError) Error() string {
 }
 
 // NewToken creates a new token from the schema.
-func (t *TokenSchema) NewToken(value interface{}) (*Token, error) {
-	return &Token{
+func (t *TokenSchema) NewToken(value []byte) (*Token, error) {
+	tok := &Token{
 		ID:     ID(),
 		Schema: t,
-		Value:  value,
-	}, nil
+		Value:  t.Value,
+	}
+	var err error
+	if tok.Value != nil {
+		err = tok.Value.FromBytes(value)
+	}
+	if err != nil {
+		return nil, err
+	}
+	return tok, nil
 }
 
 type Handler interface {
 	Handle(token ...*Token) ([]*Token, error)
 }
 
+type stringValue struct {
+	value string
+}
+
+func (s stringValue) Bytes() []byte {
+	return []byte(s.value)
+}
+
+func (s stringValue) FromBytes(bytes []byte) error {
+	s.value = string(bytes)
+	return nil
+}
+
+var (
+	_ Value = (*stringValue)(nil)
+	_ Value = (*signalValue)(nil)
+)
+
+type signalValue struct {
+}
+
+func (s signalValue) Bytes() []byte {
+	return []byte{1}
+}
+
+func (s signalValue) FromBytes(b []byte) error {
+	if b == nil {
+		return errors.New("nil signal")
+	}
+	return nil
+}
+
 func Signal() *TokenSchema {
 	return &TokenSchema{
-		ID:   ID(),
-		Name: "signal",
-		Type: Sig,
+		ID:    ID(),
+		Name:  "signal",
+		Type:  Sig,
+		Value: signalValue{},
 	}
 }
 
 func String() *TokenSchema {
 	return &TokenSchema{
-		ID:   ID(),
-		Name: "string",
-		Type: Str,
+		ID:    ID(),
+		Name:  "string",
+		Type:  Str,
+		Value: stringValue{},
 	}
 }
 

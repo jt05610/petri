@@ -109,16 +109,6 @@ func (t *Transition) WithHandler(h Handler) *Transition {
 	return t
 }
 
-func (t *Transition) WithGenerator(f func(value ...interface{}) ([]*Token, error)) *Transition {
-	t.Handler = NewGenerator(f)
-	return t
-}
-
-func (t *Transition) WithTransformer(f func(tokens ...*Token) ([]*Token, error)) *Transition {
-	t.Handler = NewTransformer(f)
-	return t
-}
-
 func (t *Transition) CanFire(tokenByType map[string]*Token) bool {
 	if t.Expression == "" {
 		return true

@@ -71,6 +71,22 @@ type Net struct {
 	outputs      map[string][]*Arc
 }
 
+func (p *Net) InputSchema(n string) *TokenSchema {
+	arc, found := p.inputs[n]
+	if !found {
+		return nil
+	}
+	return arc[0].OutputSchema
+}
+
+func (p *Net) OutputSchema(n string) *TokenSchema {
+	arc, found := p.outputs[n]
+	if !found {
+		return nil
+	}
+	return arc[0].OutputSchema
+}
+
 func (p *Net) makeInputsOutputs() {
 	p.inputs = make(map[string][]*Arc)
 	p.outputs = make(map[string][]*Arc)
@@ -108,6 +124,26 @@ func (p *Net) NewMarking() Marking {
 		m[pl.ID] = pl.TokenQueue
 	}
 	return m
+}
+
+func (p *Net) InPlaces() []*Place {
+	var places []*Place
+	for _, pl := range p.Places {
+		if len(p.inputs[pl.ID]) == 0 {
+			places = append(places, pl)
+		}
+	}
+	return places
+}
+
+func (p *Net) OutPlaces() []*Place {
+	var places []*Place
+	for _, pl := range p.Places {
+		if len(p.outputs[pl.ID]) == 0 {
+			places = append(places, pl)
+		}
+	}
+	return places
 }
 
 func (p *Net) Place(name string) *Place {
@@ -189,7 +225,7 @@ func (p *Net) Process(m Marking, events ...Event[any]) (Marking, error) {
 	enabled := p.EnabledTransitions(m, eventNames...)
 	if len(enabled) == 0 {
 		if len(events) > 0 {
-			return nil, ErrNoEvents
+			return m, ErrNoEvents
 		}
 		return m, nil
 	}
@@ -284,12 +320,9 @@ func (p *Net) Fire(m Marking, t *Transition, events ...Event[any]) (Marking, err
 		for _, arc := range p.Outputs(t) {
 			if _, ok := arc.Dest.(*Place); ok {
 
-				tok, err := arc.OutputSchema.NewToken(eventResult)
+				tok, err := arc.OutputSchema.NewToken(AnyBytes(eventResult))
 				if err != nil {
 					return m, err
-				}
-				if arc.OutputSchema.Type == Sig {
-					tok.Value = 1
 				}
 				tokens = append(tokens, tok)
 			}

@@ -109,7 +109,7 @@ func (t *Transition) WithHandler(h Handler) *Transition {
 	return t
 }
 
-func (t *Transition) CanFire(tokenByType map[string]*Token) bool {
+func (t *Transition) CanFire(tokenByType map[string]Token) bool {
 	if t.Expression == "" {
 		return true
 	}

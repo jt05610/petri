@@ -1,10 +1,14 @@
 package petri
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"github.com/expr-lang/expr"
+	"time"
 )
+
+const DequeueTimeout = 1 * time.Second
 
 type NodeMeta struct {
 	ID   string `json:"_id,omitempty"`
@@ -23,7 +27,7 @@ type Arc struct {
 	OutputSchema *TokenSchema `json:"outputSchema,omitempty"`
 }
 
-func ToValueMap(tokens map[string]*Token) map[string]interface{} {
+func ToValueMap(tokens map[string]Token) map[string]interface{} {
 	tokenMap := make(map[string]interface{})
 	for key, token := range tokens {
 		tokenMap[key] = token.Value
@@ -37,9 +41,9 @@ func AnyBytes(v any) []byte {
 		return val
 	case string:
 		return []byte(val)
-	case stringValue:
+	case StringValue:
 		return val.Bytes()
-	case signalValue:
+	case SignalValue:
 		return val.Bytes()
 	case nil:
 		return []byte{}
@@ -49,30 +53,36 @@ func AnyBytes(v any) []byte {
 	return nil
 }
 
-func (a *Arc) TakeToken(m Marking) (*Token, error) {
+func (a *Arc) TakeToken(m Marking) (Token, error) {
 	if a.Expression != "" {
 		program, err := expr.Compile(a.Expression)
 		if err != nil {
-			return nil, err
+			return Token{}, err
 		}
 		if a.Src.Kind() == PlaceObject {
 			tokenMap := m.TokenMap(a.Src.(*Place))
 			valueMap := ToValueMap(tokenMap)
 			ret, err := expr.Run(program, valueMap)
 			if err != nil {
-				return nil, err
+				return Token{}, err
 			}
 			return a.OutputSchema.NewToken(AnyBytes(ret))
 		}
 	}
 	if a.Src.Kind() == PlaceObject {
-		return m[a.Src.(*Place).ID].Dequeue()
+		ctx, can := context.WithTimeout(context.Background(), DequeueTimeout)
+		defer can()
+		tok, err := m[a.Src.(*Place).ID].Dequeue(ctx)
+		if err != nil {
+			return Token{}, err
+		}
+		return tok, nil
 	}
 
-	return nil, errors.New("arc source is not a place")
+	return Token{}, errors.New("arc source is not a place")
 }
 
-func (a *Arc) PlaceToken(m Marking, tokenIndex map[string]*Token) error {
+func (a *Arc) PlaceToken(m Marking, tokenIndex map[string]Token) error {
 	if a.Expression != "" {
 		program, err := expr.Compile(a.Expression)
 		if err != nil {

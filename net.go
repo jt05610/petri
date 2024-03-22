@@ -25,24 +25,26 @@ func (m Marking) Copy() Marking {
 	return ret
 }
 
-func (m Marking) TokenMap(place *Place) map[string]*Token {
+func (m Marking) TokenMap(place *Place) map[string]Token {
 	tokens := m[place.ID]
-	tokMap := make(map[string]*Token)
-	for n := tokens.Available(); n > 0; n-- {
-		tok, err := tokens.Dequeue()
-		if err != nil {
-			panic(err)
-		}
-		tokMap[tok.Schema.Name] = tok
+	tokMap := make(map[string]Token)
+	ctx, can := context.WithTimeout(context.Background(), DequeueTimeout)
+	defer can()
+	tok, err := tokens.Peek(ctx)
+	if err != nil {
+		panic(err)
 	}
+	tokMap[place.AcceptedTokens[0].Name] = tok[0]
 	return tokMap
 }
 
-func (m Marking) Get(place *Place, schema string) *Token {
+func (m Marking) Get(place *Place, schema string) Token {
 	if pl, ok := m[place.String()]; !ok {
-		return nil
+		return Token{}
 	} else {
-		t, err := pl.Dequeue()
+		ctx, can := context.WithTimeout(context.Background(), DequeueTimeout)
+		defer can()
+		t, err := pl.Dequeue(ctx)
 		if err != nil {
 			panic(err)
 		}
@@ -50,11 +52,13 @@ func (m Marking) Get(place *Place, schema string) *Token {
 	}
 }
 
-func (m Marking) PlaceTokens(place *Place, tokens ...*Token) error {
+func (m Marking) PlaceTokens(place *Place, tokens ...Token) error {
 	if pl, ok := m[place.ID]; !ok {
 		return errors.New("place not found")
 	} else {
-		return pl.Enqueue(tokens...)
+		ctx, can := context.WithTimeout(context.Background(), DequeueTimeout)
+		defer can()
+		return pl.Enqueue(ctx, tokens...)
 	}
 }
 
@@ -180,9 +184,11 @@ func (p *Net) Init(input Input) error {
 }
 
 func (p *Net) Enabled(marking Marking, t *Transition) bool {
+	ctx, can := context.WithTimeout(context.Background(), DequeueTimeout)
+	defer can()
 	for _, arc := range p.Inputs(t) {
 		if pt, ok := arc.Src.(*Place); ok {
-			if marking[pt.ID].Available() == 0 {
+			if n, err := marking[pt.ID].Available(ctx); n == 0 || err != nil {
 				return false
 			}
 		}
@@ -245,8 +251,8 @@ func (p *Net) Process(m Marking, events ...Event[any]) (Marking, error) {
 	return processed, nil
 }
 
-func IndexTokenByType(tokens []*Token) map[string]*Token {
-	index := make(map[string]*Token)
+func IndexTokenByType(tokens []Token) map[string]Token {
+	index := make(map[string]Token)
 	for _, t := range tokens {
 		if _, ok := index[t.Schema.Name]; ok {
 			continue
@@ -257,7 +263,7 @@ func IndexTokenByType(tokens []*Token) map[string]*Token {
 }
 
 func (p *Net) Fire(m Marking, t *Transition, events ...Event[any]) (Marking, error) {
-	tokens := make([]*Token, 0)
+	tokens := make([]Token, 0)
 	handlerMap := make(map[string]EventFunc[any, any])
 	dataMap := make(map[string]interface{})
 	for _, e := range events {

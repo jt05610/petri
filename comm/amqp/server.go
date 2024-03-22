@@ -4,92 +4,15 @@ import (
 	"context"
 	"fmt"
 	"github.com/jt05610/petri"
+	"github.com/jt05610/petri/comm/amqp/queue"
 	amqp "github.com/rabbitmq/amqp091-go"
-	"net/http"
 	"sync"
 )
-
-type Queue struct {
-	amqp.Queue
-	Schema   *petri.TokenSchema
-	ch       *amqp.Channel
-	exchange string
-	http.Server
-	tokens []*petri.Token
-}
-
-func (q *Queue) addToken(t *petri.Token) error {
-	fmt.Printf("adding %v to queue %s on exchange %s with key \n", t, q.Name, q.exchange)
-	return q.ch.PublishWithContext(
-		context.Background(),
-		q.exchange,
-		q.Name,
-		false,
-		false,
-		amqp.Publishing{
-			ContentType: "text/plain",
-			Body:        t.Bytes(),
-		},
-	)
-}
-
-func (q *Queue) Enqueue(token ...*petri.Token) error {
-	for _, t := range token {
-		err := q.addToken(t)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (q *Queue) Dequeue() (*petri.Token, error) {
-	msg, ok, err := q.ch.Get(q.Name, true)
-	if err != nil {
-		return nil, err
-	}
-	if !ok {
-		return nil, nil
-	}
-	return q.Schema.NewToken(msg.Body)
-
-}
-
-func (q *Queue) Copy() petri.TokenQueue {
-	return &Queue{
-		Queue:  q.Queue,
-		ch:     q.ch,
-		Schema: q.Schema,
-	}
-}
-
-func (q *Queue) Channel() <-chan *petri.Token {
-	ch := make(chan *petri.Token)
-	messages, err := q.ch.Consume(q.Name, "", true, false, false, false, nil)
-	if err != nil {
-		panic(err)
-	}
-	go func() {
-		defer close(ch)
-		for msg := range messages {
-			token, err := q.Schema.NewToken(msg.Body)
-			if err != nil {
-				panic(err)
-			}
-			ch <- token
-		}
-	}()
-	return ch
-}
-
-func (q *Queue) Available() int {
-	return q.Messages
-}
 
 type Server struct {
 	*petri.Net
 	*amqp.Channel
-	Queues  map[string]*Queue
+	Queues  map[string]*queue.Local
 	Initial petri.Marking
 	mu      sync.Mutex
 }
@@ -118,7 +41,7 @@ func (s *Server) makeQueue(name string) {
 		panic(err)
 
 	}
-	s.Queues[name] = &Queue{
+	s.Queues[name] = &queue.Local{
 		Queue:    q,
 		exchange: s.Name,
 		ch:       s.Channel,
@@ -139,7 +62,7 @@ func NewServer(conn *amqp.Connection, n *petri.Net) *Server {
 	srv := &Server{
 		Net:     n,
 		Channel: ch,
-		Queues:  make(map[string]*Queue),
+		Queues:  make(map[string]*queue.Local),
 	}
 	for tn, t := range n.Transitions {
 		if t.Cold {
@@ -176,7 +99,7 @@ func (s *Server) makeQueues() *Server {
 		if err != nil {
 			panic(err)
 		}
-		s.Queues[place.ID] = &Queue{
+		s.Queues[place.ID] = &queue.Local{
 			Queue:    q,
 			exchange: s.Name,
 			ch:       s.Channel,
@@ -221,7 +144,7 @@ func (s *Server) Serve(ctx context.Context) error {
 	for qn, q := range s.Queues {
 		fmt.Printf("listening on queue: %s\n", qn)
 		wg.Add(1)
-		go func(qn string, q *Queue) {
+		go func(qn string, q *queue.Local) {
 			defer wg.Done()
 			messages, err := q.ch.Consume(qn, "", true, false, false, false, nil)
 			if err != nil {

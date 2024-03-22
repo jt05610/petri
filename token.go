@@ -3,6 +3,7 @@ package petri
 import (
 	"errors"
 	"fmt"
+	"strconv"
 )
 
 type TokenType string
@@ -234,7 +235,7 @@ func (t *TokenSchema) String() string {
 
 type Value interface {
 	Bytes() []byte
-	FromBytes([]byte) error
+	FromBytes([]byte) (Value, error)
 }
 
 // Token is an instance of a TokenSchema.
@@ -248,7 +249,7 @@ type Token struct {
 }
 
 func (t *Token) String() string {
-	return fmt.Sprintf("%s(%v)", t.Schema.Name, t.Value)
+	return string(t.Value.Bytes())
 }
 
 func (t *TokenSchema) Kind() Kind {
@@ -286,56 +287,82 @@ func (e *InvalidTokenValueError) Error() string {
 }
 
 // NewToken creates a new token from the schema.
-func (t *TokenSchema) NewToken(value []byte) (*Token, error) {
-	tok := &Token{
+func (t *TokenSchema) NewToken(value []byte) (Token, error) {
+	tok := Token{
 		ID:     ID(),
 		Schema: t,
 		Value:  t.Value,
 	}
 	var err error
-	if tok.Value != nil {
-		err = tok.Value.FromBytes(value)
+	if t.Value != nil {
+		tok.Value, err = tok.Value.FromBytes(value)
 	}
 	if err != nil {
-		return nil, err
+		return Token{}, &InvalidTokenValueError{TokenSchema: t, Value: value}
 	}
 	return tok, nil
 }
 
 type Handler interface {
-	Handle(token ...*Token) ([]*Token, error)
+	Handle(token ...Token) ([]Token, error)
 }
 
-type stringValue struct {
+type StringValue struct {
 	value string
 }
 
-func (s stringValue) Bytes() []byte {
+func (s StringValue) Bytes() []byte {
 	return []byte(s.value)
 }
 
-func (s stringValue) FromBytes(bytes []byte) error {
+func (s StringValue) FromBytes(bytes []byte) (Value, error) {
 	s.value = string(bytes)
-	return nil
+	return s, nil
 }
 
 var (
-	_ Value = (*stringValue)(nil)
-	_ Value = (*signalValue)(nil)
+	_ Value = StringValue{}
+	_ Value = SignalValue{}
+	_ Value = IntValue{}
 )
 
-type signalValue struct {
+type SignalValue struct {
 }
 
-func (s signalValue) Bytes() []byte {
+func (s SignalValue) Bytes() []byte {
 	return []byte{1}
 }
 
-func (s signalValue) FromBytes(b []byte) error {
+func (s SignalValue) FromBytes(b []byte) (Value, error) {
 	if b == nil {
-		return errors.New("nil signal")
+		return nil, errors.New("nil signal")
 	}
-	return nil
+	return s, nil
+}
+
+type IntValue struct {
+	value int
+}
+
+func (i IntValue) Bytes() []byte {
+	return []byte(strconv.Itoa(i.value))
+}
+
+func (i IntValue) FromBytes(b []byte) (Value, error) {
+	val, err := strconv.Atoi(string(b))
+	if err != nil {
+		return nil, err
+	}
+	i.value = val
+	return i, nil
+}
+
+func (i IntValue) Value() int {
+	return i.value
+}
+
+func NewIntValue(value int) IntValue {
+	return IntValue{value: value}
 }
 
 func Signal() *TokenSchema {
@@ -343,7 +370,7 @@ func Signal() *TokenSchema {
 		ID:    ID(),
 		Name:  "signal",
 		Type:  Sig,
-		Value: signalValue{},
+		Value: SignalValue{},
 	}
 }
 
@@ -352,7 +379,7 @@ func String() *TokenSchema {
 		ID:    ID(),
 		Name:  "string",
 		Type:  Str,
-		Value: stringValue{},
+		Value: &StringValue{},
 	}
 }
 
@@ -366,9 +393,10 @@ func Float64() *TokenSchema {
 
 func Integer() *TokenSchema {
 	return &TokenSchema{
-		ID:   ID(),
-		Name: "int",
-		Type: Int,
+		ID:    ID(),
+		Name:  "int",
+		Type:  Int,
+		Value: &IntValue{},
 	}
 }
 

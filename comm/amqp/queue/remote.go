@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/jt05610/petri"
 	amqp "github.com/rabbitmq/amqp091-go"
+	"strconv"
 )
 
 var _ petri.TokenQueue = (*Remote)(nil)
@@ -23,7 +24,7 @@ func NewRemote(exchange string, ch *amqp.Channel, pl *petri.Place) *Remote {
 }
 
 // Enqueue adds tokens to the queue.
-func (r *Remote) Enqueue(ctx context.Context, tt ...*petri.Token) error {
+func (r *Remote) Enqueue(ctx context.Context, tt ...petri.Token) error {
 	for _, t := range tt {
 		ch, err := r.rpc(ctx, "post", t)
 		if err != nil {
@@ -40,18 +41,19 @@ func (r *Remote) Enqueue(ctx context.Context, tt ...*petri.Token) error {
 
 var NoToken = fmt.Errorf("no token")
 
-func (r *Remote) Dequeue(ctx context.Context) (*petri.Token, error) {
+func (r *Remote) Dequeue(ctx context.Context) (petri.Token, error) {
 	ch, err := r.rpc(ctx, "get")
+	var zero petri.Token
 	if err != nil {
-		return nil, err
+		return zero, err
 	}
 	tok := <-ch
-	if tok == nil {
-		return nil, NoToken
+	if tok.Value == nil {
+		return zero, NoToken
 	}
 	err = r.pop(ctx, tok)
 	if err != nil {
-		return nil, err
+		return zero, err
 	}
 	return tok, nil
 }
@@ -62,17 +64,50 @@ func (r *Remote) Copy() petri.TokenQueue {
 	}
 }
 
-func (r *Remote) Channel(ctx context.Context) <-chan *petri.Token {
-	panic("implement me")
+func (r *Remote) Monitor(ctx context.Context) <-chan []petri.Token {
+	// make listeners on the remotes in and out topics. When we get something from the in channel, we add it to a queue and send it. We remove when we get something from the out channel
+	ch := make(chan []petri.Token)
+	sub, err := r.subscribe(ctx)
+	if err != nil {
+		panic(err)
+	}
+	go func() {
+		defer close(ch)
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case tok := <-sub:
+				if tok.op == "in" {
+					ch <- []petri.Token{tok.Token}
+				} else {
+					ch <- []petri.Token{}
+				}
+			}
+		}
+	}()
+	return ch
 }
 
 func (r *Remote) Available(ctx context.Context) (int, error) {
-	//TODO implement me
-	panic("implement me")
+	ch, err := r.rpc(ctx, "available")
+	if err != nil {
+		return 0, err
+	}
+	v := <-ch
+	if v.Value == nil {
+		return 0, nil
+	}
+	valStr := string(v.Bytes())
+	iVal, err := strconv.Atoi(valStr)
+	if err != nil {
+		return 0, err
+	}
+	return iVal, nil
 }
 
-func (r *Remote) Peek(ctx context.Context) ([]*petri.Token, error) {
-	tokens := make([]*petri.Token, 0)
+func (r *Remote) Peek(ctx context.Context) ([]petri.Token, error) {
+	tokens := make([]petri.Token, 0)
 	ch, err := r.rpc(ctx, "peek")
 	if err != nil {
 		return nil, err

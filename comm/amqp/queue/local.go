@@ -2,23 +2,30 @@ package queue
 
 import (
 	"context"
-	"fmt"
 	"github.com/jt05610/petri"
 	amqp "github.com/rabbitmq/amqp091-go"
+	"log/slog"
+	"sync"
+	"time"
 )
 
 var _ petri.TokenQueue = (*Local)(nil)
 
 type Local struct {
 	*Queue
-	tokens []*petri.Token
+	*petri.LocalQueue
+	tokens   []petri.Token
+	mu       sync.Mutex
+	bindings map[string]func(context.Context, amqp.Delivery)
 }
 
-func (q *Local) Peek(_ context.Context) ([]*petri.Token, error) {
+func (q *Local) Peek(_ context.Context) ([]petri.Token, error) {
 	return q.tokens, nil
 }
 
-func (q *Local) Enqueue(ctx context.Context, token ...*petri.Token) error {
+func (q *Local) Enqueue(ctx context.Context, token ...petri.Token) error {
+	q.mu.Lock()
+	defer q.mu.Unlock()
 	for _, t := range token {
 		q.tokens = append(q.tokens, t)
 		err := q.Queue.put(ctx, t)
@@ -29,18 +36,19 @@ func (q *Local) Enqueue(ctx context.Context, token ...*petri.Token) error {
 	return nil
 }
 
-func (q *Local) Dequeue(ctx context.Context) (*petri.Token, error) {
+func (q *Local) Dequeue(ctx context.Context) (petri.Token, error) {
+	q.mu.Lock()
+	defer q.mu.Unlock()
 	if len(q.tokens) == 0 {
-		return nil, nil
+		return petri.Token{}, nil
 	}
 	t := q.tokens[0]
 	err := q.pop(ctx, t)
 	if err != nil {
-		return nil, err
+		return petri.Token{}, err
 	}
 	q.tokens = q.tokens[1:]
 	return t, nil
-
 }
 
 func (q *Local) Copy() petri.TokenQueue {
@@ -49,26 +57,8 @@ func (q *Local) Copy() petri.TokenQueue {
 	}
 }
 
-func (q *Local) Channel(ctx context.Context) <-chan *petri.Token {
-	ch := make(chan *petri.Token)
-	messages, err := q.ch.Consume(q.Name, "", true, false, false, false, nil)
-	if err != nil {
-		panic(err)
-	}
-	go func() {
-		defer close(ch)
-		select {
-		case <-ctx.Done():
-			return
-		case m := <-messages:
-			t, err := q.Schema.NewToken(m.Body)
-			if err != nil {
-				panic(err)
-			}
-			ch <- t
-		}
-	}()
-	return ch
+func (q *Local) Monitor(ctx context.Context) <-chan []petri.Token {
+	panic("implement me")
 }
 
 func (q *Local) Available(ctx context.Context) (int, error) {
@@ -88,7 +78,6 @@ func (q *Local) handlePeek(ctx context.Context, msg amqp.Delivery) {
 	}
 	n := len(tokens)
 	for i, t := range tokens {
-		fmt.Println("peeking", t.Value, "to", msg.ReplyTo)
 		err := q.ch.PublishWithContext(
 			ctx,
 			q.exchange,
@@ -111,12 +100,35 @@ func (q *Local) handlePeek(ctx context.Context, msg amqp.Delivery) {
 	}
 }
 
+func (q *Local) handleAvailable(ctx context.Context, msg amqp.Delivery) {
+	n := len(q.tokens)
+	err := q.ch.PublishWithContext(
+		ctx,
+		q.exchange,
+		msg.ReplyTo,
+		false,
+		false,
+		amqp.Publishing{
+			ContentType:   "text/plain",
+			CorrelationId: msg.CorrelationId,
+			Body:          petri.NewIntValue(n).Bytes(),
+			Headers: map[string]interface{}{
+				"empty": false,
+				"done":  true,
+			},
+		},
+	)
+	if err != nil {
+		panic(err)
+	}
+}
+
 func (q *Local) handleGet(ctx context.Context, msg amqp.Delivery) {
 	t, err := q.Dequeue(ctx)
 	if err != nil {
 		panic(err)
 	}
-	if t == nil {
+	if t.Value == nil {
 		err = q.ch.PublishWithContext(
 			ctx,
 			q.exchange,
@@ -176,21 +188,22 @@ func (q *Local) handlePost(ctx context.Context, msg amqp.Delivery) {
 // Serve allows the local queue to handle RPCs from remote queues that want to interact with this one. Available RPCs are peek, get, and post.
 func (q *Local) Serve(ctx context.Context) error {
 	// declare the bindings and attach
-	bindings := map[string]func(context.Context, amqp.Delivery){
-		q.Name + ".peek": q.handlePeek,
-		q.Name + ".get":  q.handleGet,
-		q.Name + ".post": q.handlePost,
+	q.bindings = map[string]func(context.Context, amqp.Delivery){
+		q.Name + ".peek":      q.handlePeek,
+		q.Name + ".get":       q.handleGet,
+		q.Name + ".post":      q.handlePost,
+		q.Name + ".available": q.handleAvailable,
 	}
 	queue, err := q.ch.QueueDeclare("", false, false, false, false, nil)
 	if err != nil {
 		return err
 	}
-	for b := range bindings {
-		fmt.Println("listening on", b, "exchange", q.exchange)
+	for b := range q.bindings {
 		err := q.ch.QueueBind(queue.Name, b, q.exchange, false, nil)
 		if err != nil {
 			return err
 		}
+		slog.Info("queue bound", slog.String("binding", b), slog.String("exchange", q.exchange))
 	}
 	err = q.ch.Qos(
 		1,     // prefetch count
@@ -201,7 +214,7 @@ func (q *Local) Serve(ctx context.Context) error {
 		return err
 	}
 
-	messages, err := q.ch.Consume(queue.Name, "", false, false, false, false, nil)
+	messages, err := q.ch.Consume(queue.Name, "", true, false, false, false, nil)
 
 	if err != nil {
 		return err
@@ -211,19 +224,25 @@ func (q *Local) Serve(ctx context.Context) error {
 		case <-ctx.Done():
 			return nil
 		case m, more := <-messages:
-			fmt.Println("received", m.RoutingKey, "from", m.ReplyTo)
-			hndl, found := bindings[m.RoutingKey]
 			if !more {
 				return nil
 			}
-			if !found {
-				return fmt.Errorf("unknown binding %v", m)
-			}
-			hndl(ctx, m)
-			err := m.Ack(false)
-			if err != nil {
-				return err
-			}
+			go q.process(ctx, m)
 		}
 	}
+}
+
+var Timeout = 1 * time.Second
+
+func (q *Local) process(ctx context.Context, m amqp.Delivery) {
+	ctx, cancel := context.WithTimeout(ctx, Timeout)
+	defer cancel()
+	hndl, found := q.bindings[m.RoutingKey]
+	if !found {
+		if m.RoutingKey != "" {
+			slog.Error("no handler for", slog.String("routing_key", m.RoutingKey))
+		}
+		return
+	}
+	hndl(ctx, m)
 }

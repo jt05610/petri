@@ -308,7 +308,11 @@ func (l *Link) Arcs() ([]*petri.Arc, error) {
 			if t.Op == "" {
 				t.Op = t.TokenSchema.Name
 			}
-			aa = append(aa, petri.NewArc(f.Node, t.Node, t.Op, t.TokenSchema))
+			arc := petri.NewArc(f.Node, t.Node, t.Op, t.TokenSchema)
+			arc.LinksNets = true
+			arc.PlaceNet = l.net.Parent(arc.Place)
+			arc.TransitionNet = l.net.Parent(arc.Transition)
+			aa = append(aa, arc)
 		}
 	}
 	return aa, nil
@@ -390,10 +394,9 @@ func (p *Petrifile) makeTransitions() []*petri.Transition {
 			exp := strings.Join(v.Guard, " && ")
 			t.Expression = exp
 		}
-		if v.Event {
-			t.Cold = true
-		}
+
 		ret = append(ret, t)
+		var schema *petri.TokenSchema
 		if v.Inputs != nil {
 			switch in := v.Inputs.(type) {
 			case []interface{}:
@@ -404,6 +407,7 @@ func (p *Petrifile) makeTransitions() []*petri.Transition {
 			case interface{}:
 				a := ParseInput(in).FromPlace(p.net, t)
 				arcs = append(arcs, a)
+				schema = a.Src.(*petri.Place).AcceptedTokens[0]
 			}
 		}
 
@@ -419,7 +423,11 @@ func (p *Petrifile) makeTransitions() []*petri.Transition {
 			case interface{}:
 				a := ParseOutput(out).ToPlace(p.net, t)
 				arcs = append(arcs, a)
+				schema = a.Dest.(*petri.Place).AcceptedTokens[0]
 			}
+		}
+		if v.Event {
+			t = t.WithEvent(schema)
 		}
 	}
 	p.arcs = arcs

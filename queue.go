@@ -21,6 +21,8 @@ type TokenQueue interface {
 	Available(ctx context.Context) (int, error)
 	// Peek returns the tokens in the queue without removing them.
 	Peek(ctx context.Context) ([]Token, error)
+	// Close closes the queue
+	Close()
 }
 
 type LocalQueue struct {
@@ -29,6 +31,8 @@ type LocalQueue struct {
 	updated chan struct{}
 	mu      sync.Mutex
 }
+
+func (l *LocalQueue) Close() {}
 
 func (l *LocalQueue) Peek(_ context.Context) ([]Token, error) {
 	l.mu.Lock()

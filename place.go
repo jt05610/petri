@@ -2,10 +2,7 @@ package petri
 
 import "errors"
 
-var _ Object = (*Place)(nil)
 var _ Node = (*Place)(nil)
-var _ Input = (*PlaceInput)(nil)
-var _ Filter = (*PlaceFilter)(nil)
 
 // Place represents a place.
 type Place struct {
@@ -17,6 +14,8 @@ type Place struct {
 	// AcceptedTokens are the tokens that can be accepted by this place
 	AcceptedTokens []*TokenSchema `json:"acceptedTokens,omitempty"`
 	TokenQueue
+	// IsEvent is true if this place represents an event
+	IsEvent bool
 }
 
 func (p *Place) Index() string {
@@ -82,10 +81,6 @@ type PlaceInput struct {
 	AcceptedTokens []*TokenSchema
 }
 
-func (p *PlaceInput) Object() Object {
-	return NewPlace(p.Name, p.Bound, p.AcceptedTokens...)
-}
-
 func (p *PlaceInput) Kind() Kind {
 	return PlaceObject
 }
@@ -119,21 +114,3 @@ type PlaceUpdate struct {
 }
 
 func (p *Place) Kind() Kind { return PlaceObject }
-
-func (p *Place) Update(u Update) error {
-	update, ok := u.(*PlaceUpdate)
-	if !ok {
-		return ErrWrongUpdate
-	}
-	if update.Mask.Name {
-		p.Name = update.Input.Name
-	}
-	if update.Mask.Bound {
-		p.Bound = update.Input.Bound
-	}
-	return nil
-}
-
-func (p *PlaceInput) IsInput()   {}
-func (p *PlaceUpdate) IsUpdate() {}
-func (p *PlaceFilter) IsFilter() {}

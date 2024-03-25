@@ -42,8 +42,11 @@ func TestLocal_Enqueue(t *testing.T) {
 	pl := petri.NewPlace("place", 1, schema)
 	pl.ID = "test_place"
 	local := queue.NewLocal(exchange, ch, pl)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+
 	go func() {
-		err := local.Serve(context.Background())
+		err := local.Serve(ctx)
 		if err != nil {
 			t.Error(err)
 		}
@@ -52,7 +55,6 @@ func TestLocal_Enqueue(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
 	err = local.Enqueue(ctx, tok)
 	if err != nil {
@@ -178,6 +180,17 @@ func TestRemote_Monitor(t *testing.T) {
 	ctx, can := context.WithCancel(context.Background())
 	defer can()
 	history := make([][]string, nRemotes)
+	updateCh := make(chan []petri.Token)
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case upd := <-updateCh:
+				fmt.Printf("got local update: %v\n", upd)
+			}
+		}
+	}()
 	go func() {
 		err := local.Serve(ctx)
 		if err != nil {

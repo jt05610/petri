@@ -15,6 +15,11 @@ type Remote struct {
 	*Queue
 }
 
+func (r *Remote) Close() {
+	//TODO implement me
+	panic("implement me")
+}
+
 // NewRemote creates a new Remote queue.
 func NewRemote(exchange string, ch *amqp.Channel, pl *petri.Place) *Remote {
 	q := NewQueue(ch, pl.AcceptedTokens[0], exchange, pl.ID)

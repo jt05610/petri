@@ -5,11 +5,7 @@ import (
 	"github.com/expr-lang/expr"
 )
 
-var _ Object = (*Transition)(nil)
 var _ Node = (*Transition)(nil)
-var _ Input = (*TransitionInput)(nil)
-var _ Update = (*TransitionUpdate)(nil)
-var _ Filter = (*TransitionFilter)(nil)
 
 // Transition represents a transition
 type Transition struct {
@@ -17,22 +13,12 @@ type Transition struct {
 	Name       string `json:"name,omitempty"`
 	Expression string `json:"expression,omitempty"`
 	Handler
-	Cold      bool                `json:"cold,omitempty"`
-	EventFunc EventFunc[any, any] `json:"-"`
-	Event     *EventSchema        `json:"event,omitempty,omitempty"`
+	Cold        bool         `json:"cold,omitempty"`
+	EventSchema *TokenSchema `json:"inputSchema"`
 }
 
 func (t *Transition) PostInit() error {
 	return nil
-}
-
-func (t *Transition) Document() Document {
-	return Document{
-		"_id":        t.ID,
-		"name":       t.Name,
-		"expression": t.Expression,
-		"event":      t.Event,
-	}
 }
 
 func (t *Transition) IsNode() {}
@@ -57,37 +43,10 @@ func NewEventFunc[T, U any](f func(ctx context.Context, input T) (U, error)) Eve
 	}
 }
 
-func (t *Transition) WithEvent(f EventFunc[any, any], url string, input, output *TokenSchema) *Transition {
+func (t *Transition) WithEvent(schema *TokenSchema) *Transition {
 	t.Cold = true
-	t.EventFunc = f
-	t.Event = &EventSchema{
-		Name:         t.Name,
-		Url:          url,
-		InputSchema:  *input,
-		OutputSchema: *output,
-	}
+	t.EventSchema = schema
 	return t
-}
-
-func (t *Transition) Update(u Update) error {
-	update, ok := u.(*TransitionUpdate)
-	if !ok {
-		return ErrWrongUpdate
-	}
-	if update.Mask.Name {
-		t.Name = update.Input.Name
-	}
-	if update.Mask.Expression {
-		t.Expression = update.Input.Expression
-	}
-	if update.Mask.Event {
-		if update.Input.Event == nil {
-			t.Event = nil
-		} else {
-			t.Event = update.Input.Event.Object().(*EventSchema)
-		}
-	}
-	return nil
 }
 
 func NewTransition(name string, expression ...string) *Transition {
@@ -124,41 +83,8 @@ func (t *Transition) CanFire(tokenByType map[string]Token) bool {
 	return ret.(bool)
 }
 
-type TransitionInput struct {
-	Name       string
-	Expression string
-	Event      *EventInput
-}
-
-func (t *TransitionInput) Object() Object {
-	return &Transition{
-		ID:         ID(),
-		Name:       t.Name,
-		Expression: t.Expression,
-	}
-}
-
-func (t *TransitionInput) Kind() Kind {
-	return TransitionObject
-}
-
 type TransitionMask struct {
 	Name       bool
 	Expression bool
 	Event      bool
 }
-
-type TransitionUpdate struct {
-	Input *TransitionInput
-	Mask  *TransitionMask
-}
-
-type TransitionFilter struct {
-	ID   *StringSelector `json:"_id,omitempty"`
-	Name *StringSelector `json:"name,omitempty"`
-}
-
-func (t *TransitionInput) IsInput()       {}
-func (t *TransitionUpdate) IsUpdate()     {}
-func (t *TransitionFilter) IsFilter()     {}
-func (t *TransitionFilter) IsNodeFilter() {}

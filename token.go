@@ -233,6 +233,13 @@ func (t *TokenSchema) String() string {
 	return t.Name
 }
 
+type Serializer interface {
+	Bytes() []byte
+}
+
+type Deserializer interface {
+	FromBytes([]byte) (Value, error)
+}
 type Value interface {
 	Bytes() []byte
 	FromBytes([]byte) (Value, error)

@@ -23,8 +23,13 @@ type Arc struct {
 	// Dest is the place or transition that is the destination of the arc.
 	Dest Node `json:"-"`
 	// Expression is the expression that is evaluated when the transition connected to the arc is fired.
-	Expression   string       `json:"expression,omitempty"`
-	OutputSchema *TokenSchema `json:"outputSchema,omitempty"`
+	Expression    string       `json:"expression,omitempty"`
+	OutputSchema  *TokenSchema `json:"outputSchema,omitempty"`
+	LinksNets     bool
+	PlaceNet      *Net
+	TransitionNet *Net
+	Place         *Place
+	Transition    *Transition
 }
 
 func ToValueMap(tokens map[string]Token) map[string]interface{} {
@@ -160,13 +165,26 @@ func MakeNode(k Kind, id string) Node {
 }
 
 func NewArc(from, to Node, expression string, outputSchema *TokenSchema) *Arc {
-	return &Arc{
+	a := &Arc{
 		ID:           ID(),
 		Src:          from,
 		Dest:         to,
 		Expression:   expression,
 		OutputSchema: outputSchema,
 	}
+	switch f := from.(type) {
+	case *Place:
+		a.Place = f
+	case *Transition:
+		a.Transition = f
+	}
+	switch t := to.(type) {
+	case *Place:
+		a.Place = t
+	case *Transition:
+		a.Transition = t
+	}
+	return a
 }
 
 func (a *Arc) Identifier() string {

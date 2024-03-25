@@ -1,6 +1,6 @@
 petri: v1
 protocol: amqp
-net: light_switch_logger.yaml
+net: light_switch_log.yaml
 
 remotes:
   light: amqp://guest:guest@localhost:5672

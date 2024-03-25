@@ -80,7 +80,6 @@ func (b *Builder) service(f string) petrifile.Service {
 		return srv
 	}
 	return nil
-
 }
 
 func (b *Builder) Build(ctx context.Context, f string) (*petri.Net, error) {
@@ -108,22 +107,6 @@ func (b *Builder) Build(ctx context.Context, f string) (*petri.Net, error) {
 				_, seen := b.seen[f]
 				if !seen {
 					b.seen[f] = n
-				}
-				if n.Nets != nil {
-					newNets := make([]*petri.Net, len(n.Nets))
-					for i, net := range n.Nets {
-						if subnet, seen := b.seen[net.Name]; seen {
-							newNets[i] = subnet
-						} else {
-							newNet, err := b.Build(ctx, net.Name)
-							if err != nil {
-								return nil, err
-							}
-							b.seen[net.Name] = newNet
-							newNets[i] = newNet
-						}
-					}
-					n.Nets = newNets
 				}
 				return n, nil
 			}

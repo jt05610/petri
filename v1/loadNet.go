@@ -32,22 +32,10 @@ func LoadNet(fName string) *petri.Net {
 
 type registerFunc[T any] func(registrar grpc.ServiceRegistrar, srv T)
 
-type Listener interface {
-	Listen(ctx context.Context) error
-}
-
-func Serve[T Listener](ctx context.Context, host string, n *petri.Net, srv T, reg registerFunc[T]) error {
+func Serve[T any](ctx context.Context, host string, n *petri.Net, srv T, reg registerFunc[T]) error {
 	ctx, can := context.WithCancel(context.Background())
 	defer can()
-	go func() {
-		err := srv.Listen(ctx)
-		if err != nil {
-			panic(err)
-		}
-	}()
-
 	server := grpc.NewServer()
-
 	reg(server, srv)
 	lis, err := net.Listen("tcp", host)
 	if err != nil {

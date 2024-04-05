@@ -2,9 +2,12 @@ package petri
 
 import (
 	"context"
+	"fmt"
 	"github.com/jt05610/petri"
 	"github.com/jt05610/petri/builder"
 	"github.com/jt05610/petri/petrifile/v1/yaml"
+	"google.golang.org/grpc"
+	"net"
 	"os"
 	"path/filepath"
 )
@@ -25,4 +28,31 @@ func LoadNet(fName string) *petri.Net {
 		panic(err)
 	}
 	return net
+}
+
+type registerFunc[T any] func(registrar grpc.ServiceRegistrar, srv T)
+
+type Listener interface {
+	Listen(ctx context.Context) error
+}
+
+func Serve[T Listener](ctx context.Context, host string, n *petri.Net, srv T, reg registerFunc[T]) error {
+	ctx, can := context.WithCancel(context.Background())
+	defer can()
+	go func() {
+		err := srv.Listen(ctx)
+		if err != nil {
+			panic(err)
+		}
+	}()
+
+	server := grpc.NewServer()
+
+	reg(server, srv)
+	lis, err := net.Listen("tcp", host)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("{\"%s\": \"%s\"}", n.Name, lis.Addr().String())
+	return server.Serve(lis)
 }

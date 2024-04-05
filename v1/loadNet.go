@@ -23,11 +23,11 @@ func LoadNet(fName string) *petri.Net {
 		panic(err)
 	}
 
-	net, err := r.Load(context.Background(), f)
+	n, err := r.Load(context.Background(), f)
 	if err != nil {
 		panic(err)
 	}
-	return net
+	return n
 }
 
 type registerFunc[T any] func(registrar grpc.ServiceRegistrar, srv T)
@@ -41,6 +41,6 @@ func Serve[T any](ctx context.Context, host string, n *petri.Net, srv T, reg reg
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("{\"%s\": \"%s\"}", n.Name, lis.Addr().String())
+	fmt.Printf("{\"%s\": \"%s\"}\n", n.Name, lis.Addr().String())
 	return server.Serve(lis)
 }

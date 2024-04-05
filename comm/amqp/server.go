@@ -23,7 +23,7 @@ type Queue struct {
 	PlaceID  string
 	ctx      context.Context
 	cancel   func()
-	ch       chan<- struct{}
+	ch       chan<- Update
 	deferral func()
 }
 
@@ -32,7 +32,7 @@ type MarkingUpdate struct {
 	Tokens  []petri.Token
 }
 
-func NewQueue(placeID string, q petri.TokenQueue, deferral func(), signal chan<- struct{}) *Queue {
+func NewQueue(placeID string, q petri.TokenQueue, deferral func(), signal chan<- Update) *Queue {
 	return &Queue{
 		TokenQueue: q,
 		ch:         signal,
@@ -42,8 +42,13 @@ func NewQueue(placeID string, q petri.TokenQueue, deferral func(), signal chan<-
 }
 
 func (q *Queue) Close() {
-	q.cancel()
-	q.deferral()
+	q.TokenQueue.Close()
+	if q.cancel != nil {
+		q.cancel()
+	}
+	if q.deferral != nil {
+		q.deferral()
+	}
 }
 
 type RPC struct {
@@ -52,18 +57,77 @@ type RPC struct {
 
 type Bindings map[string]HandlerFunc
 
+type Update struct {
+	PlaceID string
+	Tokens  []petri.Token
+}
+
 type Router struct {
-	petri.Marking
-	mu sync.Mutex
+	marking petri.Marking
+	mu      sync.Mutex
 	Bindings
 	*petri.Net
 	*amqp.Channel
-	Exchange string
-	Name     string
-	Timeout  time.Duration
-	ch       chan struct{}
-	ctx      context.Context
-	cancel   func()
+	Exchange    string
+	Name        string
+	q           amqp.Queue
+	Timeout     time.Duration
+	ch          chan Update
+	ctx         context.Context
+	conn        *amqp.Connection
+	connections map[string]*amqp.Connection
+	cancel      func()
+	queues      map[string]*Queue
+}
+
+func SameBytes(b1, b2 []byte) bool {
+	if len(b1) != len(b2) {
+		return false
+	}
+	for i, b := range b1 {
+		if b != b2[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func SameMarking(m1, m2 map[string][]petri.Token) bool {
+	if len(m1) != len(m2) {
+		return false
+	}
+	for k, v := range m1 {
+		if len(v) != len(m2[k]) {
+			return false
+		}
+		for i, t := range v {
+			if !SameBytes(t.Bytes(), m2[k][i].Bytes()) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func (r *Router) State() petri.Marking {
+	slog.Info("trying for lock")
+	r.mu.Lock()
+	slog.Info("locking state")
+	defer func() {
+		r.mu.Unlock()
+		slog.Info("freeing state")
+	}()
+	return r.marking
+}
+
+func (r *Router) Close() {
+	for _, conn := range r.connections {
+		err := conn.Close()
+		if err != nil {
+			slog.Error("error closing amqp connection", slog.Any("message", err))
+		}
+	}
+	r.cancel()
 }
 
 func (r *Router) Handle(ctx context.Context, m amqp.Delivery) {
@@ -83,44 +147,116 @@ func (r *Router) Bind() error {
 		if err != nil {
 			return err
 		}
+		slog.Info("bound route", slog.String("route", route), slog.String("routing_key", fmt.Sprintf("%s.%s", r.Exchange, route)))
 	}
 	return nil
 }
 
-func NewRouter(ch *amqp.Channel, initial petri.Marking, name, exchange string) (*Router, error) {
+func (r *Router) bindEvent(name string, tr *petri.Transition) error {
+	pl := petri.NewPlace(name, 1, tr.EventSchema)
+	pl.ID = name
+	r.Net = r.Net.WithPlaces(pl)
+	r.Net = r.Net.WithArcs(petri.NewArc(pl, tr, tr.EventSchema.Name, tr.EventSchema))
+	return nil
+}
+
+func NewRouter(n *petri.Net, q amqp.Queue, conn *amqp.Connection, initial petri.Marking, name, exchange string) (*Router, error) {
+	ch, err := conn.Channel()
+	if err != nil {
+		return nil, err
+	}
 	r := &Router{
-		Channel:  ch,
-		Exchange: exchange,
-		Name:     name,
-		Marking:  initial,
+		Channel:     ch,
+		Exchange:    exchange,
+		Name:        name,
+		marking:     initial,
+		ch:          make(chan Update, 100),
+		Net:         n,
+		q:           q,
+		conn:        conn,
+		connections: make(map[string]*amqp.Connection),
+		queues:      make(map[string]*Queue),
 	}
 	r.Bindings = r.MakeBindings()
+	for tn, t := range n.Transitions {
+		if !t.Cold {
+			continue
+		}
+		err := r.bindEvent(tn, t)
+		if err != nil {
+			return nil, err
+		}
+	}
+	err = r.ExposePlaces(r.Net)
+	if err != nil {
+		return nil, err
+	}
+	r.InitializeMarking()
 	return r, nil
 }
 
 func (r *Router) Mark(marking petri.Marking) {
 	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.Marking = marking
+	slog.Info("locking marking", slog.Any("new marking", marking))
+	defer func() {
+		r.mu.Unlock()
+		slog.Info("freeing marking", slog.Any("new marking", marking))
+	}()
+	r.marking = marking
+}
+
+func (r *Router) InitializeMarking() {
+	mark := r.Net.NewMarking()
+	for id, q := range r.State() {
+		for _, tok := range q {
+			err := mark[id].Enqueue(r.ctx, tok)
+			if err != nil {
+				slog.Error("error enqueuing token", slog.Any("message", err))
+			}
+		}
+	}
+	r.Mark(mark.Mark())
+	slog.Info("initialized marking", slog.Any("marking", r.State()))
 }
 
 func (r *Router) Listen(ctx context.Context) error {
 	r.ctx, r.cancel = context.WithCancel(ctx)
-	r.ch = make(chan struct{})
-	var err error
+	defer r.cancel()
+	defer close(r.ch)
+	for _, q := range r.queues {
+		go func(q *Queue) {
+			defer q.Close()
+			msgs := q.Monitor(ctx)
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case tt := <-msgs:
+					slog.Info("queue updated", slog.String("place", q.PlaceID))
+					r.ch <- Update{
+						PlaceID: q.PlaceID,
+						Tokens:  tt,
+					}
+				}
+			}
+		}(q)
+	}
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
-		case <-r.ch:
-			r.mu.Lock()
-			r.Marking, err = r.Net.Process(r.Marking)
+		case update := <-r.ch:
+			slog.Info("marking updated", slog.Any("update", update))
+			state := r.State()
+			state[update.PlaceID] = update.Tokens
+			slog.Info("state", slog.Any("state", state))
+			updated, err := r.Net.Process(state)
 			if err != nil {
 				if !errors.Is(petri.ErrNoEvents, err) {
 					slog.Error("error processing marking", slog.Any("message", err))
 				}
 			}
-			r.mu.Unlock()
+			r.Mark(updated)
 		}
 	}
 }
@@ -214,6 +350,7 @@ const (
 	ToPlace ArcDirection = iota
 	FromPlace
 	ToAndFromPlace
+	None
 )
 
 // ConnectRequest is a request to connect a transition to a place on another petri net.
@@ -240,6 +377,16 @@ var DisconnectCodec = RPCCodec[DisconnectRequest, Response]{
 	Response: JSONCodec[Response]{},
 }
 
+var PutCodec = RPCCodec[PutRequest, Response]{
+	Request:  JSONCodec[PutRequest]{},
+	Response: JSONCodec[Response]{},
+}
+
+var PopCodec = RPCCodec[PopRequest, PopResponse]{
+	Request:  JSONCodec[PopRequest]{},
+	Response: JSONCodec[PopResponse]{},
+}
+
 // DisconnectRequest is a request to disconnect a transition from a place on another petri net.
 type DisconnectRequest struct {
 	Url       string
@@ -247,10 +394,8 @@ type DisconnectRequest struct {
 	PlaceName string
 }
 
-// handleConnect connects a transition to a place on another petri net using an amqp.Remote queue. It begins monitoring the queue for changes in the marking of the place.
-func (r *Router) handleConnect(_ context.Context, request *ConnectRequest) (*Response, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
+// HandleConnect connects a transition to a place on another petri net using an amqp.Remote queue. It begins monitoring the queue for changes in the marking of the place.
+func (r *Router) HandleConnect(_ context.Context, request *ConnectRequest) (*Response, error) {
 	tr := r.Transition(request.TransitionName)
 	if tr == nil {
 		transitions := make([]string, 0, len(r.Transitions))
@@ -262,22 +407,13 @@ func (r *Router) handleConnect(_ context.Context, request *ConnectRequest) (*Res
 			Error: fmt.Sprintf("no transition named %s. Options are %v", request.TransitionName, transitions),
 		}, nil
 	}
-	// need to make a new place for supplying the transition's desired event schema and arc for the petri net
-	pl := petri.NewPlace(request.PlaceName, 1, tr.EventSchema)
-	pl.ID = request.PlaceName
-	r.Net = r.Net.WithPlaces(pl)
-	switch request.Direction {
-	case ToPlace:
-		r.Net = r.WithArcs(petri.NewArc(tr, pl, request.Expression, tr.EventSchema))
-	case FromPlace:
-		r.Net = r.WithArcs(petri.NewArc(pl, tr, request.Expression, tr.EventSchema))
-	case ToAndFromPlace:
-		r.Net = r.WithArcs(
-			petri.NewArc(pl, tr, request.Expression, tr.EventSchema),
-			petri.NewArc(tr, pl, request.Expression, tr.EventSchema),
-		)
+	pl := r.Place(request.PlaceName)
+	if pl == nil {
+		return &Response{
+			Ok:    false,
+			Error: "no place found",
+		}, nil
 	}
-
 	// now we need to connect to the remote place on the other petri net
 	conn, err := amqp.Dial(request.Url)
 	if err != nil {
@@ -286,46 +422,29 @@ func (r *Router) handleConnect(_ context.Context, request *ConnectRequest) (*Res
 			Error: err.Error(),
 		}, nil
 	}
-	ch, err := conn.Channel()
-	if err != nil {
-		return &Response{
-			Ok:    false,
-			Error: err.Error(),
-		}, nil
-	}
-	q := queue.NewRemote(request.Exchange, ch, pl)
-	if current, ok := r.Marking[pl.ID]; ok {
-		current.Close()
-	}
+	r.connections[request.Url] = conn
+	q := queue.NewRemote(request.Exchange, conn, pl)
 	d := func() {
 		err := conn.Close()
 		if err != nil {
 			slog.Error("error closing amqp connection", slog.Any("message", err))
 		}
-		err = ch.Close()
-		if err != nil {
-			slog.Error("error closing amqp channel", slog.Any("message", err))
-		}
 	}
 	rem := NewQueue(pl.ID, q, d, r.ch)
-	r.Marking[pl.ID] = rem
-	go func() {
-		err := rem.Listen(r.ctx)
-		if err != nil {
-			slog.Error("error listening", slog.Any("message", err))
-		}
-	}()
+	r.queues[pl.ID] = rem
+	if r.ctx == nil {
+		return &Response{
+			Ok: true,
+		}, nil
+	}
 	return &Response{
 		Ok: true,
 	}, nil
 }
 
-// handleDisconnect disconnects a transition from a place on another petri net. It stops monitoring the queue for
+// HandleDisconnect disconnects a transition from a place on another petri net. It stops monitoring the queue for
 // changes in the marking of the place, and closes any connections that were made in connecting to the place.
-func (r *Router) handleDisconnect(_ context.Context, request *DisconnectRequest) (*Response, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
+func (r *Router) HandleDisconnect(_ context.Context, request *DisconnectRequest) (*Response, error) {
 	pl := r.Place(request.PlaceName)
 	if pl == nil {
 		return &Response{
@@ -333,16 +452,15 @@ func (r *Router) handleDisconnect(_ context.Context, request *DisconnectRequest)
 			Error: "no place found",
 		}, nil
 	}
-
-	q := r.Marking[request.PlaceName]
+	state := r.State()
+	q := state[request.PlaceName]
 	if q == nil {
 		return &Response{
 			Ok:    false,
 			Error: "no queue found",
 		}, nil
 	}
-	q.Close()
-	delete(r.Marking, request.PlaceName)
+	delete(state, request.PlaceName)
 	for _, input := range r.Inputs(pl) {
 		r.Net = r.Net.WithoutArc(input)
 	}
@@ -350,34 +468,74 @@ func (r *Router) handleDisconnect(_ context.Context, request *DisconnectRequest)
 		r.Net = r.Net.WithoutArc(output)
 	}
 	r.Net = r.Net.WithoutPlace(pl)
-	delete(r.Marking, pl.ID)
+	delete(state, pl.ID)
+	r.Mark(state)
 	return &Response{
 		Ok: true,
 	}, nil
 }
 
-func (r *Router) MakeBindings() Bindings {
-	return Bindings{
-		"connect":    NewHandler(r.Net.Name, ConnectCodec, r.handleConnect),
-		"disconnect": NewHandler(r.Net.Name, DisconnectCodec, r.handleDisconnect),
+func (r *Router) handlePut(ctx context.Context, request *PutRequest) (*Response, error) {
+	pl := r.Place(request.Place)
+	if pl == nil {
+		return &Response{
+			Ok:    false,
+			Error: "no place found",
+		}, nil
 	}
+	q := pl.TokenQueue
+	if q == nil {
+		return &Response{
+			Ok:    false,
+			Error: "no queue found",
+		}, nil
+	}
+	schema := pl.AcceptedTokens[0]
+	tok, err := schema.NewToken(request.Token)
+	if err != nil {
+		return &Response{
+			Ok:    false,
+			Error: err.Error(),
+		}, nil
+	}
+	err = q.Enqueue(ctx, tok)
+	if err != nil {
+		return &Response{
+			Ok:    false,
+			Error: err.Error(),
+		}, nil
+	}
+	return &Response{
+		Ok: true,
+	}, nil
 }
 
-func (q *Queue) Listen(ctx context.Context) error {
-	q.ctx, q.cancel = context.WithCancel(ctx)
-	go func() {
-		defer q.TokenQueue.Close()
-		ch := q.Monitor(q.ctx)
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-ch:
-				q.ch <- struct{}{}
-			}
-		}
-	}()
-	return nil
+func (r *Router) handlePop(ctx context.Context, request *PopRequest) (*PopResponse, error) {
+	pl := r.Place(request.Place)
+	if pl == nil {
+		return nil, fmt.Errorf("no place named %s", request.Place)
+	}
+	q := pl.TokenQueue
+	if q == nil {
+		return nil, fmt.Errorf("no queue found")
+	}
+	t, err := q.Dequeue(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &PopResponse{
+		Place: request.Place,
+		Token: t,
+	}, nil
+}
+
+func (r *Router) MakeBindings() Bindings {
+	return Bindings{
+		"connect":    NewHandler(r.Net.Name, ConnectCodec, r.HandleConnect),
+		"disconnect": NewHandler(r.Net.Name, DisconnectCodec, r.HandleDisconnect),
+		"put":        NewHandler(r.Net.Name, PutCodec, r.handlePut),
+		"pop":        NewHandler(r.Net.Name, PopCodec, r.handlePop),
+	}
 }
 
 type Server struct {
@@ -389,6 +547,7 @@ type Server struct {
 	mu       sync.Mutex
 	Timeout  time.Duration
 	ch       *amqp.Channel
+	q        amqp.Queue
 }
 
 func (s *Server) Close() {
@@ -398,27 +557,38 @@ func (s *Server) Close() {
 	}
 }
 
-func (s *Server) createEventQueue(t *petri.Transition) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	schema := t.EventSchema
-	pl := petri.NewPlace(t.Name, 1, schema)
-	pl.ID = t.ID
-	pl.IsEvent = true
-	arc := petri.NewArc(pl, t, schema.Name, schema)
-	s.Net = s.Net.WithPlaces(pl).WithArcs(arc)
-	q := queue.NewLocal(s.Net.Name, s.ch, pl)
-	s.Router.Marking[pl.ID] = q
+func (r *Router) ExposePlaces(n *petri.Net) error {
+	for k, pl := range n.Places {
+		slog.Info("exposing place", slog.String("name", k), slog.String("exchange", r.Net.Name))
+		local := queue.NewLocal(r.Net.Name, r.conn, pl)
+		r.queues[pl.ID] = NewQueue(pl.ID, local, func() {
+		}, r.ch)
+		pl.TokenQueue = r.queues[pl.ID].TokenQueue
+	}
+	return nil
 }
 
-func (s *Server) makeEventQueues() {
-	for tn, t := range s.Transitions {
-		if !t.Cold || !s.Owns(t) {
-			continue
+func (r *Router) ConnectPlaces(n *petri.Net, url string) error {
+	for k, pl := range n.Places {
+		slog.Info("connecting remote place", slog.String("name", k), slog.String("exchange", n.Name), slog.String("url", url))
+		_, found := r.queues[pl.ID]
+		if found {
+			r.queues[pl.ID].Close()
 		}
-		slog.Info("creating queue", slog.String("name", tn), slog.String("type", "event"))
-		s.createEventQueue(t)
+		conn, err := amqp.Dial(url)
+		if err != nil {
+			return err
+		}
+		r.queues[pl.ID] = NewQueue(k, queue.NewRemote(k, conn, pl), func() {
+			err := conn.Close()
+			if err != nil {
+				slog.Error("error closing amqp connection", slog.Any("message", err))
+			}
+		}, r.ch)
+		r.connections[url] = conn
+		pl.TokenQueue = r.queues[pl.ID].TokenQueue
 	}
+	return nil
 }
 
 func NewServer(conn *amqp.Connection, n *petri.Net, initial petri.Marking) *Server {
@@ -426,7 +596,7 @@ func NewServer(conn *amqp.Connection, n *petri.Net, initial petri.Marking) *Serv
 	if err != nil {
 		panic(err)
 	}
-	err = ch.ExchangeDeclare(n.Name, "topic", false, false, false, false, nil)
+	err = ch.ExchangeDeclare(n.Name, "topic", true, false, false, false, nil)
 	if err != nil {
 		panic(err)
 	}
@@ -438,14 +608,30 @@ func NewServer(conn *amqp.Connection, n *petri.Net, initial petri.Marking) *Serv
 	if err != nil {
 		panic(err)
 	}
-	srv := &Server{
+	q, err := ch.QueueDeclare("", false, false, true, false, nil)
+	if err != nil {
+		panic(err)
+	}
+	s := &Server{
 		Net:     n,
 		conn:    conn,
 		initial: initial,
 		ch:      ch,
+		q:       q,
 		Timeout: 30 * time.Second,
 	}
-	return srv
+
+	s.Router, err = NewRouter(s.Net, q, s.conn, s.initial, q.Name, s.Net.Name)
+	if err != nil {
+		panic(err)
+	}
+	s.Router.Net = s.Net
+	s.Router.Timeout = s.Timeout
+	err = s.Router.Bind()
+	if err != nil {
+		panic(err)
+	}
+	return s
 }
 
 type Handlers map[string]petri.Handler
@@ -478,28 +664,28 @@ func (s *Server) WithTimeout(t time.Duration) *Server {
 }
 
 func (s *Server) Serve(ctx context.Context) error {
-	var err error
 	defer func() {
 		err := s.ch.Close()
 		if err != nil {
 			slog.Error("error closing amqp channel", slog.Any("message", err))
 		}
 	}()
-	q, err := s.ch.QueueDeclare("", false, false, true, false, nil)
+	for _, q := range s.queues {
+		switch pub := q.TokenQueue.(type) {
+		case *queue.Public:
+			go func(pub *queue.Public) {
+				slog.Info("serving public queue", slog.String("name", pub.Name))
+				err := pub.Serve(ctx)
+				if err != nil {
+					slog.Error("error serving public queue", slog.Any("message", err))
+				}
+			}(pub)
+		}
+	}
+	messages, err := s.ch.Consume(s.q.Name, "", false, false, false, false, nil)
 	if err != nil {
 		return err
 	}
-	s.Router, err = NewRouter(s.ch, s.initial, q.Name, s.Net.Name)
-	if err != nil {
-		return err
-	}
-	s.Router.Net = s.Net
-	s.Router.Timeout = s.Timeout
-	err = s.Router.Bind()
-	if err != nil {
-		return err
-	}
-	messages, err := s.ch.Consume(q.Name, "", false, false, false, false, nil)
 	go func() {
 		err := s.Router.Listen(ctx)
 		if err != nil {
@@ -511,9 +697,10 @@ func (s *Server) Serve(ctx context.Context) error {
 		case <-ctx.Done():
 			return nil
 		case msg := <-messages:
-			slog.Debug("handling message", slog.String("routing_key", msg.RoutingKey), slog.String("exchange", msg.Exchange))
+			slog.Info("handling message", slog.String("routing_key", msg.RoutingKey), slog.String("exchange", msg.Exchange))
 			go func() {
 				s.Router.Handle(ctx, msg)
+				slog.Info("handled message", slog.String("routing_key", msg.RoutingKey), slog.String("exchange", msg.Exchange))
 			}()
 		}
 	}

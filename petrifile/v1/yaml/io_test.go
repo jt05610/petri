@@ -3,7 +3,6 @@ package yaml_test
 import (
 	"context"
 	"fmt"
-	"github.com/jt05610/petri"
 	"github.com/jt05610/petri/builder"
 	"github.com/jt05610/petri/examples"
 	"github.com/jt05610/petri/petrifile/v1/yaml"
@@ -91,11 +90,6 @@ func TestService_Read(t *testing.T) {
 
 		fmt.Println(m)
 
-		m, err = n.Process(m, petri.Event[any]{
-			Name: "",
-			Data: struct{}{},
-		})
-
 		if err != nil {
 			t.Error(err)
 		}
@@ -155,20 +149,11 @@ func TestService_Read(t *testing.T) {
 
 		fmt.Println(m)
 
-		m, err = n.Process(m, petri.Event[any]{
-			Name: "switch.turnOn",
-		})
-
 		if err != nil {
 			t.Error(err)
 		}
 
 		fmt.Println(m)
-
-		m, err = n.Process(m, petri.Event[any]{
-			Name: "switch.turnOff",
-		})
-
 		if err != nil {
 			t.Error(err)
 		}

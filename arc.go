@@ -58,15 +58,24 @@ func AnyBytes(v any) []byte {
 	return nil
 }
 
-func (a *Arc) TakeToken(m Marking) (Token, error) {
+func (a *Arc) TakeToken() (Token, error) {
 	if a.Expression != "" {
 		program, err := expr.Compile(a.Expression)
 		if err != nil {
 			return Token{}, err
 		}
 		if a.Src.Kind() == PlaceObject {
-			tokenMap := m.TokenMap(a.Src.(*Place))
-			valueMap := ToValueMap(tokenMap)
+			ctx, can := context.WithTimeout(context.Background(), DequeueTimeout)
+			defer can()
+			pl := a.Place
+			tok, err := pl.TokenQueue.Dequeue(ctx)
+			if err != nil {
+				return Token{}, err
+			}
+			tokMap := map[string]Token{
+				tok.Schema.Name: tok,
+			}
+			valueMap := ToValueMap(tokMap)
 			ret, err := expr.Run(program, valueMap)
 			if err != nil {
 				return Token{}, err
@@ -77,7 +86,8 @@ func (a *Arc) TakeToken(m Marking) (Token, error) {
 	if a.Src.Kind() == PlaceObject {
 		ctx, can := context.WithTimeout(context.Background(), DequeueTimeout)
 		defer can()
-		tok, err := m[a.Src.(*Place).ID].Dequeue(ctx)
+		pl := a.Place
+		tok, err := pl.TokenQueue.Dequeue(ctx)
 		if err != nil {
 			return Token{}, err
 		}
@@ -87,13 +97,15 @@ func (a *Arc) TakeToken(m Marking) (Token, error) {
 	return Token{}, errors.New("arc source is not a place")
 }
 
-func (a *Arc) PlaceToken(m Marking, tokenIndex map[string]Token) error {
+func (a *Arc) PlaceToken(tokenIndex map[string]Token) error {
 	if a.Expression != "" {
 		program, err := expr.Compile(a.Expression)
 		if err != nil {
 			return err
 		}
 		if a.Dest.Kind() == PlaceObject {
+			ctx, can := context.WithTimeout(context.Background(), DequeueTimeout)
+			defer can()
 			valueIndex := ToValueMap(tokenIndex)
 			ret, err := expr.Run(program, valueIndex)
 			if err != nil {
@@ -103,7 +115,7 @@ func (a *Arc) PlaceToken(m Marking, tokenIndex map[string]Token) error {
 			if err != nil {
 				return err
 			}
-			err = m.PlaceTokens(a.Dest.(*Place), token)
+			err = a.Place.TokenQueue.Enqueue(ctx, token)
 			if err != nil {
 				return err
 			}
@@ -111,11 +123,13 @@ func (a *Arc) PlaceToken(m Marking, tokenIndex map[string]Token) error {
 		}
 	}
 	if a.Dest.Kind() == PlaceObject {
-		token, err := a.OutputSchema.NewToken(nil)
-		if err != nil {
-			return err
+		ctx, can := context.WithTimeout(context.Background(), DequeueTimeout)
+		defer can()
+		token, ok := tokenIndex[a.OutputSchema.Name]
+		if !ok {
+			return errors.New("token not found")
 		}
-		err = m.PlaceTokens(a.Dest.(*Place), token)
+		err := a.Place.TokenQueue.Enqueue(ctx, token)
 		if err != nil {
 			return err
 		}

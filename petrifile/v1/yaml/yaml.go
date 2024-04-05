@@ -11,8 +11,6 @@ import (
 	"os"
 )
 
-var _ pf.Service = (*Service)(nil)
-
 type Service struct {
 	bld *builder.Builder
 }
@@ -54,4 +52,21 @@ func (s *Service) Version() pf.Version {
 
 func NewService(b *builder.Builder) pf.Service {
 	return &Service{bld: b}
+}
+
+func Load(rdr io.Reader) *petri.Net {
+	srv := &Service{}
+	net, err := srv.Load(context.Background(), rdr)
+	if err != nil {
+		panic(err)
+	}
+	return net
+}
+
+func LoadFile(f string) *petri.Net {
+	file, err := os.Open(f)
+	if err != nil {
+		panic(err)
+	}
+	return Load(file)
 }

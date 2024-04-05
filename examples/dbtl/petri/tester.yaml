@@ -1,0 +1,53 @@
+petri: v1
+version: 0.1
+name: tester
+
+imports:
+  - model
+
+places:
+  idle: signal
+  product: model.Product
+  recipe: model.Preparation
+  prepared: model.PreparedSample
+  recipeInput: model.Preparation
+  prepareInstrumentInput: model.Product
+  readyForTest: signal
+  testing: model.PreparedSample
+  result: model.Result
+
+transitions:
+  prepareInstrument:
+    inputs:
+      - prepareInstrumentInput
+      - idle
+    outputs:
+      - readyForTest
+
+  loadRecipe:
+    inputs:
+      - recipeInput
+    outputs:
+      - recipe
+
+  prepareSample:
+    inputs:
+      - recipe
+      - readyForTest
+      - product
+    outputs:
+      - prepared
+      - recipe
+
+  test:
+    inputs:
+      - prepared
+    outputs:
+      - testing
+
+  complete:
+    inputs:
+      - testing
+    outputs:
+      - idle
+      - result

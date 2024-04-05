@@ -2,7 +2,6 @@ package amqp
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"github.com/jt05610/petri"
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -12,6 +11,23 @@ import (
 type Codecs struct {
 	Connect    RPCCodec[ConnectRequest, Response]
 	Disconnect RPCCodec[DisconnectRequest, Response]
+	Put        RPCCodec[PutRequest, Response]
+	Pop        RPCCodec[PopRequest, PopResponse]
+}
+
+type PutRequest struct {
+	Place string
+	Token []byte
+}
+
+type PopRequest struct {
+	Place string
+}
+
+type PopResponse struct {
+	Place string
+	Token petri.Token
+	*Response
 }
 
 type Client struct {
@@ -45,6 +61,8 @@ func NewClient(conn *amqp.Connection, exchange string, timeout time.Duration) (*
 		codecs: Codecs{
 			Connect:    ConnectCodec,
 			Disconnect: DisconnectCodec,
+			Put:        PutCodec,
+			Pop:        PopCodec,
 		},
 		Queue:    q,
 		timeout:  timeout,
@@ -53,17 +71,16 @@ func NewClient(conn *amqp.Connection, exchange string, timeout time.Duration) (*
 	}, nil
 }
 
-func (c *Client) listen(ctx context.Context) <-chan Response {
-
-	out := make(chan Response)
+func listen[T any](ctx context.Context, c *Client, codec Codec[T]) <-chan T {
+	out := make(chan T)
 	go func() {
 		for {
 			select {
 			case <-ctx.Done():
 				return
 			case m := <-c.msgs:
-				var response Response
-				err := c.codecs.Disconnect.Response.Unmarshal(m.Body, &response)
+				var response T
+				err := codec.Unmarshal(m.Body, &response)
 				if err != nil {
 					panic(err)
 				}
@@ -82,21 +99,45 @@ func (c *Client) Close() {
 }
 
 func (c *Client) Connect(ctx context.Context, request *ConnectRequest) error {
-	return roundTrip(ctx, c, c.codecs.Connect.Request, "connect", request)
+	_, err := roundTrip(ctx, c, c.codecs.Connect, "connect", request)
+	return err
 }
 
 func (c *Client) Disconnect(ctx context.Context, request *DisconnectRequest) error {
-	return roundTrip(ctx, c, c.codecs.Disconnect.Request, "disconnect", request)
+	_, err := roundTrip(ctx, c, c.codecs.Disconnect, "disconnect", request)
+	return err
 }
 
-func roundTrip[T any](ctx context.Context, c *Client, codec Codec[T], path string, req *T) error {
+func (c *Client) Put(ctx context.Context, request *PutRequest) error {
+	res, err := roundTrip(ctx, c, c.codecs.Put, "put", request)
+	if err != nil {
+		return err
+	}
+	if res.Error != "" {
+		return fmt.Errorf(res.Error)
+	}
+	return nil
+}
+
+func (c *Client) Pop(ctx context.Context, request *PopRequest) (*PopResponse, error) {
+	res, err := roundTrip(ctx, c, c.codecs.Pop, "pop", request)
+	if err != nil {
+		return nil, err
+	}
+	if res.Error != "" {
+		return nil, fmt.Errorf(res.Error)
+	}
+	return res, nil
+}
+
+func roundTrip[T, U any](ctx context.Context, c *Client, codec RPCCodec[T, U], path string, req *T) (*U, error) {
 	var err error
 	ctx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
-	resp := c.listen(ctx)
-	b, err := codec.Marshal(req)
+	resp := listen(ctx, c, codec.Response)
+	b, err := codec.Request.Marshal(req)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	fmt.Printf("publishing to exchange %s with routing key %s\n", c.Exchange, path)
 	err = c.ch.PublishWithContext(ctx, c.Exchange, path, false, false, amqp.Publishing{
@@ -105,12 +146,13 @@ func roundTrip[T any](ctx context.Context, c *Client, codec Codec[T], path strin
 		ReplyTo:       c.Name,
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 	select {
 	case <-ctx.Done():
-		return ctx.Err()
+		return nil, ctx.Err()
+
 	case r := <-resp:
-		return errors.New(r.Error)
+		return &r, nil
 	}
 }

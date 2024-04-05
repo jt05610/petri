@@ -1,0 +1,71 @@
+petri: v1
+version: 0.1
+name: model
+
+types:
+  Quantity:
+    value: float
+    unit: string
+
+  Sample:
+    name: string
+    values: "[]Quantity"
+    fields: "[]string"
+
+  Product:
+    id: string
+    sample: Sample
+    amount: Quantity
+    location: string
+
+  Measurement:
+    method: string
+    product: Product
+    value: Quantity
+
+  Result:
+    measurements: "[]Measurement"
+
+  Datum:
+    product: Product
+    measurements: "[]Measurement"
+
+  Axis:
+    name: string
+    levels: "[]Quantity"
+
+  Store:
+    data: "[]Datum"
+
+  DesignSpace:
+    name: string
+    axes: "[]Axis"
+
+  Design:
+    levels: "[]int"
+
+  SampleSet:
+    samples: "[]Sample"
+
+  Model:
+    model: string
+    parameters: "[]Quantity"
+    fields: "[]string"
+
+  Reagent:
+    name: string
+    amount: Quantity
+    location: string
+
+  DispensedReagent:
+    reagent: Reagent
+    amount: Quantity
+
+  PreparedSample:
+    product: Product
+    preparation: Preparation
+    location: string
+
+  Preparation:
+    productAmount: Quantity
+    reagents: "[]DispensedReagent"

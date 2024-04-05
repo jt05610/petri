@@ -7,8 +7,10 @@ import (
 	"github.com/jt05610/petri"
 	"github.com/jt05610/petri/comm/amqp"
 	"github.com/rabbitmq/amqp091-go"
+	"google.golang.org/grpc"
 	"io"
 	"log/slog"
+	"strings"
 )
 
 type Device struct {
@@ -29,7 +31,111 @@ func (d *Device) WithHandlers(handlers amqp.Handlers) *Device {
 	return d
 }
 
-func (d *Device) Connect(url string) error {
+type ConnectionKind int
+
+const (
+	RemotePlaceLocalTransition ConnectionKind = iota
+	LocalPlaceRemoteTransition
+	RemotePlaceRemoteTransition
+	LocalPlaceLocalTransition
+)
+
+type RemoteConnection struct {
+	Kind ConnectionKind
+	amqp.ArcDirection
+	Exchange string
+	Addr     string
+}
+
+func linksNets(a *petri.Arc) bool {
+	sourceNet := strings.Split(a.Src.Identifier(), ".")[0]
+	destNet := strings.Split(a.Dest.Identifier(), ".")[0]
+	return sourceNet != destNet
+}
+
+func (d *Device) remoteConnections() ([]*RemoteConnection, error) {
+	ret := make([]*RemoteConnection, 0)
+	for exchange, addr := range d.Remotes {
+		subNet := d.Subnet(exchange)
+		if subNet == nil {
+			return nil, errors.New("no subnet")
+		}
+		for _, arc := range d.SubnetArcs(exchange) {
+			if !linksNets(arc) {
+				continue
+			}
+			c := &RemoteConnection{
+				Exchange: exchange,
+				Addr:     addr,
+				Kind:     d.describeArc(arc),
+			}
+			fmt.Printf("connecting arc: %v = %v\n", arc, c)
+			ret = append(ret, c)
+		}
+	}
+	return ret, nil
+}
+
+func (d *Device) isRemote(n petri.Node) bool {
+	pl := d.Place(n.Identifier())
+	if pl == nil {
+		return false
+	}
+	split := strings.Split(pl.ID, ".")
+	if len(split) == 1 {
+		return false
+	}
+	netName := split[0]
+	_, found := d.Remotes[netName]
+	return found
+}
+
+func (d *Device) describeArc(a *petri.Arc) ConnectionKind {
+	if d.isRemote(a.Src) {
+		if d.isRemote(a.Dest) {
+			return RemotePlaceRemoteTransition
+		}
+		return RemotePlaceLocalTransition
+	}
+	if d.isRemote(a.Dest) {
+		return LocalPlaceRemoteTransition
+	}
+	return LocalPlaceLocalTransition
+}
+
+func (d *Device) arcDirection(pl *petri.Place, tr *petri.Transition) amqp.ArcDirection {
+	placeToTrans := d.Net.Arc(pl, tr)
+	transToPlace := d.Net.Arc(tr, pl)
+	if placeToTrans != nil && transToPlace != nil {
+		return amqp.ToAndFromPlace
+	}
+	if placeToTrans != nil {
+		return amqp.ToPlace
+	}
+	if transToPlace != nil {
+		return amqp.FromPlace
+	}
+	return amqp.None
+}
+
+func ConnectGRPCNet[T any](ctx context.Context, url string, clientFactory func(connInterface grpc.ClientConnInterface) T) (T, error) {
+	conn, err := grpc.Dial(url)
+	if err != nil {
+		var zero T
+		return zero, err
+	}
+	go func() {
+		<-ctx.Done()
+		err := conn.Close()
+		if err != nil {
+			slog.Error("error closing connection", slog.Any("message", err))
+		}
+	}()
+	client := clientFactory(conn)
+	return client, nil
+}
+
+func (d *Device) Connect(ctx context.Context, url string) error {
 	d.connections = make(map[string]*amqp091.Connection)
 	conn, err := amqp091.Dial(url)
 	if err != nil {
@@ -52,44 +158,16 @@ func (d *Device) Connect(url string) error {
 			return err
 		}
 	}
-	d.Server = amqp.NewServer(conn, d.Net, m)
-	remotes := make(map[string]struct{})
-	for exch, remote := range d.Remotes {
-		var n *petri.Net
-		for _, net := range d.Nets {
-			if net.Name == exch {
-				n = net
-				break
-			}
+	d.Server = amqp.NewServer(conn, d.Net, m.Mark())
+	for rem, netUrl := range d.Remotes {
+		net := d.Subnet(rem)
+		if net == nil {
+			return errors.New("no subnet")
 		}
-		if n == nil {
-			return fmt.Errorf("no net: %s", n)
-		}
-		conn, err := amqp091.Dial(remote)
+		err := d.Server.ConnectPlaces(net, netUrl)
 		if err != nil {
 			return err
 		}
-		d.connections[exch] = conn
-		for _, pl := range n.Places {
-			slog.Info("creating queue", slog.String("name", pl.Name), slog.String("type", "remote"))
-			d.Server = d.Server.WithClientPlace(exch, conn, pl)
-			remotes[pl.ID] = struct{}{}
-		}
-	}
-	for _, pl := range d.Places {
-		if _, ok := remotes[pl.ID]; ok {
-			continue
-		}
-		if pl.IsEvent {
-			continue
-		}
-		d.Server = d.Server.WithPublicPlaces(pl)
-	}
-	for _, a := range d.Arcs {
-		if !a.LinksNets {
-			continue
-		}
-		fmt.Printf("%v\n", a)
 	}
 	return nil
 }

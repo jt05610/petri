@@ -37,25 +37,6 @@ func NewPlace(name string, bound int, acceptedTokens ...*TokenSchema) *Place {
 	}
 }
 
-func acceptedTokenIDs(tokens []*TokenSchema) []*TokenSchema {
-	ids := make([]*TokenSchema, len(tokens))
-	for i, token := range tokens {
-		ids[i] = &TokenSchema{
-			ID: token.ID,
-		}
-	}
-	return ids
-}
-
-func (p *Place) Document() Document {
-	return Document{
-		"_id":            p.ID,
-		"name":           p.Name,
-		"bound":          p.Bound,
-		"acceptedTokens": acceptedTokenIDs(p.AcceptedTokens),
-	}
-}
-
 func (p *Place) CanAccept(t *TokenSchema) bool {
 	for _, token := range p.AcceptedTokens {
 		if token.Name == t.Name {

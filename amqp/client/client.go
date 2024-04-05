@@ -96,7 +96,7 @@ func (c *Controller) MarkingIs(marking control.Marking) bool {
 
 func (c *Controller) DevicesReady() error {
 	if !c.MarkingIs(c.Sequence.InitialMarking) {
-		return errors.New("initial Marking incorrect")
+		return errors.New("initial MarkingService incorrect")
 	}
 	return nil
 }
@@ -312,7 +312,7 @@ func (c *Controller) registerInstance(deviceID, instanceID string, marking contr
 		liveness: MaxLiveness,
 		Marking:  marking,
 	}
-	log.Printf("Registering instance %s for device %s with Marking %v", instanceID, deviceID, marking)
+	log.Printf("Registering instance %s for device %s with MarkingService %v", instanceID, deviceID, marking)
 }
 
 func (c *Controller) pruneInstances() {

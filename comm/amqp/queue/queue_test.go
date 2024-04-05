@@ -41,7 +41,7 @@ func TestLocal_Enqueue(t *testing.T) {
 	schema := petri.String()
 	pl := petri.NewPlace("place", 1, schema)
 	pl.ID = "test_place"
-	local := queue.NewLocal(exchange, ch, pl)
+	local := queue.NewLocal(exchange, conn, pl)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 
@@ -77,7 +77,7 @@ func TestLocal_Enqueue(t *testing.T) {
 					t.Error(err)
 				}
 			}()
-			remote := queue.NewRemote(exchange, ch, pl)
+			remote := queue.NewRemote(exchange, conn, pl)
 			tokens, err := remote.Peek(ctx)
 			if err != nil {
 				t.Error(err)
@@ -122,7 +122,7 @@ func TestLocal_Enqueue(t *testing.T) {
 					t.Error(err)
 				}
 			}()
-			remote := queue.NewRemote(exchange, ch, pl)
+			remote := queue.NewRemote(exchange, conn, pl)
 			available, err := remote.Available(ctx)
 			if err != nil {
 				t.Error(err)
@@ -176,25 +176,25 @@ func TestRemote_Monitor(t *testing.T) {
 	schema := petri.String()
 	pl := petri.NewPlace("place", 1, schema)
 	pl.ID = "test_place"
-	local := queue.NewLocal(exchange, ch, pl)
+	local := queue.NewLocal(exchange, conn, pl)
 	ctx, can := context.WithCancel(context.Background())
 	defer can()
 	history := make([][]string, nRemotes)
-	updateCh := make(chan []petri.Token)
+	go func() {
+		err := local.Serve(ctx)
+		if err != nil {
+			t.Error(err)
+		}
+	}()
+	monitor := local.Monitor(ctx)
 	go func() {
 		for {
 			select {
 			case <-ctx.Done():
 				return
-			case upd := <-updateCh:
+			case upd := <-monitor:
 				fmt.Printf("got local update: %v\n", upd)
 			}
-		}
-	}()
-	go func() {
-		err := local.Serve(ctx)
-		if err != nil {
-			t.Error(err)
 		}
 	}()
 	tokenValues := []string{
@@ -206,12 +206,14 @@ func TestRemote_Monitor(t *testing.T) {
 	}
 	var wg sync.WaitGroup
 	for i := 0; i < nRemotes; i++ {
-		remote := queue.NewRemote(exchange, ch, pl)
+		remote := queue.NewRemote(exchange, conn, pl)
+
 		monitor := remote.Monitor(ctx)
 		wg.Add(1)
 		go func(i int) {
 			history[i] = make([]string, 0, len(tokenValues)*2)
 			defer func() {
+				remote.Close()
 				if len(history[i]) != len(tokenValues)*2 {
 					t.Errorf("expected %d updates, got %d", len(tokenValues)*2, len(history[i]))
 				}
@@ -225,16 +227,6 @@ func TestRemote_Monitor(t *testing.T) {
 				wg.Done()
 			}()
 
-			ch, err := conn.Channel()
-			if err != nil {
-				t.Error(err)
-			}
-			defer func() {
-				err := ch.Close()
-				if err != nil {
-					t.Error(err)
-				}
-			}()
 			for {
 				select {
 				case <-ctx.Done():

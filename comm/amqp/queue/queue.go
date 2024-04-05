@@ -47,12 +47,12 @@ func NewQueue(ch *amqp.Channel, schema *petri.TokenSchema, exchange, name string
 
 // put notifies everything that cares about this place that a token has been added. This does not actually add a token to the queue, as this is done by a separate operation
 func (q *Queue) put(ctx context.Context, t petri.Token) error {
-	return q.publish(ctx, t, "in")
+	return q.publish(ctx, t, "put")
 }
 
 // pop notifies everything that cares about this place that a token has been removed. This does not actually remove a token from the queue, as this is done by a separate operation
 func (q *Queue) pop(ctx context.Context, t petri.Token) error {
-	return q.publish(ctx, t, "out")
+	return q.publish(ctx, t, "pop")
 }
 
 func Message(t *petri.Token) amqp.Publishing {
@@ -199,8 +199,6 @@ func (q *Queue) get(ctx context.Context, route string) (petri.Token, error) {
 
 // rpc is a helper function for making rpc calls to the queue
 func (q *Queue) rpc(ctx context.Context, route string, tt ...petri.Token) (<-chan petri.Token, error) {
-	// TODO: this maybe could be a generic with better typing, or have a schema passed to it. Or maybe it's fine as is.
-	// TODO: decide if this is fine as is
 	queue, err := q.ch.QueueDeclare(
 		"",
 		false,
@@ -247,7 +245,7 @@ func (q *Queue) rpc(ctx context.Context, route string, tt ...petri.Token) (<-cha
 		for {
 			select {
 			case <-ctx.Done():
-				slog.Error("rpc context done")
+				slog.Error("rpc context done", slog.String("route", route))
 				return
 			case m := <-msgs:
 				if m.CorrelationId != msg.CorrelationId {
@@ -317,7 +315,6 @@ func (q *Queue) post(ctx context.Context, route string, t petri.Token) error {
 			return ctx.Err()
 		}
 	}
-
 }
 
 func RPCMessage(q *amqp.Queue, t ...petri.Token) amqp.Publishing {

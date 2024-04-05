@@ -1,0 +1,51 @@
+syntax = "proto3";
+
+package petri;
+
+message PetriNet {
+  repeated Place places = 1;
+  repeated Transition transitions = 2;
+  repeated Arc arcs = 3;
+}
+
+message Field {
+  string name = 1;
+  string type = 2;
+  optional bool optional = 3;
+  optional bool repeated = 4;
+}
+
+message TokenSchema {
+  string name = 1;
+  repeated Field fields = 2;
+}
+
+message Place {
+  string id = 1;
+  TokenSchema acceptedToken = 2;
+}
+
+message Transition {
+  string id = 1;
+}
+
+message Arc {
+  string id = 1;
+  string source = 2;
+  string target = 3;
+}
+
+message Token {
+  string id = 1;
+  string schema = 2;
+  map<string, string> fields = 3;
+}
+
+message PlaceMarking {
+  string placeId = 1;
+  repeated Token tokens = 2;
+}
+
+message Marking {
+  repeated PlaceMarking placeMarkings = 1;
+}

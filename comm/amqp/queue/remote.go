@@ -16,12 +16,18 @@ type Remote struct {
 }
 
 func (r *Remote) Close() {
-	//TODO implement me
-	panic("implement me")
+	err := r.ch.Close()
+	if err != nil {
+		panic(err)
+	}
 }
 
 // NewRemote creates a new Remote queue.
-func NewRemote(exchange string, ch *amqp.Channel, pl *petri.Place) *Remote {
+func NewRemote(exchange string, conn *amqp.Connection, pl *petri.Place) *Remote {
+	ch, err := conn.Channel()
+	if err != nil {
+		panic(err)
+	}
 	q := NewQueue(ch, pl.AcceptedTokens[0], exchange, pl.ID)
 	return &Remote{
 		Queue: q,
@@ -83,7 +89,7 @@ func (r *Remote) Monitor(ctx context.Context) <-chan []petri.Token {
 			case <-ctx.Done():
 				return
 			case tok := <-sub:
-				if tok.op == "in" {
+				if tok.op == "put" {
 					ch <- []petri.Token{tok.Token}
 				} else {
 					ch <- []petri.Token{}

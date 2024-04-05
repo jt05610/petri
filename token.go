@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 )
 
 type TokenType string
@@ -37,7 +38,7 @@ func (i *IntegerType) Properties() Properties {
 }
 
 func (i *IntegerType) String() string {
-	return "integer"
+	return "int"
 }
 
 func (i *IntegerType) IsValid(value interface{}) bool {
@@ -80,6 +81,7 @@ func (b *BooleanType) IsValid(value interface{}) bool {
 }
 
 type Properties struct {
+	Name       string                `json:"-"`
 	Type       TokenType             `json:"type"`
 	Properties map[string]Properties `json:"properties,omitempty"`
 }
@@ -101,12 +103,13 @@ func (o *ObjectType) String() string {
 
 var (
 	Float     = TokenType("float")
-	Int       = TokenType("integer")
+	Int       = TokenType("int")
 	Str       = TokenType("string")
-	Bool      = TokenType("boolean")
+	Bool      = TokenType("bool")
 	Obj       = TokenType("object")
 	Sig       = TokenType("signal")
 	TimeStamp = TokenType("time")
+	Arr       = TokenType("array")
 )
 
 func (t TokenType) IsPrimitive() bool {
@@ -202,11 +205,11 @@ func (t *TokenSchema) PostInit() error {
 	return nil
 }
 
-func (t *TokenSchema) PropertiesJSON() map[string]interface{} {
+func (t *TokenSchema) PropertiesJSON() map[string]string {
 	if t.Properties != nil {
-		ret := make(map[string]interface{})
+		ret := make(map[string]string)
 		for key, value := range t.Properties {
-			ret[key] = value
+			ret[key] = string(value.Type)
 		}
 		return ret
 	}
@@ -421,4 +424,227 @@ func Time() *TokenSchema {
 		Name: "time",
 		Type: TimeStamp,
 	}
+}
+
+func Array(t *TokenSchema) *TokenSchema {
+	return &TokenSchema{
+		ID:   ID(),
+		Name: "array",
+		Type: Obj,
+		Properties: map[string]Properties{
+			"items": {
+				Type: t.Type,
+			},
+		},
+	}
+}
+
+type Field struct {
+	Name string
+	Type TypeNode
+}
+
+type TypeNode struct {
+	Name    string
+	Fields  []Field
+	IsArray bool
+}
+
+type TypeGraph struct {
+	Nodes map[string]TypeNode
+}
+
+func (t *TypeGraph) AddNode(n TypeNode) {
+	t.Nodes[n.Name] = n
+}
+
+func NodeFromType(name string, t Type) TypeNode {
+	ret := TypeNode{
+		Name:   name,
+		Fields: make([]Field, 0, len(t)),
+	}
+	for k, v := range t {
+		arr := false
+		if IsArray(v) {
+			v = ArrayOf(v)
+			arr = true
+		}
+		ret.Fields = append(ret.Fields, Field{
+			Name: k,
+			Type: TypeNode{
+				Name:    v,
+				IsArray: arr,
+			},
+		})
+	}
+	return ret
+}
+
+type Type map[string]string
+
+func IsArray(t string) bool {
+	return strings.HasPrefix(t, "[]")
+}
+
+func ArrayOf(t string) string {
+	return strings.TrimPrefix(t, "[]")
+}
+
+func (t Type) Schema(name string, lookup map[string]map[string]Properties) *TokenSchema {
+	s := NewTokenSchema(name)
+	props := make(map[string]Properties)
+	for k, v := range t {
+		if TokenType(v).IsPrimitive() {
+			props[k] = Properties{
+				Type:       TokenType(v),
+				Properties: nil,
+			}
+			continue
+		}
+		if IsArray(v) {
+			v = ArrayOf(v)
+			if TokenType(v).IsPrimitive() {
+				props[k] = Properties{
+					Type: Arr,
+					Properties: map[string]Properties{
+						"items": {
+							Type: TokenType(v),
+						},
+					},
+				}
+			} else {
+				p, ok := lookup[v]
+				if !ok {
+					panic(fmt.Sprintf("unknown type %s. Please declare it", v))
+				}
+				props[k] = Properties{
+					Type: Arr,
+					Properties: map[string]Properties{
+						"items": {
+							Type:       Obj,
+							Properties: p,
+						},
+					},
+				}
+			}
+		} else {
+			p, ok := lookup[v]
+			if !ok {
+				panic(fmt.Sprintf("unknown type %s. Please declare it", v))
+			}
+			props[k] = Properties{
+				Type:       Obj,
+				Properties: p,
+			}
+		}
+	}
+	lookup[name] = props
+	return s.WithProperties(props)
+}
+
+func BuildTypeGraph(t map[string]Type) *TypeGraph {
+	ret := &TypeGraph{
+		Nodes: map[string]TypeNode{
+			"string": {
+				Name: "string",
+			},
+			"int": {
+				Name: "int",
+			},
+			"float": {
+				Name: "float",
+			},
+			"bool": {
+				Name: "bool",
+			},
+			"signal": {
+				Name: "signal",
+			},
+			"time": {
+				Name: "time",
+			},
+		},
+	}
+	for k, v := range t {
+		ret.AddNode(NodeFromType(k, v))
+	}
+	return ret
+}
+
+func (t *TypeGraph) Properties(ty string) map[string]Properties {
+	node, ok := t.Nodes[ty]
+	if !ok {
+		return nil
+	}
+	props := make(map[string]Properties)
+	for _, v := range node.Fields {
+		if TokenType(v.Type.Name).IsPrimitive() {
+			props[v.Name] = Properties{
+				Name: v.Name,
+				Type: TokenType(v.Type.Name),
+			}
+			continue
+		}
+		if v.Type.IsArray {
+			props[v.Name] = Properties{
+				Name: v.Type.Name,
+				Type: Arr,
+				Properties: map[string]Properties{
+					"items": {
+						Type: TokenType(v.Type.Name),
+					},
+				},
+			}
+		} else {
+			props[v.Name] = Properties{
+				Name:       v.Type.Name,
+				Type:       Obj,
+				Properties: t.Properties(v.Type.Name),
+			}
+		}
+	}
+	return props
+}
+
+func (t *TypeGraph) Schema(ty string) *TokenSchema {
+	return NewTokenSchema(ty).WithProperties(t.Properties(ty))
+}
+
+func (t *TypeGraph) Types() []*TokenSchema {
+	ret := make([]*TokenSchema, 0)
+	for k := range t.Nodes {
+		schema := t.Schema(k)
+		if schema.Type.IsPrimitive() {
+			continue
+		}
+		ret = append(ret, schema)
+	}
+	return ret
+}
+
+func NetTypes(n *Net) map[string]Type {
+	ret := make(map[string]Type)
+	for _, schema := range n.TokenSchemas {
+		if schema.Type.IsPrimitive() {
+			continue
+		}
+		props := schema.Properties
+		if props == nil {
+			continue
+		}
+		typ := make(map[string]string)
+		for k, v := range props {
+			if v.Type.IsPrimitive() {
+				typ[k] = string(v.Type)
+				continue
+			}
+			if v.Type == Arr {
+				typ[k] = fmt.Sprintf("[]%s", v.Properties["items"].Type)
+				continue
+			}
+			typ[k] = v.Name
+		}
+		ret[schema.Name] = typ
+	}
+	return ret
 }

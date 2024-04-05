@@ -14,7 +14,7 @@ type PumpParams struct {
 // Pump is a simple pump that pumps a volume of liquid at a given flow rate
 type Pump struct {
 	Settings *PumpParams
-	petri.Marking
+	petri.MarkingService
 	*petri.Net
 	startedAt time.Time
 	pumping   bool
@@ -28,26 +28,6 @@ func (p *Pump) Stop(ctx context.Context, input interface{}) (int, error) {
 func (p *Pump) Prepare(ctx context.Context, input *PumpParams) (*PumpParams, error) {
 	p.Settings = input
 	return input, nil
-}
-
-func (p *Pump) Start(ctx context.Context, input interface{}) (*PumpParams, error) {
-	var err error
-	p.startedAt = time.Now()
-	p.pumping = true
-	go func() {
-		select {
-		case <-ctx.Done():
-		case <-time.After(time.Duration(1e9*p.Settings.Volume/p.Settings.Flow) * time.Nanosecond):
-			p.Marking, err = p.Net.Process(p.Marking, petri.Event[any]{
-				Name: "Stop",
-				Data: 1,
-			})
-			if err != nil {
-				panic(err)
-			}
-		}
-	}()
-	return p.Settings, nil
 }
 
 func NewPump() *Pump {
@@ -88,18 +68,18 @@ func NewPump() *Pump {
 		Net: net.WithPlaces(pp...),
 	}
 
-	p.Marking = p.NewMarking()
+	p.MarkingService = p.NewMarking()
 
-	err = p.Marking.PlaceTokens(p.Net.Place("Idle"), tok)
+	err = p.MarkingService.PlaceTokens(p.Net.Place("Idle"), tok)
 	if err != nil {
 		panic(err)
 
 	}
 
 	tt := []*petri.Transition{
-		petri.NewTransition("Start").WithEvent(petri.NewEventFunc(p.Start), "http://localhost:8080/pump/start", petri.Signal(), petri.Signal()),
-		petri.NewTransition("Stop").WithEvent(petri.NewEventFunc(p.Stop), "http://localhost:8080/pump/stop", petri.Signal(), petri.Signal()),
-		petri.NewTransition("Prepare").WithEvent(petri.NewEventFunc(p.Prepare), "http://localhost:8080/pump/prepare", pumpParams, pumpParams),
+		petri.NewTransition("Start").WithEvent(petri.Signal()),
+		petri.NewTransition("Stop").WithEvent(petri.Signal()),
+		petri.NewTransition("Prepare").WithEvent(pumpParams),
 	}
 
 	p.Net = p.Net.WithTransitions(tt...)

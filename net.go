@@ -10,22 +10,57 @@ import (
 var ErrWrongInput = errors.New("wrong input")
 var ErrWrongUpdate = errors.New("wrong update")
 
-var _ Object = (*Net)(nil)
-var _ Input = (*NetInput)(nil)
-var _ Update = (*NetUpdate)(nil)
-var _ Filter = (*NetFilter)(nil)
+type MarkingService map[string]TokenQueue
 
-type Marking map[string]TokenQueue
+type Marking map[string][]Token
 
-func (m Marking) Copy() Marking {
+func (m MarkingService) Equals(other MarkingService) bool {
+	if len(m) != len(other) {
+		return false
+	}
+	for k, v := range m {
+		if otherV, ok := other[k]; !ok {
+			return false
+		} else {
+			n, err := v.Available(context.Background())
+			if err != nil {
+				return false
+			}
+			otherN, err := otherV.Available(context.Background())
+			if err != nil {
+				return false
+			}
+			if n != otherN {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func (m MarkingService) Mark() Marking {
 	ret := make(Marking)
+	for k, v := range m {
+		ctx, can := context.WithTimeout(context.Background(), DequeueTimeout)
+		defer can()
+		t, err := v.Peek(ctx)
+		if err != nil {
+			panic(err)
+		}
+		ret[k] = t
+	}
+	return ret
+}
+
+func (m MarkingService) Copy() MarkingService {
+	ret := make(MarkingService)
 	for k, v := range m {
 		ret[k] = v.Copy()
 	}
 	return ret
 }
 
-func (m Marking) TokenMap(place *Place) map[string]Token {
+func (m MarkingService) TokenMap(place *Place) map[string]Token {
 	tokens := m[place.ID]
 	tokMap := make(map[string]Token)
 	ctx, can := context.WithTimeout(context.Background(), DequeueTimeout)
@@ -38,7 +73,7 @@ func (m Marking) TokenMap(place *Place) map[string]Token {
 	return tokMap
 }
 
-func (m Marking) Get(place *Place, schema string) Token {
+func (m MarkingService) Get(place *Place, schema string) Token {
 	if pl, ok := m[place.String()]; !ok {
 		return Token{}
 	} else {
@@ -52,7 +87,7 @@ func (m Marking) Get(place *Place, schema string) Token {
 	}
 }
 
-func (m Marking) PlaceTokens(place *Place, tokens ...Token) error {
+func (m MarkingService) PlaceTokens(place *Place, tokens ...Token) error {
 	if pl, ok := m[place.ID]; !ok {
 		return errors.New("place not found")
 	} else {
@@ -84,6 +119,28 @@ func (p *Net) Local() map[string]*Place {
 		}
 	}
 	return local
+}
+
+func (p *Net) Subnet(name string) *Net {
+	for _, net := range p.Nets {
+		if net.Name == name {
+			return net
+		}
+	}
+	return nil
+}
+
+func (p *Net) SubnetArcs(name string) []*Arc {
+	arcs := make([]*Arc, 0)
+	if net := p.Subnet(name); net == nil {
+		return nil
+	}
+	for _, arc := range p.Arcs {
+		if strings.Contains(arc.Src.Identifier(), name+".") || strings.Contains(arc.Dest.Identifier(), name+".") {
+			arcs = append(arcs, arc)
+		}
+	}
+	return arcs
 }
 
 func (p *Net) Parent(n Node) *Net {
@@ -179,8 +236,8 @@ func (p *Net) WithoutTransition(t *Transition) *Net {
 	return p
 }
 
-func (p *Net) NewMarking() Marking {
-	m := make(Marking)
+func (p *Net) NewMarking() MarkingService {
+	m := make(MarkingService)
 	for _, pl := range p.Places {
 		m[pl.ID] = pl.TokenQueue
 	}
@@ -241,11 +298,13 @@ func (p *Net) Init(input Input) error {
 }
 
 func (p *Net) Enabled(marking Marking, t *Transition) bool {
-	ctx, can := context.WithTimeout(context.Background(), DequeueTimeout)
-	defer can()
 	for _, arc := range p.Inputs(t) {
 		if pt, ok := arc.Src.(*Place); ok {
-			if n, err := marking[pt.ID].Available(ctx); n == 0 || err != nil {
+			tokens := marking[pt.ID]
+			if len(tokens) == 0 {
+				return false
+			}
+			if !pt.CanAccept(tokens[0].Schema) {
 				return false
 			}
 		}
@@ -274,6 +333,9 @@ var (
 
 func (p *Net) Process(m Marking) (Marking, error) {
 	enabled := p.EnabledTransitions(m)
+	if len(enabled) == 0 {
+		return m, ErrNoEvents
+	}
 	m, err := p.Fire(m, enabled[0])
 	if err != nil {
 		return m, err
@@ -303,15 +365,16 @@ func IndexTokenByType(tokens []Token) map[string]Token {
 func (p *Net) Fire(m Marking, t *Transition) (Marking, error) {
 	tokens := make([]Token, 0)
 
-	ret := m.Copy()
-
 	for _, arc := range p.Inputs(t) {
 		if _, ok := arc.Src.(*Place); ok {
-			tok, err := arc.TakeToken(ret)
+			pl := arc.Place
+			tok, err := arc.TakeToken()
 			if err != nil {
 				return m, err
 			}
 			tokens = append(tokens, tok)
+			// remove token from marking
+			m[pl.ID] = m[pl.ID][1:]
 		}
 	}
 	if len(tokens) == 0 {
@@ -339,13 +402,14 @@ func (p *Net) Fire(m Marking, t *Transition) (Marking, error) {
 
 	for _, arc := range p.Outputs(t) {
 		if _, ok := arc.Dest.(*Place); ok {
-			err := arc.PlaceToken(ret, tokenIndex)
+			err := arc.PlaceToken(tokenIndex)
 			if err != nil {
 				return m, err
 			}
+			m[arc.Dest.Identifier()] = append(m[arc.Dest.Identifier()], tokens[0])
 		}
 	}
-	return ret, nil
+	return m, nil
 }
 
 func (p *Net) Update(update Update) error {
@@ -469,6 +533,66 @@ func (p *Net) WithPlaces(places ...*Place) *Net {
 	return p
 }
 
+func (p *Net) ReplacePlace(old, new *Place) *Net {
+	if _, ok := p.Places[old.Name]; !ok {
+		return p
+	}
+	p.Places[new.Name] = new
+	for _, arc := range p.Inputs(old) {
+		arc.Dest = new
+		arc.Place = new
+		p.inputs[new.Identifier()] = append(p.inputs[new.Identifier()], arc)
+	}
+	delete(p.inputs, old.Name)
+	for _, arc := range p.Outputs(old) {
+		arc.Src = new
+		arc.Place = new
+		p.outputs[new.Identifier()] = append(p.outputs[new.Identifier()], arc)
+	}
+	delete(p.outputs, old.Name)
+	delete(p.Places, old.Name)
+	return p
+}
+
+func (p *Net) JoinPlaces(p1 *Place, p2 *Place) *Net {
+	iterPlace := NewPlace(p1.Name, p1.Bound, p1.AcceptedTokens...)
+	net := p.WithPlaces(iterPlace)
+	parent1 := p.Parent(p1)
+	parent1 = parent1.ReplacePlace(p1, iterPlace)
+	parent2 := p.Parent(p2)
+	parent2 = parent2.ReplacePlace(p2, iterPlace)
+	delete(p.Places, p1.ID)
+	delete(p.Places, p2.ID)
+	p.inputs[iterPlace.Identifier()] = append(p.inputs[iterPlace.Identifier()], p.inputs[p1.Identifier()]...)
+	p.inputs[iterPlace.Identifier()] = append(p.inputs[iterPlace.Identifier()], p.inputs[p2.Identifier()]...)
+	p.outputs[iterPlace.Identifier()] = append(p.outputs[iterPlace.Identifier()], p.outputs[p1.Identifier()]...)
+	p.outputs[iterPlace.Identifier()] = append(p.outputs[iterPlace.Identifier()], p.outputs[p2.Identifier()]...)
+	delete(p.inputs, p1.Identifier())
+	delete(p.inputs, p2.Identifier())
+
+	return net
+}
+
+func (p *Net) InputPlaces() []*Place {
+	var places []*Place
+	for _, pl := range p.Places {
+		if len(p.inputs[pl.ID]) == 0 {
+			places = append(places, pl)
+		}
+	}
+	return places
+}
+
+func (p *Net) OutputPlaces() []*Place {
+	var places []*Place
+	for _, pl := range p.Places {
+		if len(p.outputs[pl.ID]) == 0 {
+			places = append(places, pl)
+		}
+	}
+	return places
+}
+
 func (p *Net) WithTransitions(transitions ...*Transition) *Net {
 	for _, t := range transitions {
 		p.Transitions[t.Name] = t
@@ -493,14 +617,24 @@ func makeName(ss ...string) string {
 func (p *Net) AddSubNet(n *Net) {
 	p.Nets = append(p.Nets, n)
 	netName := n.Name
+	idMap := make(map[string]string)
 	for pn, pl := range n.Places {
+		idMap[pl.ID] = makeName(netName, pn)
 		pl.ID = makeName(netName, pn)
 		p.Places[makeName(netName, pn)] = pl
 	}
 	for pn, tr := range n.Transitions {
+		idMap[tr.ID] = makeName(netName, pn)
 		tr.ID = makeName(netName, pn)
 		p.Transitions[makeName(netName, pn)] = tr
 	}
+	for oldId, newId := range idMap {
+		n.inputs[newId] = n.inputs[oldId]
+		n.outputs[newId] = n.outputs[oldId]
+		delete(n.inputs, oldId)
+		delete(n.outputs, oldId)
+	}
+
 	for _, a := range n.Arcs {
 		err := p.AddArc(a)
 		if err != nil {

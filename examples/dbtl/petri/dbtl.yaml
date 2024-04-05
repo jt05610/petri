@@ -1,0 +1,19 @@
+petri: v1
+version: 0.1
+name: dbtl
+
+nets:
+  designer: designer.yaml
+  builder: builder.yaml
+  tester: tester.yaml
+  learner: learner.yaml
+
+joins:
+  - designer.sample->builder.sample
+  - builder.built->tester.product
+  - tester.result->learner.result
+  - learner.updated->designer.knowledgeInput
+
+links:
+  - from: builder.build
+    to: tester.prepareInstrumentInput

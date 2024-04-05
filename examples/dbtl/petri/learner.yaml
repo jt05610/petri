@@ -1,0 +1,27 @@
+petri: v1
+version: 0.1
+name: learner
+
+imports:
+  - model
+
+places:
+  result: model.Result
+  learning: model.Result
+  learned: model.Store
+  updated: model.Store
+
+transitions:
+  learn:
+    inputs:
+      - result
+      - learned
+    outputs:
+      - learning
+  complete:
+    inputs:
+      - learning
+    outputs:
+      - learned
+      - updated
+

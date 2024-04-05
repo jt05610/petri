@@ -9,41 +9,6 @@ import (
 	"strings"
 )
 
-type Type map[string]string
-
-func (t Type) Schema(name string, lookup map[string]map[string]petri.Properties) *petri.TokenSchema {
-	s := petri.NewTokenSchema(name)
-	props := make(map[string]petri.Properties)
-	for k, v := range t {
-		if petri.TokenType(v).IsPrimitive() {
-			props[k] = petri.Properties{
-				Type:       petri.TokenType(v),
-				Properties: nil,
-			}
-			continue
-		}
-		p, ok := lookup[v]
-		if !ok {
-			panic(fmt.Sprintf("unknown type %s. Please declare it", v))
-		}
-		props[k] = petri.Properties{
-			Type:       petri.Obj,
-			Properties: p,
-		}
-	}
-	lookup[name] = props
-	return s.WithProperties(props)
-}
-
-func (t Type) IsNested() bool {
-	for _, v := range t {
-		if !petri.TokenType(v).IsPrimitive() {
-			return true
-		}
-	}
-	return false
-}
-
 type Place interface {
 	Place(name string, tokenMap map[string]*petri.TokenSchema) *petri.Place
 }
@@ -322,10 +287,12 @@ type Petrifile struct {
 	Petri            petrifile.Version
 	Version          string
 	Name             string
-	Types            map[string]Type
+	Imports          []string
+	Types            map[string]petri.Type
 	Places           map[string]interface{}
 	Transitions      map[string]Transition
 	Nets             map[string]string
+	Joins            []string
 	Links            []Link
 	net              *petri.Net
 	arcs             []*petri.Arc
@@ -438,21 +405,58 @@ func (p *Petrifile) makeArcs() []*petri.Arc {
 	return p.arcs
 }
 
+func (p *Petrifile) makeJoins() {
+	if p.Joins == nil {
+		return
+	}
+	for _, v := range p.Joins {
+		places := strings.Split(v, "->")
+		if len(places) != 2 {
+			panic(fmt.Sprintf("join %s must have 2 places", v))
+		}
+		pl1 := p.net.Place(places[0])
+		pl2 := p.net.Place(places[1])
+		if pl1 == nil {
+			panic(fmt.Sprintf("unknown place %s", places[0]))
+		}
+		if pl2 == nil {
+			panic(fmt.Sprintf("unknown place %s", places[1]))
+		}
+		p.net = p.net.JoinPlaces(pl1, pl2)
+	}
+}
+
+func (p *Petrifile) importTypes(fName string) map[string]petri.Type {
+	n, err := p.Builder.Build(context.Background(), fName)
+	if err != nil {
+		panic(err)
+	}
+	if n == nil {
+		return nil
+	}
+	return petri.NetTypes(n)
+}
+
 func (p *Petrifile) Net() *petri.Net {
 	p.net = petri.NewNet(p.Name)
-	leftover := make(map[string]Type)
-	typeMap := make(map[string]map[string]petri.Properties)
+	types := make(map[string]petri.Type)
 	for k, v := range p.Types {
-		if v.IsNested() {
-			leftover[k] = v
-			continue
+		types[k] = v
+	}
+	for _, v := range p.Imports {
+		ty := p.importTypes(v + ".yaml")
+		for k, ty := range ty {
+			types[fmt.Sprintf("%s.%s", v, k)] = ty
 		}
-		p.net = p.net.WithTokenSchemas(v.Schema(k, typeMap))
 	}
-	for k, v := range leftover {
-		p.net = p.net.WithTokenSchemas(v.Schema(k, typeMap))
-	}
-	p.net = p.net.WithPlaces(p.makePlaces()...).WithTransitions(p.makeTransitions()...).WithArcs(p.makeArcs()...).WithNets(p.makeSubNets()...)
+	typeGraph := petri.BuildTypeGraph(types)
+	p.net = p.net.
+		WithTokenSchemas(typeGraph.Types()...).
+		WithPlaces(p.makePlaces()...).
+		WithTransitions(p.makeTransitions()...).
+		WithNets(p.makeSubNets()...).
+		WithArcs(p.makeArcs()...)
+
 	if p.Nets != nil && p.Links != nil {
 		for _, v := range p.Links {
 			v.net = p.net
@@ -463,19 +467,24 @@ func (p *Petrifile) Net() *petri.Net {
 			p.net = p.net.WithArcs(aa...)
 		}
 	}
+	p.makeJoins()
 	return p.net
 }
 
 func (p *Petrifile) makeSubNets() []*petri.Net {
-	if p.Nets == nil {
-		return nil
-	}
 	nn := make([]*petri.Net, 0, len(p.Nets))
 	for k, v := range p.Nets {
 		if k == p.Name {
 			panic(fmt.Sprintf("net %s cannot be a sub net of itself", k))
 		}
 		n, err := p.Builder.Build(context.Background(), v)
+		if err != nil {
+			panic(err)
+		}
+		nn = append(nn, n)
+	}
+	for _, imp := range p.Imports {
+		n, err := p.Builder.Build(context.Background(), imp+".yaml")
 		if err != nil {
 			panic(err)
 		}

@@ -1,0 +1,52 @@
+petri: v1
+version: 0.1
+name: designer
+
+imports:
+  - model
+
+places:
+  loadDesignSpaceInput: model.DesignSpace
+  queue: model.SampleSet
+  knowledge: model.Store
+  designSpace: model.DesignSpace
+  loadSampleInput: signal
+  sample: model.Sample
+  knowledgeInput: model.Store
+  newDesignInput: signal
+  queuedDesign: model.Design
+
+transitions:
+  loadDesignSpace:
+    inputs:
+      - designSpace
+      - loadDesignSpaceInput
+    outputs:
+      - designSpace
+  newDesign:
+    inputs:
+      - newDesignInput
+      - knowledge
+      - designSpace
+    outputs:
+      - queuedDesign
+  design:
+    inputs:
+      - queuedDesign
+    outputs:
+      - queue
+      - knowledge
+      - designSpace
+  loadSample:
+    inputs:
+      - queue
+      - loadSampleInput
+    outputs:
+      - sample
+      - queue
+  updateKnowledge:
+    inputs:
+      - knowledge
+      - knowledgeInput
+    outputs:
+      - knowledge

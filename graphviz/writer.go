@@ -13,10 +13,12 @@ var _ petri.Flusher[*petri.Net] = (*Writer)(nil)
 
 type Writer struct {
 	*Config
-	g       *cgraph.Graph
-	mapping map[petri.Node]*cgraph.Node
-	legend  *cgraph.Graph
-	seen    map[string]bool
+	*petri.Net
+	g         *cgraph.Graph
+	mapping   map[petri.Node]*cgraph.Node
+	legend    *cgraph.Graph
+	outFormat graphviz.Format
+	seen      map[string]bool
 }
 
 func mapToGraphvizRecord(m map[string]interface{}) string {
@@ -113,6 +115,17 @@ func (w *Writer) writePlace(g *cgraph.Graph, i string, p *petri.Place) error {
 	node.SetShape(cgraph.EllipseShape)
 	node.SetLabel(p.Name)
 	node.Set("fontname", string(w.Font))
+
+	if len(w.Net.Inputs(p)) == 0 {
+		node.SetStyle(cgraph.FilledNodeStyle)
+		node.SetFillColor("lightblue")
+	}
+
+	if len(w.Net.Outputs(p)) == 0 {
+		node.SetStyle(cgraph.FilledNodeStyle)
+		node.SetFillColor("lightcoral")
+	}
+
 	w.mapping[p] = node
 	return nil
 }
@@ -131,16 +144,37 @@ func (w *Writer) writeTransition(g *cgraph.Graph, i string, t *petri.Transition)
 		node.Set("labeljust", "l")
 		node.SetLabel(fmt.Sprintf("%s\n%s", t.Name, t.Expression))
 	}
-	if t.Cold {
-		node.SetStyle(cgraph.FilledNodeStyle)
-		node.SetFillColor("lightblue")
+
+	return nil
+}
+
+func (w *Writer) writeNode(g *cgraph.Graph, i string, n petri.Node) error {
+	if p, ok := n.(*petri.Place); ok {
+		return w.writePlace(g, i, p)
+	}
+	if t, ok := n.(*petri.Transition); ok {
+		return w.writeTransition(g, i, t)
 	}
 	return nil
 }
 
 func (w *Writer) writeArc(g *cgraph.Graph, i int, a *petri.Arc) error {
-	src := w.mapping[a.Src]
-	dst := w.mapping[a.Dest]
+	src, ok := w.mapping[a.Src]
+	if !ok {
+		err := w.writeNode(g, "", a.Src)
+		if err != nil {
+			return err
+		}
+		src = w.mapping[a.Src]
+	}
+	dst, ok := w.mapping[a.Dest]
+	if !ok {
+		err := w.writeNode(g, "", a.Dest)
+		if err != nil {
+			return err
+		}
+		dst = w.mapping[a.Dest]
+	}
 	name := fmt.Sprintf("a%d", i)
 	edge, err := g.CreateEdge(name, src, dst)
 	if err != nil {
@@ -193,6 +227,7 @@ func (w *Writer) MakeSubGraph(g *cgraph.Graph, n *petri.Net) error {
 }
 
 func (w *Writer) Flush(out io.Writer, t *petri.Net) error {
+	w.Net = t
 	graph := graphviz.New()
 	defer func() {
 		_ = graph.Close()
@@ -223,7 +258,7 @@ func (w *Writer) Flush(out io.Writer, t *petri.Net) error {
 			return err
 		}
 	}
-	if err := graph.Render(g, graphviz.SVG, out); err != nil {
+	if err := graph.Render(g, w.outFormat, out); err != nil {
 		return err
 	}
 	return nil
@@ -247,17 +282,23 @@ const (
 
 type RankDir string
 
+type Format graphviz.Format
+
 const (
 	LeftToRight RankDir = "LR"
 	RightToLeft RankDir = "RL"
 	TopToBottom RankDir = "TB"
 	BottomToTop RankDir = "BT"
+	SVG         Format  = Format(graphviz.SVG)
+	PNG         Format  = Format(graphviz.PNG)
+	DOT         Format  = Format(graphviz.XDOT)
 )
 
 type Config struct {
 	Name string
 	Font
 	RankDir
+	Format
 }
 
 func New(config *Config) *Writer {
@@ -265,7 +306,8 @@ func New(config *Config) *Writer {
 		config.Name = "petri"
 	}
 	return &Writer{
-		Config:  config,
-		mapping: make(map[petri.Node]*cgraph.Node),
+		Config:    config,
+		mapping:   make(map[petri.Node]*cgraph.Node),
+		outFormat: graphviz.Format(config.Format),
 	}
 }

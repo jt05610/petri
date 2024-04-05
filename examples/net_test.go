@@ -37,9 +37,9 @@ func ExampleNet() {
 	}
 	fmt.Println("Initial marking with a token in the Idle place")
 
-	fmt.Println(pump.Marking)
+	fmt.Println(pump.MarkingService)
 	var err error
-	pump.Marking, err = pump.Process(pump.Marking, petri.Event[any]{
+	pump.MarkingService, err = pump.Process(pump.MarkingService, petri.Event[any]{
 		Name: "Prepare",
 		Data: settings,
 	})
@@ -49,9 +49,9 @@ func ExampleNet() {
 	}
 
 	fmt.Println("After prepare with pump parameters set to 1 flow and 1 volume")
-	fmt.Println(pump.Marking)
+	fmt.Println(pump.MarkingService)
 
-	pump.Marking, err = pump.Process(pump.Marking, petri.Event[any]{
+	pump.MarkingService, err = pump.Process(pump.MarkingService, petri.Event[any]{
 		Name: "Start",
 		Data: 1,
 	})
@@ -61,11 +61,11 @@ func ExampleNet() {
 	}
 
 	fmt.Println("Pump is pumping")
-	fmt.Println(pump.Marking)
+	fmt.Println(pump.MarkingService)
 	time.Sleep(1002 * time.Millisecond)
 
 	fmt.Println("Parameters are gone after the pump should be done, and the pump is idle again.")
-	fmt.Println(pump.Marking)
+	fmt.Println(pump.MarkingService)
 
 	// Output:
 	// Initial marking with a token in the Idle place

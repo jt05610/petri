@@ -1,0 +1,25 @@
+petri: v1
+version: 0.1
+name: builder
+imports:
+  - model
+
+places:
+  idle: signal
+  sample: model.Sample
+  building: model.Sample
+  built: model.Product
+
+transitions:
+  build:
+    inputs:
+      - sample
+      - idle
+    outputs:
+      - building
+  complete:
+    inputs:
+      - building
+    outputs:
+      - built
+      - idle

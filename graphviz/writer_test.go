@@ -13,6 +13,7 @@ func TestWriter_Flush(t *testing.T) {
 	cfg := &graphviz.Config{
 		Font:    graphviz.Helvetica,
 		RankDir: graphviz.LeftToRight,
+		Format:  graphviz.SVG,
 	}
 	df, err := os.Create("net.svg")
 	if err != nil {

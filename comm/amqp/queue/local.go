@@ -2,6 +2,7 @@ package queue
 
 import (
 	"context"
+	"fmt"
 	"github.com/jt05610/petri"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"log/slog"
@@ -9,36 +10,50 @@ import (
 	"time"
 )
 
-var _ petri.TokenQueue = (*Local)(nil)
+var _ petri.TokenQueue = (*Public)(nil)
 
-type Local struct {
+type Public struct {
 	*Queue
-	*petri.LocalQueue
 	tokens   []petri.Token
 	mu       sync.Mutex
 	bindings map[string]func(context.Context, amqp.Delivery)
+	updated  chan []petri.Token
 }
 
-func (q *Local) Peek(_ context.Context) ([]petri.Token, error) {
+func (q *Public) Close() {
+	err := q.ch.Close()
+	if err != nil {
+		panic(err)
+	}
+}
+
+func (q *Public) Peek(_ context.Context) ([]petri.Token, error) {
 	return q.tokens, nil
 }
 
-func (q *Local) Enqueue(ctx context.Context, token ...petri.Token) error {
-	q.mu.Lock()
-	defer q.mu.Unlock()
+func (q *Public) Enqueue(ctx context.Context, token ...petri.Token) error {
+	hasUpdated := false
 	for _, t := range token {
 		q.tokens = append(q.tokens, t)
 		err := q.Queue.put(ctx, t)
 		if err != nil {
 			return err
 		}
+		hasUpdated = true
+	}
+	if hasUpdated {
+		fmt.Println("notifying")
+		select {
+		case q.updated <- q.tokens:
+		default:
+			slog.Info("local public queue not updated because the channel is not ready")
+		}
+		fmt.Println("notified")
 	}
 	return nil
 }
 
-func (q *Local) Dequeue(ctx context.Context) (petri.Token, error) {
-	q.mu.Lock()
-	defer q.mu.Unlock()
+func (q *Public) Dequeue(ctx context.Context) (petri.Token, error) {
 	if len(q.tokens) == 0 {
 		return petri.Token{}, nil
 	}
@@ -48,30 +63,52 @@ func (q *Local) Dequeue(ctx context.Context) (petri.Token, error) {
 		return petri.Token{}, err
 	}
 	q.tokens = q.tokens[1:]
+	select {
+	case q.updated <- q.tokens:
+	default:
+		slog.Info("local public queue not updated because the channel is not ready")
+	}
 	return t, nil
 }
 
-func (q *Local) Copy() petri.TokenQueue {
-	return &Local{
+func (q *Public) Copy() petri.TokenQueue {
+	return &Public{
 		Queue: q.Queue,
 	}
 }
 
-func (q *Local) Monitor(ctx context.Context) <-chan []petri.Token {
-	panic("implement me")
+func (q *Public) Monitor(ctx context.Context) <-chan []petri.Token {
+	ch := make(chan []petri.Token)
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				close(ch)
+				return
+			case ch <- <-q.updated:
+			}
+		}
+	}()
+	return ch
 }
 
-func (q *Local) Available(ctx context.Context) (int, error) {
+func (q *Public) Available(ctx context.Context) (int, error) {
 	return len(q.tokens), nil
 }
 
-func NewLocal(exchange string, ch *amqp.Channel, pl *petri.Place) *Local {
-	return &Local{
-		Queue: NewQueue(ch, pl.AcceptedTokens[0], exchange, pl.ID),
+func NewLocal(exchange string, conn *amqp.Connection, pl *petri.Place) *Public {
+	ch, err := conn.Channel()
+	if err != nil {
+		panic(err)
+	}
+	return &Public{
+		Queue:   NewQueue(ch, pl.AcceptedTokens[0], exchange, pl.ID),
+		updated: make(chan []petri.Token, 100),
+		tokens:  make([]petri.Token, 0, 100),
 	}
 }
 
-func (q *Local) handlePeek(ctx context.Context, msg amqp.Delivery) {
+func (q *Public) handlePeek(ctx context.Context, msg amqp.Delivery) {
 	tokens, err := q.Peek(ctx)
 	if err != nil {
 		panic(err)
@@ -100,7 +137,7 @@ func (q *Local) handlePeek(ctx context.Context, msg amqp.Delivery) {
 	}
 }
 
-func (q *Local) handleAvailable(ctx context.Context, msg amqp.Delivery) {
+func (q *Public) handleAvailable(ctx context.Context, msg amqp.Delivery) {
 	n := len(q.tokens)
 	err := q.ch.PublishWithContext(
 		ctx,
@@ -123,7 +160,7 @@ func (q *Local) handleAvailable(ctx context.Context, msg amqp.Delivery) {
 	}
 }
 
-func (q *Local) handleGet(ctx context.Context, msg amqp.Delivery) {
+func (q *Public) handleGet(ctx context.Context, msg amqp.Delivery) {
 	t, err := q.Dequeue(ctx)
 	if err != nil {
 		panic(err)
@@ -170,7 +207,7 @@ func (q *Local) handleGet(ctx context.Context, msg amqp.Delivery) {
 	}
 }
 
-func (q *Local) handlePost(ctx context.Context, msg amqp.Delivery) {
+func (q *Public) handlePost(ctx context.Context, msg amqp.Delivery) {
 	t, err := q.Schema.NewToken(msg.Body)
 	if err != nil {
 		panic(err)
@@ -186,7 +223,7 @@ func (q *Local) handlePost(ctx context.Context, msg amqp.Delivery) {
 }
 
 // Serve allows the local queue to handle RPCs from remote queues that want to interact with this one. Available RPCs are peek, get, and post.
-func (q *Local) Serve(ctx context.Context) error {
+func (q *Public) Serve(ctx context.Context) error {
 	// declare the bindings and attach
 	q.bindings = map[string]func(context.Context, amqp.Delivery){
 		q.Name + ".peek":      q.handlePeek,
@@ -234,7 +271,7 @@ func (q *Local) Serve(ctx context.Context) error {
 
 var Timeout = 1 * time.Second
 
-func (q *Local) process(ctx context.Context, m amqp.Delivery) {
+func (q *Public) process(ctx context.Context, m amqp.Delivery) {
 	ctx, cancel := context.WithTimeout(ctx, Timeout)
 	defer cancel()
 	hndl, found := q.bindings[m.RoutingKey]

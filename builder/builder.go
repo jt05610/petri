@@ -48,7 +48,7 @@ func (b *Builder) WithSearchDirs(dirs ...string) *Builder {
 	return b
 }
 
-func (b *Builder) service(f string) petrifile.Service {
+func (b *Builder) Service(f string) petrifile.Service {
 	fileExt := filepath.Ext(f)
 	if fileExt == "" {
 		fileExt = ".yaml"
@@ -96,7 +96,7 @@ func (b *Builder) Build(ctx context.Context, f string) (*petri.Net, error) {
 				if err != nil {
 					return nil, err
 				}
-				srv := b.service(f)
+				srv := b.Service(f)
 				if srv == nil {
 					return nil, os.ErrNotExist
 				}

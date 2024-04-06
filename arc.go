@@ -1,10 +1,8 @@
 package petri
 
 import (
-	"context"
 	"errors"
 	"fmt"
-	"github.com/expr-lang/expr"
 	"time"
 )
 
@@ -58,99 +56,58 @@ func AnyBytes(v any) []byte {
 	return nil
 }
 
-func (a *Arc) TakeToken() (Token, error) {
-	if a.Expression != "" {
-		program, err := expr.Compile(a.Expression)
-		if err != nil {
-			return Token{}, err
-		}
-		if a.Src.Kind() == PlaceObject {
-			ctx, can := context.WithTimeout(context.Background(), DequeueTimeout)
-			defer can()
-			pl := a.Place
-			tok, err := pl.TokenQueue.Dequeue(ctx)
-			if err != nil {
-				return Token{}, err
-			}
-			tokMap := map[string]Token{
-				tok.Schema.Name: tok,
-			}
-			valueMap := ToValueMap(tokMap)
-			ret, err := expr.Run(program, valueMap)
-			if err != nil {
-				return Token{}, err
-			}
-			return a.OutputSchema.NewToken(AnyBytes(ret))
-		}
+func takeFirst(tt []Token) (Token, []Token, error) {
+	if len(tt) == 0 {
+		return Token{}, tt, errors.New("no tokens")
 	}
+	if len(tt) == 1 {
+		return tt[0], []Token{}, nil
+	}
+	return tt[0], tt[1:], nil
+}
+
+func (m Marking) pop(v string) (Token, Marking, error) {
+	tt, ok := m[v]
+	if !ok {
+		return Token{}, m, errors.New("no tokens")
+	}
+	t, tt, err := takeFirst(tt)
+	if err != nil {
+		return Token{}, m, err
+	}
+	m[v] = tt
+	return t, m, nil
+}
+
+func (a *Arc) TakeToken(m Marking) (Token, Marking, error) {
 	if a.Src.Kind() == PlaceObject {
-		ctx, can := context.WithTimeout(context.Background(), DequeueTimeout)
-		defer can()
 		pl := a.Place
-		tok, err := pl.TokenQueue.Dequeue(ctx)
+		t, m, err := m.pop(pl.ID)
 		if err != nil {
-			return Token{}, err
+			return Token{}, m, err
 		}
-		return tok, nil
+		return t, m, nil
 	}
-
-	return Token{}, errors.New("arc source is not a place")
+	return Token{}, m, errors.New("arc src is not a place")
 }
 
-func (a *Arc) PlaceToken(tokenIndex map[string]Token) error {
-	if a.Expression != "" {
-		program, err := expr.Compile(a.Expression)
-		if err != nil {
-			return err
-		}
-		if a.Dest.Kind() == PlaceObject {
-			ctx, can := context.WithTimeout(context.Background(), DequeueTimeout)
-			defer can()
-			valueIndex := ToValueMap(tokenIndex)
-			ret, err := expr.Run(program, valueIndex)
-			if err != nil {
-				return err
-			}
-			token, err := a.OutputSchema.NewToken(AnyBytes(ret))
-			if err != nil {
-				return err
-			}
-			err = a.Place.TokenQueue.Enqueue(ctx, token)
-			if err != nil {
-				return err
-			}
-			return nil
-		}
+func (m Marking) put(v string, t Token) Marking {
+	tt, ok := m[v]
+	if !ok {
+		tt = []Token{}
 	}
+	tt = append(tt, t)
+	m[v] = tt
+	return m
+}
+
+func (a *Arc) PlaceToken(token Token, marking Marking) (Marking, error) {
 	if a.Dest.Kind() == PlaceObject {
-		ctx, can := context.WithTimeout(context.Background(), DequeueTimeout)
-		defer can()
-		token, ok := tokenIndex[a.OutputSchema.Name]
-		if !ok {
-			return errors.New("token not found")
-		}
-		err := a.Place.TokenQueue.Enqueue(ctx, token)
-		if err != nil {
-			return err
-		}
-		return nil
+		pl := a.Place
+		marking = marking.put(pl.ID, token)
+		return marking, nil
 	}
-	return errors.New("arc dest is not a place")
-}
-
-func StripNodeToID(node Node) Node {
-	switch node.Kind() {
-	case PlaceObject:
-		return &Place{
-			ID: node.Identifier(),
-		}
-	case TransitionObject:
-		return &Transition{
-			ID: node.Identifier(),
-		}
-	default:
-		return nil
-	}
+	return marking, errors.New("arc dest is not a place")
 }
 
 func (a *Arc) Document() Document {
@@ -160,21 +117,6 @@ func (a *Arc) Document() Document {
 		"dest":         &NodeMeta{ID: a.Dest.Identifier(), Kind: a.Dest.Kind()},
 		"expression":   a.Expression,
 		"outputSchema": &TokenSchema{ID: a.OutputSchema.ID},
-	}
-}
-
-func MakeNode(k Kind, id string) Node {
-	switch k {
-	case PlaceObject:
-		return &Place{
-			ID: id,
-		}
-	case TransitionObject:
-		return &Transition{
-			ID: id,
-		}
-	default:
-		return nil
 	}
 }
 

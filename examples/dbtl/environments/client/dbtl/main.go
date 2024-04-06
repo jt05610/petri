@@ -4,13 +4,7 @@ import (
 	"client/dbtl/proto/v1/dbtl"
 	"context"
 	"flag"
-	"github.com/jt05610/petri"
-	"github.com/jt05610/petri/builder"
-	"github.com/jt05610/petri/petrifile/v1/yaml"
-	"google.golang.org/grpc"
-	"net"
-	"os"
-	"path/filepath"
+	"github.com/jt05610/petri/v1"
 )
 
 var fName string
@@ -18,7 +12,7 @@ var host string
 
 func main() {
 	flag.Parse()
-	n := loadNet(fName)
+	n := petri.LoadNet(fName)
 	srv := NewService(n, nil)
 	ctx, can := context.WithCancel(context.Background())
 	defer can()
@@ -28,39 +22,13 @@ func main() {
 			panic(err)
 		}
 	}()
-
-	server := grpc.NewServer()
-
-	dbtl.RegisterDbtlServiceServer(server, srv)
-	lis, err := net.Listen("tcp", host)
+	err := petri.Serve(ctx, host, n, dbtl.DbtlServiceServer(srv), dbtl.RegisterDbtlServiceServer)
 	if err != nil {
 		panic(err)
 	}
-	err = server.Serve(lis)
-	if err != nil {
-		panic(err)
-	}
-}
-
-func loadNet(fName string) *petri.Net {
-	parDir := filepath.Dir(fName)
-	bld := builder.NewBuilder(nil, ".", parDir)
-	r := yaml.NewService(bld)
-	bld = bld.WithService("yaml", r)
-	bld = bld.WithService("yml", r)
-	f, err := os.Open(fName)
-	if err != nil {
-		panic(err)
-	}
-
-	net, err := r.Load(context.Background(), f)
-	if err != nil {
-		panic(err)
-	}
-	return net
 }
 
 func init() {
 	flag.StringVar(&fName, "file", "", "path to the petri net file")
-	flag.StringVar(&host, "host", "[:]:0", "host to listen on")
+	flag.StringVar(&host, "host", "[::]:54445", "host to listen on")
 }

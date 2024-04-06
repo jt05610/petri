@@ -202,7 +202,7 @@ func MakeInputTransitions(net *petri.Net) *petri.Net {
 		name := strings.Split(caser.New(pl.Name).PascalCase(), "Input")[0]
 		tr := petri.NewTransition(name)
 		net = net.WithTransitions(tr)
-		net = net.WithArcs(petri.NewArc(pl, tr, pl.AcceptedTokens[0].Name, pl.AcceptedTokens[0]))
+		net = net.WithArcs(petri.NewArc(pl, tr, pl.Schema.Name, pl.Schema))
 	}
 	return net
 }
@@ -212,7 +212,7 @@ func MakeOutputTransitions(net *petri.Net) *petri.Net {
 		name := strings.Split(caser.New(pl.Name).PascalCase(), "Input")[0]
 		tr := petri.NewTransition(name)
 		net = net.WithTransitions(tr)
-		net = net.WithArcs(petri.NewArc(tr, pl, pl.AcceptedTokens[0].Name, pl.AcceptedTokens[0]))
+		net = net.WithArcs(petri.NewArc(tr, pl, pl.Schema.Name, pl.Schema))
 	}
 	return net
 }
@@ -269,12 +269,12 @@ func NetData(net *petri.Net, parentDir string) Data {
 		outputFields := make([]Field, 0)
 		i := 0
 		for _, pl := range net.Inputs(t) {
-			if pl.Place.AcceptedTokens[0].Name == "signal" {
+			if pl.Place.Schema.Name == "signal" {
 				continue
 			}
-			if strings.Contains(pl.Place.AcceptedTokens[0].Name, ".") {
-				seenImports[pl.Place.AcceptedTokens[0].Name] = true
-				splName := strings.Split(pl.Place.AcceptedTokens[0].Name, ".")
+			if strings.Contains(pl.Place.Schema.Name, ".") {
+				seenImports[pl.Place.Schema.Name] = true
+				splName := strings.Split(pl.Place.Schema.Name, ".")
 				if _, ok := seenImports[strings.Join(splName[0:len(splName)-1], ".")]; !ok {
 					imports = append(imports, strings.Join(splName[0:len(splName)-1], "."))
 					seenImports[strings.Join(splName[0:len(splName)-1], ".")] = true
@@ -288,7 +288,7 @@ func NetData(net *petri.Net, parentDir string) Data {
 
 			fields = append(fields, Field{
 				Name:     caser.New(fName),
-				Type:     pl.Place.AcceptedTokens[0].Name,
+				Type:     pl.Place.Schema.Name,
 				Number:   i + 1,
 				Optional: true,
 			})
@@ -296,12 +296,12 @@ func NetData(net *petri.Net, parentDir string) Data {
 		}
 		i = 0
 		for _, pl := range net.Outputs(t) {
-			if pl.Place.AcceptedTokens[0].Name == "signal" {
+			if pl.Place.Schema.Name == "signal" {
 				continue
 			}
 			outputFields = append(outputFields, Field{
 				Name:     caser.New(pl.Place.Name),
-				Type:     pl.Place.AcceptedTokens[0].Name,
+				Type:     pl.Place.Schema.Name,
 				Number:   i + 1,
 				Optional: true,
 			})

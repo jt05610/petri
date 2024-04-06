@@ -1,8 +1,11 @@
 package petri
 
 import (
+	"bytes"
+	"context"
 	"errors"
 	"fmt"
+	"io"
 	"strconv"
 	"strings"
 )
@@ -143,6 +146,11 @@ type Indexable interface {
 	Index() string
 }
 
+type TokenService interface {
+	Load(ctx context.Context, rdr io.Reader) (Token, error)
+	Flush(ctx context.Context, wr io.Writer, token Token) error
+}
+
 // TokenSchema is a simple struct that describes a token in a Petri net. Petri net operations are
 // performed on tokens, and tokens are the only objects that can be placed in a Petri net.
 type TokenSchema struct {
@@ -153,29 +161,7 @@ type TokenSchema struct {
 	// Type is the type of the token schema.
 	Type       TokenType             `json:"type"`
 	Properties map[string]Properties `json:"properties,omitempty"`
-	Value
-}
-
-func (t *TokenSchema) CanAccept(fields []string) bool {
-	if t.Type != Obj {
-		return false
-	}
-	fieldIdx := make(map[string]struct{}, len(fields))
-	for _, field := range fields {
-		fieldIdx[field] = struct{}{}
-	}
-
-	met := make(map[string]bool, len(t.Properties))
-	for key := range t.Properties {
-		_, met[key] = fieldIdx[key]
-	}
-	for f, _ := range fieldIdx {
-		if !met[f] {
-			fmt.Printf("field %s not found\n", f)
-			return false
-		}
-	}
-	return true
+	TokenService
 }
 
 func NewTokenSchema(name string) *TokenSchema {
@@ -255,11 +241,18 @@ type Token struct {
 	// Schema is the schema of the token.
 	Schema *TokenSchema `json:"schema"`
 	// Value is the value of the token.
-	Value `json:"value"`
+	Value io.Reader `json:"value"`
 }
 
 func (t *Token) String() string {
-	return string(t.Value.Bytes())
+	bb := make([]byte, 1024)
+	n, err := t.Value.Read(bb)
+	if err != nil {
+		return ""
+	}
+	buf := bytes.NewBuffer(bb[:n])
+	t.Value = buf
+	return string(bb[:n])
 }
 
 func (t *TokenSchema) Kind() Kind {
@@ -297,24 +290,29 @@ func (e *InvalidTokenValueError) Error() string {
 }
 
 // NewToken creates a new token from the schema.
-func (t *TokenSchema) NewToken(value []byte) (Token, error) {
+func (t *TokenSchema) NewToken(rdr io.Reader) (Token, error) {
+	v, err := t.TokenService.Load(context.Background(), rdr)
+	if err != nil {
+		return Token{}, err
+	}
+	buf := new(bytes.Buffer)
+	err = t.Flush(context.Background(), buf, v)
+	if err == nil {
+		return Token{}, err
+	}
+
 	tok := Token{
 		ID:     ID(),
 		Schema: t,
-		Value:  t.Value,
-	}
-	var err error
-	if t.Value != nil {
-		tok.Value, err = tok.Value.FromBytes(value)
-	}
-	if err != nil {
-		return Token{}, &InvalidTokenValueError{TokenSchema: t, Value: value}
+		Value:  buf,
 	}
 	return tok, nil
 }
 
+type TokenMap map[string]Token
+
 type Handler interface {
-	Handle(token ...Token) ([]Token, error)
+	Handle(tokens TokenMap) (TokenMap, error)
 }
 
 type StringValue struct {
@@ -377,19 +375,17 @@ func NewIntValue(value int) IntValue {
 
 func Signal() *TokenSchema {
 	return &TokenSchema{
-		ID:    ID(),
-		Name:  "signal",
-		Type:  Sig,
-		Value: SignalValue{},
+		ID:   ID(),
+		Name: "signal",
+		Type: Sig,
 	}
 }
 
 func String() *TokenSchema {
 	return &TokenSchema{
-		ID:    ID(),
-		Name:  "string",
-		Type:  Str,
-		Value: &StringValue{},
+		ID:   ID(),
+		Name: "string",
+		Type: Str,
 	}
 }
 
@@ -403,10 +399,9 @@ func Float64() *TokenSchema {
 
 func Integer() *TokenSchema {
 	return &TokenSchema{
-		ID:    ID(),
-		Name:  "int",
-		Type:  Int,
-		Value: &IntValue{},
+		ID:   ID(),
+		Name: "int",
+		Type: Int,
 	}
 }
 

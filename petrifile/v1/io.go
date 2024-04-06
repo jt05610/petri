@@ -22,7 +22,6 @@ type DefinedPlace struct {
 
 var (
 	_ Place = (*StringPlace)(nil)
-	_ Place = (*ListPlace)(nil)
 	_ Place = (*DefinedPlace)(nil)
 )
 
@@ -32,18 +31,6 @@ func (s StringPlace) Place(name string, tokenMap map[string]*petri.TokenSchema) 
 		panic(fmt.Sprintf("unknown token type %s", s))
 	}
 	return petri.NewPlace(name, 1, accept)
-}
-
-func (s ListPlace) Place(name string, tokenMap map[string]*petri.TokenSchema) *petri.Place {
-	accepts := make([]*petri.TokenSchema, len(s))
-	for i, v := range s {
-		accept, ok := tokenMap[v]
-		if !ok {
-			panic(fmt.Sprintf("unknown token type %s", v))
-		}
-		accepts[i] = accept
-	}
-	return petri.NewPlace(name, 1, accepts...)
 }
 
 func (s DefinedPlace) Place(name string, tokenMap map[string]*petri.TokenSchema) *petri.Place {
@@ -66,10 +53,7 @@ func (s StringArc) FromPlace(net *petri.Net, to *petri.Transition) *petri.Arc {
 	if pl == nil {
 		panic(fmt.Sprintf("unknown place %s", s))
 	}
-	if len(pl.AcceptedTokens) != 1 {
-		panic(fmt.Errorf("place %s accepts multiple token types, and you must specify which token type to take", s))
-	}
-	return petri.NewArc(pl, to, pl.AcceptedTokens[0].Name, pl.AcceptedTokens[0])
+	return petri.NewArc(pl, to, pl.Schema.Name, pl.Schema)
 }
 
 func (s StringArc) ToPlace(net *petri.Net, from *petri.Transition) *petri.Arc {
@@ -77,10 +61,7 @@ func (s StringArc) ToPlace(net *petri.Net, from *petri.Transition) *petri.Arc {
 	if pl == nil {
 		panic(fmt.Sprintf("unknown place %s", s))
 	}
-	if len(pl.AcceptedTokens) != 1 {
-		panic(fmt.Errorf("place %s accepts multiple token types, and you must specify which token type to put in the place", s))
-	}
-	return petri.NewArc(from, pl, pl.AcceptedTokens[0].Name, pl.AcceptedTokens[0])
+	return petri.NewArc(from, pl, pl.Schema.Name, pl.Schema)
 }
 
 type ExpressionArc map[string]interface{}
@@ -136,19 +117,7 @@ func (e ExpressionArc) ToPlace(net *petri.Net, from *petri.Transition) *petri.Ar
 		if pl == nil {
 			panic(fmt.Sprintf("unknown place %s", k))
 		}
-		for _, tok := range pl.AcceptedTokens {
-			if v.Fields != nil {
-				if tok.CanAccept(v.Fields) {
-					return petri.NewArc(from, pl, v.Op, tok)
-				}
-			}
-			if tok.Name == v.Op {
-				return petri.NewArc(from, pl, v.Op, tok)
-			}
-			if v.Op == "now" && tok.Type == petri.TimeStamp {
-				return petri.NewArc(from, pl, v.Op, tok)
-			}
-		}
+		return petri.NewArc(from, pl, v.Op, pl.Schema)
 	}
 	panic(fmt.Sprintf("unknown token type %s", e))
 }
@@ -159,16 +128,7 @@ func (e ExpressionArc) FromPlace(net *petri.Net, to *petri.Transition) *petri.Ar
 		if pl == nil {
 			panic(fmt.Sprintf("unknown place %s", k))
 		}
-		for _, tok := range pl.AcceptedTokens {
-			if v.Fields != nil {
-				if tok.CanAccept(v.Fields) {
-					return petri.NewArc(pl, to, v.Op, tok)
-				}
-			}
-			if tok.Name == v.Op {
-				return petri.NewArc(pl, to, v.Op, tok)
-			}
-		}
+		return petri.NewArc(pl, to, v.Op, pl.Schema)
 	}
 	panic(fmt.Sprintf("unknown token type %s", e))
 }
@@ -268,7 +228,7 @@ func (l *Link) Arcs() ([]*petri.Arc, error) {
 				if pl == nil {
 					pl = l.net.Place(t.Node.Identifier())
 				}
-				t.TokenSchema = pl.AcceptedTokens[0]
+				t.TokenSchema = pl.Schema
 			}
 			if t.Op == "" {
 				t.Op = t.TokenSchema.Name
@@ -343,8 +303,6 @@ func (p *Petrifile) makePlaces() []*petri.Place {
 			ret = append(ret, StringPlace(v).Place(n, tm))
 		case StringPlace:
 			ret = append(ret, v.Place(n, tm))
-		case ListPlace:
-			ret = append(ret, v.Place(n, tm))
 		case DefinedPlace:
 			ret = append(ret, v.Place(n, tm))
 		}
@@ -374,7 +332,7 @@ func (p *Petrifile) makeTransitions() []*petri.Transition {
 			case interface{}:
 				a := ParseInput(in).FromPlace(p.net, t)
 				arcs = append(arcs, a)
-				schema = a.Src.(*petri.Place).AcceptedTokens[0]
+				schema = a.Src.(*petri.Place).Schema
 			}
 		}
 
@@ -390,7 +348,7 @@ func (p *Petrifile) makeTransitions() []*petri.Transition {
 			case interface{}:
 				a := ParseOutput(out).ToPlace(p.net, t)
 				arcs = append(arcs, a)
-				schema = a.Dest.(*petri.Place).AcceptedTokens[0]
+				schema = a.Dest.(*petri.Place).Schema
 			}
 		}
 		if v.Event {

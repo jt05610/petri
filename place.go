@@ -12,7 +12,7 @@ type Place struct {
 	// Bound is the maximum number of tokens that can be in this place
 	Bound int `json:"bound,omitempty"`
 	// AcceptedTokens are the tokens that can be accepted by this place
-	AcceptedTokens []*TokenSchema `json:"acceptedTokens,omitempty"`
+	Schema *TokenSchema
 	TokenQueue
 	// IsEvent is true if this place represents an event
 	IsEvent bool
@@ -27,21 +27,25 @@ func (p *Place) PostInit() error {
 }
 
 // NewPlace creates a new place.
-func NewPlace(name string, bound int, acceptedTokens ...*TokenSchema) *Place {
+func NewPlace(name string, bound int, acceptedTokens *TokenSchema) *Place {
 	return &Place{
-		ID:             ID(),
-		Name:           name,
-		Bound:          bound,
-		AcceptedTokens: acceptedTokens,
-		TokenQueue:     NewLocalQueue(bound),
+		ID:         ID(),
+		Name:       name,
+		Bound:      bound,
+		Schema:     acceptedTokens,
+		TokenQueue: NewLocalQueue(bound),
 	}
 }
 
 func (p *Place) CanAccept(t *TokenSchema) bool {
-	for _, token := range p.AcceptedTokens {
-		if token.Name == t.Name {
-			return true
-		}
+	if p.Schema == nil {
+		return false
+	}
+	if p.Schema.Name == t.Name {
+		return true
+	}
+	if p.Schema.ID == t.ID {
+		return true
 	}
 	return false
 }

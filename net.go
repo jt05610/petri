@@ -69,7 +69,7 @@ func (m MarkingService) TokenMap(place *Place) map[string]Token {
 	if err != nil {
 		panic(err)
 	}
-	tokMap[place.AcceptedTokens[0].Name] = tok[0]
+	tokMap[place.Schema.Name] = tok[0]
 	return tokMap
 }
 
@@ -108,6 +108,18 @@ type Net struct {
 	Nets         []*Net                  `json:"nets,omitempty"`
 	inputs       map[string][]*Arc
 	outputs      map[string][]*Arc
+}
+
+func (p *Net) Register(schema string, s TokenService) error {
+	if _, ok := p.TokenSchemas[schema]; !ok {
+		return errors.New("schema not found")
+	}
+	p.TokenSchemas[schema].TokenService = s
+	return nil
+}
+
+func (p *Net) TokenSchema(name string) *TokenSchema {
+	return p.TokenSchemas[name]
 }
 
 // Local returns the local places of the net that do not belong to any subnets
@@ -363,18 +375,16 @@ func IndexTokenByType(tokens []Token) map[string]Token {
 }
 
 func (p *Net) Fire(m Marking, t *Transition) (Marking, error) {
-	tokens := make([]Token, 0)
+	tokens := make(map[string]Token)
 
 	for _, arc := range p.Inputs(t) {
 		if _, ok := arc.Src.(*Place); ok {
 			pl := arc.Place
-			tok, err := arc.TakeToken()
+			tok, m, err := arc.TakeToken(m)
 			if err != nil {
 				return m, err
 			}
-			tokens = append(tokens, tok)
-			// remove token from marking
-			m[pl.ID] = m[pl.ID][1:]
+			tokens[pl.ID] = tok
 		}
 	}
 	if len(tokens) == 0 {
@@ -383,12 +393,12 @@ func (p *Net) Fire(m Marking, t *Transition) (Marking, error) {
 
 	var err error
 
-	if !t.CanFire(IndexTokenByType(tokens)) {
+	if !t.CanFire(tokens) {
 		return m, errors.New("transition cannot fire")
 	}
 
 	if t.Handler != nil {
-		tokens, err = t.Handle(tokens...)
+		tokens, err = t.Handle(tokens)
 		if err != nil {
 			return m, err
 		}
@@ -398,15 +408,13 @@ func (p *Net) Fire(m Marking, t *Transition) (Marking, error) {
 		return m, errors.New("no tokens found")
 	}
 
-	tokenIndex := IndexTokenByType(tokens)
-
 	for _, arc := range p.Outputs(t) {
-		if _, ok := arc.Dest.(*Place); ok {
-			err := arc.PlaceToken(tokenIndex)
+		if pl, ok := arc.Dest.(*Place); ok {
+			tok := tokens[pl.ID]
+			m, err = arc.PlaceToken(tok, m)
 			if err != nil {
 				return m, err
 			}
-			m[arc.Dest.Identifier()] = append(m[arc.Dest.Identifier()], tokens[0])
 		}
 	}
 	return m, nil
@@ -525,9 +533,7 @@ func (p *Net) WithPlaces(places ...*Place) *Net {
 		if pl.Bound == 0 {
 			pl.Bound = 1
 		}
-		for _, tok := range pl.AcceptedTokens {
-			p.TokenSchemas[tok.Name] = tok
-		}
+		p.TokenSchemas[pl.Schema.Name] = pl.Schema
 		p.Places[pl.Name] = pl
 	}
 	return p
@@ -555,7 +561,7 @@ func (p *Net) ReplacePlace(old, new *Place) *Net {
 }
 
 func (p *Net) JoinPlaces(p1 *Place, p2 *Place) *Net {
-	iterPlace := NewPlace(p1.Name, p1.Bound, p1.AcceptedTokens...)
+	iterPlace := NewPlace(p1.Name, p1.Bound, p1.Schema)
 	net := p.WithPlaces(iterPlace)
 	parent1 := p.Parent(p1)
 	parent1 = parent1.ReplacePlace(p1, iterPlace)

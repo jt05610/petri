@@ -162,6 +162,7 @@ type TokenSchema struct {
 	Type       TokenType             `json:"type"`
 	Properties map[string]Properties `json:"properties,omitempty"`
 	TokenService
+	Package string
 }
 
 func NewTokenSchema(name string) *TokenSchema {

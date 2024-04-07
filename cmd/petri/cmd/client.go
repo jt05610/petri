@@ -74,6 +74,22 @@ type DependencyGraph struct {
 	Nodes map[string]*Node
 }
 
+func (d *DependencyGraph) Types() []*petri.TokenSchema {
+	types := make([]*petri.TokenSchema, 0)
+	seen := make(map[string]bool)
+	for _, n := range d.GetNets() {
+		for tn, t := range n.TokenSchemas {
+			if _, ok := seen[t.Name]; ok {
+				continue
+			}
+			t.Package = n.Name
+			types = append(types, t)
+			seen[tn] = true
+		}
+	}
+	return types
+}
+
 func NewDependencyGraph(net *petri.Net) *DependencyGraph {
 	g := &DependencyGraph{
 		Nodes: map[string]*Node{},

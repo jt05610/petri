@@ -15,6 +15,16 @@ import (
 
 var _ proto.PetriNetServer = (*Server)(nil)
 
+func MergeMaps[T comparable, U any](maps ...map[T]U) map[T]U {
+	ret := make(map[T]U)
+	for _, m := range maps {
+		for k, v := range m {
+			ret[k] = v
+		}
+	}
+	return ret
+}
+
 type Server struct {
 	TokenService
 	proto.UnimplementedPetriNetServer

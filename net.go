@@ -337,7 +337,18 @@ func (p *Net) Process(ctx context.Context, m Marking) (Marking, error) {
 	if len(enabled) == 0 {
 		return m, ErrNoEvents
 	}
-	return p.Fire(ctx, m, enabled[0])
+	tok, err := p.Fire(ctx, m, enabled[0])
+	if err != nil {
+		return m, err
+	}
+	m, err = p.Process(ctx, tok)
+	if err != nil {
+		if errors.Is(err, ErrNoEvents) {
+			return m, nil
+		}
+		return m, err
+	}
+	return m, nil
 }
 
 func IndexTokenByType(tokens []Token) map[string]Token {

@@ -8,6 +8,8 @@ import (
 	"github.com/jt05610/petri"
 	proto "github.com/jt05610/petri/proto/v1"
 	"google.golang.org/grpc"
+	pb "google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
 	"io"
 	"log/slog"
 	"net"
@@ -23,6 +25,32 @@ func MergeMaps[T comparable, U any](maps ...map[T]U) map[T]U {
 		}
 	}
 	return ret
+}
+
+func AddToken(m petri.Marking, plID string, msg pb.Message) petri.Marking {
+	bb, err := pb.Marshal(msg)
+	if err != nil {
+		panic(err)
+	}
+	tok := petri.Token{
+		ID:    petri.ID(),
+		Value: bytes.NewBuffer(bb),
+	}
+	m[plID] = append(m[plID], tok)
+	return m
+}
+
+func Handle[T, U pb.Message](n *petri.Net, ctx context.Context, m petri.Marking, route string, req T, resType protoreflect.MessageType) (petri.Marking, U, error) {
+	m = AddToken(m, route, req)
+	var err error
+	m, err = n.Process(ctx, m)
+	if err != nil {
+		var zero U
+		return m, zero, err
+	}
+	ret := resType.New().Interface()
+
+	return m, ret.(U), nil
 }
 
 type Server struct {

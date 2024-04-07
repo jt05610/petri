@@ -2,44 +2,8 @@ syntax = "proto3";
 
 package petri;
 
-message PetriNet {
-  repeated Place places = 1;
-  repeated Transition transitions = 2;
-  repeated Arc arcs = 3;
-}
+option go_package = "github.com/jt05610/petri/proto/v1/petri";
 
-message Field {
-  string name = 1;
-  string type = 2;
-  optional bool optional = 3;
-  optional bool repeated = 4;
-}
-
-message TokenSchema {
-  string name = 1;
-  repeated Field fields = 2;
-}
-
-message Place {
-  string id = 1;
-  TokenSchema acceptedToken = 2;
-}
-
-message Transition {
-  string id = 1;
-}
-
-message Arc {
-  string id = 1;
-  string source = 2;
-  string target = 3;
-}
-
-message Token {
-  string id = 1;
-  string schema = 2;
-  map<string, string> fields = 3;
-}
 
 message PlaceMarking {
   string placeId = 1;
@@ -48,4 +12,51 @@ message PlaceMarking {
 
 message Marking {
   repeated PlaceMarking placeMarkings = 1;
+}
+
+message Token {
+  string id = 1;
+  optional bytes data = 2;
+}
+
+message PutTokenRequest {
+  string placeId = 1;
+  Token token = 2;
+}
+
+message PutTokenResponse {
+  bool success = 1;
+}
+
+message PopTokenRequest {
+  string placeId = 1;
+  optional bool withValue = 2;
+}
+
+message PopTokenResponse {
+  bool success = 1;
+  optional Token token = 2;
+}
+
+message GetMarkingRequest {
+  optional bool withValue = 1;
+}
+
+message GetMarkingResponse {
+  Marking marking = 1;
+}
+
+message GetTokenRequest {
+  string tokenId = 1;
+}
+
+message GetTokenResponse {
+  optional Token token = 1;
+}
+
+service PetriNet {
+  rpc PutToken(PutTokenRequest) returns (PutTokenResponse) {}
+  rpc PopToken(PopTokenRequest) returns (PopTokenResponse) {}
+  rpc GetMarking(GetMarkingRequest) returns (GetMarkingResponse) {}
+  rpc GetToken(GetTokenRequest) returns (GetTokenResponse) {}
 }

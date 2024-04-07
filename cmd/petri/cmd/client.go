@@ -127,7 +127,12 @@ func initModule(dir string) {
 }
 
 func tidyModule(dir string) {
-	_, err := cmdExec(fmt.Sprintf("cd %s && go mod tidy", dir))
+	s, err := cmdExec("go version")
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(s)
+	_, err = cmdExec(fmt.Sprintf("cd %s && go fmt ./... && go mod tidy", dir))
 	if err != nil {
 		panic(err)
 	}

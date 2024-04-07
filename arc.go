@@ -82,7 +82,7 @@ func (m Marking) pop(v string) (Token, Marking, error) {
 func (a *Arc) TakeToken(m Marking) (Token, Marking, error) {
 	if a.Src.Kind() == PlaceObject {
 		pl := a.Place
-		t, m, err := m.pop(pl.ID)
+		t, m, err := m.pop(pl.Name)
 		if err != nil {
 			return Token{}, m, err
 		}
@@ -104,7 +104,7 @@ func (m Marking) put(v string, t Token) Marking {
 func (a *Arc) PlaceToken(token Token, marking Marking) (Marking, error) {
 	if a.Dest.Kind() == PlaceObject {
 		pl := a.Place
-		marking = marking.put(pl.ID, token)
+		marking = marking.put(pl.Name, token)
 		return marking, nil
 	}
 	return marking, errors.New("arc dest is not a place")

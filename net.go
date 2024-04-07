@@ -14,6 +14,27 @@ type MarkingService map[string]TokenQueue
 
 type Marking map[string][]Token
 
+func (m Marking) Equals(other Marking) bool {
+	if len(m) != len(other) {
+		return false
+	}
+	for k, v := range m {
+		if otherV, ok := other[k]; !ok {
+			return false
+		} else {
+			if len(v) != len(otherV) {
+				return false
+			}
+			for i, t := range v {
+				if !t.Equals(otherV[i]) {
+					return false
+				}
+			}
+		}
+	}
+	return true
+}
+
 func (m MarkingService) Equals(other MarkingService) bool {
 	if len(m) != len(other) {
 		return false
@@ -118,6 +139,14 @@ func (p *Net) Register(schema string, s TokenService) error {
 	return nil
 }
 
+func (p *Net) RegisterTransitionHandler(name string, f Handler) error {
+	if _, ok := p.Transitions[name]; !ok {
+		return errors.New("transition not found")
+	}
+	p.Transitions[name].Handler = f
+	return nil
+}
+
 func (p *Net) TokenSchema(name string) *TokenSchema {
 	return p.TokenSchemas[name]
 }
@@ -210,18 +239,6 @@ func (p *Net) PostInit() error {
 	return nil
 }
 
-func (p *Net) Document() Document {
-	return Document{
-		"_id":          p.ID,
-		"name":         p.Name,
-		"tokenSchemas": p.TokenSchemas,
-		"places":       p.Places,
-		"transitions":  p.Transitions,
-		"arcs":         p.Arcs,
-		"nets":         p.Nets,
-	}
-}
-
 func (p *Net) WithoutArc(a *Arc) *Net {
 	for i, arc := range p.Arcs {
 		if arc == a {
@@ -284,39 +301,11 @@ func (p *Net) Transition(name string) *Transition {
 	return p.Transitions[name]
 }
 
-func (p *Net) Init(input Input) error {
-	in, ok := input.(*NetInput)
-	if !ok {
-		return ErrWrongInput
-	}
-	p.Name = in.Name
-	p.Places = CreateIndex(in.Places)
-	p.Transitions = CreateIndex(in.Transitions)
-	p.Arcs = in.Arcs
-	p.TokenSchemas = CreateIndex(in.TokenSchemas)
-	p.inputs = make(map[string][]*Arc)
-	p.outputs = make(map[string][]*Arc)
-	for _, arc := range p.Arcs {
-		if _, ok := p.outputs[arc.Src.Identifier()]; !ok {
-			p.outputs[arc.Src.Identifier()] = make([]*Arc, 0)
-		}
-		p.outputs[arc.Src.Identifier()] = append(p.outputs[arc.Src.Identifier()], arc)
-		if _, ok := p.inputs[arc.Dest.Identifier()]; !ok {
-			p.inputs[arc.Dest.Identifier()] = make([]*Arc, 0)
-		}
-		p.inputs[arc.Dest.Identifier()] = append(p.inputs[arc.Dest.Identifier()], arc)
-	}
-	return nil
-}
-
 func (p *Net) Enabled(marking Marking, t *Transition) bool {
 	for _, arc := range p.Inputs(t) {
 		if pt, ok := arc.Src.(*Place); ok {
-			tokens := marking[pt.ID]
+			tokens := marking[pt.Name]
 			if len(tokens) == 0 {
-				return false
-			}
-			if !pt.CanAccept(tokens[0].Schema) {
 				return false
 			}
 		}
@@ -343,24 +332,12 @@ var (
 	ErrNoEvents = errors.New("no events enabled")
 )
 
-func (p *Net) Process(m Marking) (Marking, error) {
+func (p *Net) Process(ctx context.Context, m Marking) (Marking, error) {
 	enabled := p.EnabledTransitions(m)
 	if len(enabled) == 0 {
 		return m, ErrNoEvents
 	}
-	m, err := p.Fire(m, enabled[0])
-	if err != nil {
-		return m, err
-	}
-
-	processed, err := p.Process(m)
-	if err != nil {
-		if errors.Is(err, ErrNoEvents) {
-			return processed, nil
-		}
-		return m, err
-	}
-	return processed, nil
+	return p.Fire(ctx, m, enabled[0])
 }
 
 func IndexTokenByType(tokens []Token) map[string]Token {
@@ -374,7 +351,7 @@ func IndexTokenByType(tokens []Token) map[string]Token {
 	return index
 }
 
-func (p *Net) Fire(m Marking, t *Transition) (Marking, error) {
+func (p *Net) Fire(ctx context.Context, m Marking, t *Transition) (Marking, error) {
 	tokens := make(map[string]Token)
 
 	for _, arc := range p.Inputs(t) {
@@ -384,7 +361,7 @@ func (p *Net) Fire(m Marking, t *Transition) (Marking, error) {
 			if err != nil {
 				return m, err
 			}
-			tokens[pl.ID] = tok
+			tokens[pl.Name] = tok
 		}
 	}
 	if len(tokens) == 0 {
@@ -398,7 +375,7 @@ func (p *Net) Fire(m Marking, t *Transition) (Marking, error) {
 	}
 
 	if t.Handler != nil {
-		tokens, err = t.Handle(tokens)
+		tokens, err = t.Handler.Handle(ctx, tokens)
 		if err != nil {
 			return m, err
 		}
@@ -410,7 +387,7 @@ func (p *Net) Fire(m Marking, t *Transition) (Marking, error) {
 
 	for _, arc := range p.Outputs(t) {
 		if pl, ok := arc.Dest.(*Place); ok {
-			tok := tokens[pl.ID]
+			tok := tokens[pl.Name]
 			m, err = arc.PlaceToken(tok, m)
 			if err != nil {
 				return m, err
@@ -727,10 +704,6 @@ type NetInput struct {
 	Places       []*Place       `json:"places,omitempty"`
 	Transitions  []*Transition  `json:"transitions,omitempty"`
 	Nets         []*Net         `json:"nets,omitempty"`
-}
-
-func (n *NetInput) Object() Object {
-	return NewNet(n.Name).WithPlaces(n.Places...).WithTransitions(n.Transitions...).WithArcs(n.Arcs...).WithNets(n.Nets...).WithTokenSchemas(n.TokenSchemas...)
 }
 
 func (n *NetInput) Kind() Kind {

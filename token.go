@@ -244,7 +244,7 @@ type Token struct {
 	Value io.Reader `json:"value"`
 }
 
-func (t *Token) String() string {
+func (t Token) String() string {
 	bb := make([]byte, 1024)
 	n, err := t.Value.Read(bb)
 	if err != nil {
@@ -253,6 +253,26 @@ func (t *Token) String() string {
 	buf := bytes.NewBuffer(bb[:n])
 	t.Value = buf
 	return string(bb[:n])
+}
+
+func peekBytes(r io.Reader) ([]byte, io.Reader) {
+	buf := new(bytes.Buffer)
+	tee := io.TeeReader(r, buf)
+	bb, err := io.ReadAll(tee)
+	if err != nil {
+		return nil, r
+	}
+	return bb, buf
+}
+
+func (t Token) Equals(token Token) bool {
+	var bb1, bb2 []byte
+	bb1, t.Value = peekBytes(t.Value)
+	bb2, token.Value = peekBytes(token.Value)
+	if !bytes.Equal(bb1, bb2) {
+		return false
+	}
+	return true
 }
 
 func (t *TokenSchema) Kind() Kind {
@@ -312,8 +332,10 @@ func (t *TokenSchema) NewToken(rdr io.Reader) (Token, error) {
 type TokenMap map[string]Token
 
 type Handler interface {
-	Handle(tokens TokenMap) (TokenMap, error)
+	Handle(ctx context.Context, tokens TokenMap) (TokenMap, error)
 }
+
+type HandlerFunc func(ctx context.Context, tokens TokenMap) (TokenMap, error)
 
 type StringValue struct {
 	value string

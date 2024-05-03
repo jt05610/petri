@@ -1,8 +1,6 @@
 # Petri
 
-Petri is a full-stack framework for designing and automating lab research processes. It is designed for mid-level
-automation: automation of lab processes that would be benefited by automation, but are not done with enough volume to
-justify a full automation system.
+Petri is a full-stack framework for designing and automating lab research processes.
 
 Petri is designed to be easy to use, and easy to extend. It has a [user interface](https://github.com/jt05610/petri-ui),
 code generator,

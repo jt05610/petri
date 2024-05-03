@@ -5,7 +5,7 @@ automation: automation of lab processes that would be benefited by automation, b
 justify a full automation system.
 
 Petri is designed to be easy to use, and easy to extend. It has a [user interface](https://github.com/jt05610/petri-ui),
-[code generator](https://github.com/jt05610/petri-codegen), [standard component library](https://github.com/jt05610/petri-std),
+[code generator](https://github.com/jt05610/petri-codegen),
 and [gRPC API](https://github.com/jt05610/otto).
 
 ## Rationale
